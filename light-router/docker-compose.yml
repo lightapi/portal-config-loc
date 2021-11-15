@@ -31,6 +31,11 @@ services:
       - ./config:/config
       - ./lightapi/build:/lightapi/build
       - ./signin/build:/signin/build
+    environment:
+      STATELESS_AUTH_BOOTSTRAP_TOKEN: ${STATELESS_AUTH_BOOTSTRAP_TOKEN}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
     hostname: light-router
     container_name: light-router
     networks:

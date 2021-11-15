@@ -13,7 +13,7 @@ cd kafka-sidecar
 docker-compose up
 ```
 
-After the Kafka cluster is up and running, we need to create several topics. 
+After the Kafka cluster is up and running, we need to create several topics. Open another terminal and go to the `~/networknt/kafka-sidecar` folder and paste the following command lines.
 
 ```
 # blockchain topics
@@ -33,6 +33,11 @@ docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zoo
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic controller-health-check
 
 ```
+
+You can check your topics from the control center at the following url.
+
+http://localhost:9021/
+
 
 ### light-scheduler
 
@@ -60,4 +65,95 @@ docker-compose up
 
 ### light-portal
 
+Checkout the lightapi/portal-config-loc and download the user, market and ref query jars.
 
+```
+cd ~/lightapi/portal-config-loc/light-portal/hybrid-query/service
+rm *
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-query/2.0.33-SNAPSHOT/market-query-2.0.33-20211115.180759-10.jar
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-query/2.0.33-SNAPSHOT/user-query-2.0.33-20211115.180823-10.jar
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-query/2.0.33-SNAPSHOT/ref-query-2.0.33-20211115.180842-4.jar
+
+```
+
+Download command side jar files.
+
+```
+cd ~/lightapi/portal-config-loc/light-portal/hybrid-command/service
+rm *
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-command/2.0.33-SNAPSHOT/user-command-2.0.33-20211115.180811-11.jar
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-command/2.0.33-SNAPSHOT/market-command-2.0.33-20211115.180747-8.jar
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-command/2.0.33-SNAPSHOT/ref-command-2.0.33-20211115.180833-4.jar
+```
+
+start the light-portal services with the following docker-compose.
+
+```
+cd ~/lightapi
+cd portal-config-loc
+docker-compose up
+```
+Once the services are up and running, we need to import the events to create users and clients etc. 
+
+```
+cd ~/lightapi/portal-config-loc/light-portal
+./importer.sh events.json
+```
+
+### oauth-kafka
+
+Start the OAuth 2.0 provider. 
+
+```
+cd ~/lightapi/portal-config-loc/oauth-kafka
+docker-compose up
+```
+
+### light-router
+
+The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts file. On my computer the following entry is added. 
+
+```
+192.168.1.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
+```
+
+Based on your desktop IP, you need to change the IP address. 
+
+
+Make sure that you have the bootstrap token in the .profile as environment variable to support the integration. Also, if you want to use google, facebook and github for authentication, you need to have the client secret for them in the .profile file.
+
+```
+export STATELESS_AUTH_BOOTSTRAP_TOKEN=eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MTkxMjk0MzAzMiwianRpIjoia3NPRHl0MlFVU25CY0NublpOMmZSZyIsImlhdCI6MTU5NzU4MzAzMiwibmJmIjoxNTk3NTgyOTEyLCJ2ZXJzaW9uIjoiMS4wIiwiY2xpZW50X2lkIjoiZjdkNDIzNDgtYzY0Ny00ZWZiLWE1MmQtNGM1Nzg3NDIxZTczIiwic2NvcGUiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdfQ.uCfoIZMx5xhlHvLAnmgkyuSnTGm0pTEosZOgFdGf946XeAxzULQk6mwHz0wu0oNL_L0hT1uOsgANfNpVmS44nbedkqELgHAnJpHf4IP7EStHk3o99MPZSVLufKvKmbP6-G0Th-1a8wK5XkX1_9WIhHAmxr-D23VQpvJq_XOKH24Ik06qSVUj-B3YAHrqlNIk4b-WqUYhUkluOYvI4mvCwB-xi5-Nioqa6JqpXO9fv7bb9xQzKX_3MsuEYT-LO8vquNtKPJLbz42vP1A5calbyBNZ4pnKgJyjH9_TFMywNZ-C7y2ZlhNR5_F-MKKysVkOC25TJmV49om_kb2lnoEDKg
+```
+
+Now, let's start the light-router and other services. 
+
+```
+cd ~/lightapi/portal-config-loc/light-router
+docker-compose up
+
+```
+
+To allow the access to the port 443 on the browser and redirect to 8443 listening with the light-router. We need to update the iptables rule.
+
+```
+sudo iptables -t nat -A OUTPUT -p tcp --dport 443 -o lo -j REDIRECT --to-port 8443
+```
+
+### Portal View
+
+Start the portal view in Nodejs to UI development.
+
+```
+cd ~/networknt/portal-view/view
+yarn install
+HTTPS=true yarn start
+
+```
+
+click the user profile icon on the top right corner to login with 
+
+```
+stevehu@gmail.com
+123456
+```
