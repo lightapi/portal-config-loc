@@ -1,0 +1,50 @@
+# This handler is generic request handler for the OAuth 2.0 provider authorization code redirect.
+# It receives the auth code and goes to the OAuth 2.0 provider to get the subject token. The jwt
+# token is then sent to the browser with two cookies with splitting header/payload and signature.
+# Another options is to keep the jwt in session and return sessionId to the browser. In either
+# case, the csrf token will be send with a separate cookie.
+---
+# Indicate if the StatelessAuthHandler is enabled or not
+enabled: true
+# Once Authorization is done, which path the UI is redirected.
+redirectUri: https://localhost:3000/#/app/dashboard
+# An optional redirect uri if the user deny or cancel the authorization on the Consent page. Default to redirectUri if missing.
+denyUri: https://localhost:3000/#/app/dashboard
+# Request path for the authorization code handling.
+authPath: /authorization
+# Request path for the deny authorization handling to remove HttpOnly access-token and other cookies
+logoutPath: /logout
+# Cookie domain
+cookieDomain: localhost
+# Cookie path
+cookiePath: /
+# Login uri, redirect to it once session is expired
+cookieTimeoutUri: /
+# Cookie secured
+cookieSecure: true
+
+# Bootstrap token used by oauth-kafka to call light-portal services. This is a client credentials token without user info. And it is created with a special tool only available to customers.
+bootstrapToken: eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MTkxMjk0MzAzMiwianRpIjoia3NPRHl0MlFVU25CY0NublpOMmZSZyIsImlhdCI6MTU5NzU4MzAzMiwibmJmIjoxNTk3NTgyOTEyLCJ2ZXJzaW9uIjoiMS4wIiwiY2xpZW50X2lkIjoiZjdkNDIzNDgtYzY0Ny00ZWZiLWE1MmQtNGM1Nzg3NDIxZTczIiwic2NvcGUiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdfQ.uCfoIZMx5xhlHvLAnmgkyuSnTGm0pTEosZOgFdGf946XeAxzULQk6mwHz0wu0oNL_L0hT1uOsgANfNpVmS44nbedkqELgHAnJpHf4IP7EStHk3o99MPZSVLufKvKmbP6-G0Th-1a8wK5XkX1_9WIhHAmxr-D23VQpvJq_XOKH24Ik06qSVUj-B3YAHrqlNIk4b-WqUYhUkluOYvI4mvCwB-xi5-Nioqa6JqpXO9fv7bb9xQzKX_3MsuEYT-LO8vquNtKPJLbz42vP1A5calbyBNZ4pnKgJyjH9_TFMywNZ-C7y2ZlhNR5_F-MKKysVkOC25TJmV49om_kb2lnoEDKg
+
+# Google Auth Path
+googlePath: /google
+# Google Client Id
+googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps.googleusercontent.com
+# Google Client Secret
+googleClientSecret: 6AdEvximshAKOzPctw05bsgL
+# Google Redirect URI
+googleRedirectUri: https://localhost:3000
+
+# Facebook Auth Path
+facebookPath: /facebook
+# Facebook Client Id
+facebookClientId: 603230757035427
+# Facebook Client Secret
+facebookClientSecret: 65b5c393b456f977cb538eaf5d3d6e70
+
+# Github Auth Path
+githubPath: /github
+# Github Client Id
+githubClientId: f13cddcfe475920deca7
+# Github Client Secret
+githubClientSecret: 2ca39cb3de84c5bc9643c5796c1600a3d5e5173a

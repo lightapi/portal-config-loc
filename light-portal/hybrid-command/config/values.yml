@@ -1,0 +1,24 @@
+# server.yml
+server.httpsPort: 8439
+# overwrite environment tag to simplify the service discovery.
+server.environment: null
+
+# client.yml
+client.verifyHostname: false
+client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.tokenKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.signClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.signKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.injectOpenTracing: true
+
+# kafka-producer.yml
+kafka-producer.bootstrap.servers: broker:29092
+kafka-producer.schema.registry.url: http://schema-registry:8081
+
+# portal.yml
+portal.sendEmail: true
+portal.cmdHost: https://hybrid-command:8439
+portal.resetHost: https://devsignin.lightapi.net
