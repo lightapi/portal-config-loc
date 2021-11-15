@@ -1,0 +1,56 @@
+version: '2'
+
+services:
+  # the mysqldb is used by the reference only. 
+  mysqldb:
+    image: mysql:5.7.29
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - 3306:3306
+    volumes:
+      - ./light-oauth2/mysql:/docker-entrypoint-initdb.d
+      - /home/steve/mysql:/var/lib/mysql
+    environment:
+      LANG: C.UTF-8
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: mysqluser
+      MYSQL_PASSWORD: mysqlpw
+    hostname: mysqldb
+    container_name: mysqldb
+    networks:
+      - localnet
+
+  light-router:
+    image:  networknt/light-router:2.0.32
+    ports:
+      - 8443:8443
+    extra_hosts:
+      - "dev.lightapi.net:${DOCKER_HOST_IP}"
+      - "devsignin.lightapi.net:${DOCKER_HOST_IP}"
+    volumes:
+      - ./config:/config
+      - ./lightapi/build:/lightapi/build
+      - ./signin/build:/signin/build
+    hostname: light-router
+    container_name: light-router
+    networks:
+      - localnet
+
+  # reference API
+  reference:
+    image: networknt/com.networknt.reference-1.0.0:2.0.20
+    ports:
+      - 2498:2498
+    volumes:
+      - ./reference:/config
+      - /home/steve/data:/data
+    environment:
+      - STATUS_HOST_IP=${DOCKER_HOST_IP}
+    hostname: reference
+    container_name: reference
+    networks:
+      - localnet
+networks:
+  localnet:
+    # driver: bridge
+    external: true

@@ -1,0 +1,2 @@
+# Portal data folder for contents that are not suitable for Kafka
+dataPath: /data

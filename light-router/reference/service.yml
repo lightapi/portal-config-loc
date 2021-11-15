@@ -1,0 +1,13 @@
+# Singleton service factory configuration/IoC injection
+singletons:
+  - javax.sql.DataSource:
+    - com.zaxxer.hikari.HikariDataSource:
+        jdbcUrl: jdbc:mysql://mysqldb:3306/ref?useSSL=false&disableMariaDbDriver
+        username: mysqluser
+        password: mysqlpw
+        maximumPoolSize: 2
+        useServerPrepStmts: true
+        cachePrepStmts: true
+        cacheCallableStmts: true
+        prepStmtCacheSize: 4096
+        prepStmtCacheSqlLimit: 2048
