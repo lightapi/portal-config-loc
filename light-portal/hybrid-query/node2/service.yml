@@ -38,7 +38,7 @@ singletons:
 - javax.sql.DataSource:
   - com.zaxxer.hikari.HikariDataSource:
       DriverClassName: com.mysql.jdbc.Driver
-      jdbcUrl: jdbc:mysql://192.168.1.102:3306/ref?useSSL=false
+      jdbcUrl: jdbc:mysql://mysqldb:3306/ref?useSSL=false
       username: mysqluser
       password: mysqlpw
       maximumPoolSize: 3

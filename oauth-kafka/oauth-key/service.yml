@@ -2,8 +2,8 @@ singletons:
   - com.networknt.registry.URL:
       - com.networknt.registry.URLImpl:
           parameters:
-            com.networknt.portal.hybrid.query-1.0.0: https://192.168.1.102:8440,https://192.168.1.102:8441,https://192.168.1.102:8442
-            com.networknt.portal.hybrid.command-1.0.0: https://192.168.1.102:8439
+            com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440,https://hybrid-query2:8441,https://hybrid-query3:8442
+            com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
   - com.networknt.registry.Registry:
       - com.networknt.registry.support.DirectRegistry
   - com.networknt.balance.LoadBalance:
