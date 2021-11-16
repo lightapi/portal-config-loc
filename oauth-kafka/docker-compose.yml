@@ -6,10 +6,6 @@ services:
       - "6881:6881"
     volumes:
       - ./oauth-code:/config
-    extra_hosts:
-      - "oauth.lightapi.net:${DOCKER_HOST_IP}"
-    environment:
-      - STATUS_HOST_IP=${DOCKER_HOST_IP}
     hostname: oauth-code
     container_name: oauth-code
     networks:
@@ -20,10 +16,6 @@ services:
       - "6882:6882"
     volumes:
       - ./oauth-token:/config
-    extra_hosts:
-      - "oauth.lightapi.net:${DOCKER_HOST_IP}"
-    environment:
-      - STATUS_HOST_IP=${DOCKER_HOST_IP}
     hostname: oauth-token
     container_name: oauth-token
     networks:
@@ -34,10 +26,6 @@ services:
       - "6886:6886"
     volumes:
       - ./oauth-key:/config
-    extra_hosts:
-      - "oauth.lightapi.net:${DOCKER_HOST_IP}"
-    environment:
-      - STATUS_HOST_IP=${DOCKER_HOST_IP}
     hostname: oauth-key
     container_name: oauth-key
     networks:

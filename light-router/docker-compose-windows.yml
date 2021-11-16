@@ -24,9 +24,6 @@ services:
     image:  networknt/light-router:2.0.32
     ports:
       - 443:8443
-    extra_hosts:
-      - "dev.lightapi.net:${DOCKER_HOST_IP}"
-      - "devsignin.lightapi.net:${DOCKER_HOST_IP}"
     volumes:
       - ./config:/config
       - ./lightapi/build:/lightapi/build
@@ -49,8 +46,6 @@ services:
     volumes:
       - ./reference:/config
       - /home/steve/data:/data
-    environment:
-      - STATUS_HOST_IP=${DOCKER_HOST_IP}
     hostname: reference
     container_name: reference
     networks:
