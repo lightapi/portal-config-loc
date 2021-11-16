@@ -93,7 +93,19 @@ cd ~/lightapi
 cd portal-config-loc
 docker-compose up
 ```
-Once the services are up and running, we need to import the events to create users and clients etc. 
+Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
+
+To run the event-importer, we need to checkout the following repo and build it locally. 
+
+```
+cd ~/lightapi
+git clone git@github.com:lightapi/event-importer.git
+cd event-importer
+mvn clean install
+cp target/event-importer.jar ~/lightapi/portal-config-loc/light-portal
+```
+
+Once you have the jar file in the portal-config-loc/light-portal folder, you can use it to import the events.json file.
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
@@ -138,6 +150,12 @@ To allow the access to the port 443 on the browser and redirect to 8443 listenin
 
 ```
 sudo iptables -t nat -A OUTPUT -p tcp --dport 443 -o lo -j REDIRECT --to-port 8443
+```
+
+On Windows desktop, maybe we can use 443 as the port to start the light-router in the docker-compose. However, the idea is not tested yet. If you are using Windows, try the following command. 
+
+```
+docker-compose -f docker-compose-windows.yml up
 ```
 
 ### Portal View
