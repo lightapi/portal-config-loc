@@ -32,8 +32,8 @@ handlers:
   # Light-framework cross-cutting concerns implemented in the microservice
   - com.networknt.exception.ExceptionHandler@exception
   # - com.networknt.metrics.MetricsHandler@metrics
-  # - com.networknt.traceability.TraceabilityHandler@traceability
-  # - com.networknt.correlation.CorrelationHandler@correlation
+  - com.networknt.traceability.TraceabilityHandler@traceability
+  - com.networknt.correlation.CorrelationHandler@correlation
   # - com.networknt.jaeger.tracing.JaegerHandler@jaeger
   #Cors handler to handler post/put pre-flight
   - com.networknt.cors.CorsHttpHandler@cors
@@ -82,7 +82,7 @@ chains:
     - exception
     # - traceability
     # - correlation
-    - jaeger
+    # - jaeger
     - cors
     - header
     - path
@@ -90,7 +90,7 @@ chains:
 
   google: 
     - exception
-    - jaeger
+    # - jaeger
     - cors
     - google
     - stateless
@@ -100,7 +100,7 @@ chains:
 
   facebook: 
     - exception
-    - jaeger
+    # - jaeger
     - cors
     - facebook
     - stateless
@@ -110,7 +110,7 @@ chains:
 
   github: 
     - exception
-    - jaeger
+    # - jaeger
     - cors
     - github
     - stateless
