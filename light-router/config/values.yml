@@ -11,3 +11,8 @@ client.signClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.signKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.injectOpenTracing: true
+client.tokenServiceId: com.networknt.oauth-token-1.0.0
+client.tokenKeyServiceId: com.networknt.oauth-key-1.0.0
+client.signServiceId: com.networknt.oauth-token-1.0.0
+client.signKeyServiceId: com.networknt.oauth-key-1.0.0
+client.derefServiceId: com.networknt.oauth-token-1.0.0
