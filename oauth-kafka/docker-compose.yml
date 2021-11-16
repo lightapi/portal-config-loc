@@ -28,7 +28,7 @@ services:
     container_name: oauth-token
     networks:
       - localnet
-  oauth2-key:
+  oauth-key:
     image: networknt/oauth-key:2.0.32
     ports:
       - "6886:6886"

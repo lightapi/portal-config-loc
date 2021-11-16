@@ -6,7 +6,7 @@ singletons:
         com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440,https://hybrid-query2:8441,https://hybrid-query3:8442
         com.networknt.oauth-key-1.0.0: https://oauth-key:6886
         com.networknt.oauth-token-1.0.0: https://oauth-token:6882
-        com.networknt.reference-1.0.0: https://192.168.1.102:2498
+        com.networknt.reference-1.0.0: https://reference:2498
 - com.networknt.registry.Registry:
   - com.networknt.registry.support.DirectRegistry
 - com.networknt.balance.LoadBalance:

@@ -34,7 +34,7 @@ handlers:
   # - com.networknt.metrics.MetricsHandler@metrics
   # - com.networknt.traceability.TraceabilityHandler@traceability
   # - com.networknt.correlation.CorrelationHandler@correlation
-  - com.networknt.jaeger.tracing.JaegerHandler@jaeger
+  # - com.networknt.jaeger.tracing.JaegerHandler@jaeger
   #Cors handler to handler post/put pre-flight
   - com.networknt.cors.CorsHttpHandler@cors
   # - com.networknt.openapi.OpenApiHandler@specification
@@ -63,9 +63,9 @@ chains:
   default:
     - exception
     #- metrics
-    # - traceability
-    # - correlation
-    - jaeger
+    - traceability
+    - correlation
+    # - jaeger
     - cors
     - stateless
     - header
