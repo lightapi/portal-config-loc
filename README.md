@@ -90,7 +90,7 @@ start the light-portal services with the following docker-compose.
 
 ```
 cd ~/lightapi
-cd portal-config-loc
+cd portal-config-loc/light-portal
 docker-compose up
 ```
 Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
@@ -123,7 +123,7 @@ docker-compose up
 
 ### light-router
 
-The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts file. On my computer the following entry is added. 
+The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added. 
 
 ```
 192.168.1.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
@@ -163,6 +163,8 @@ docker-compose -f docker-compose-windows.yml up
 Start the portal view in Nodejs to UI development.
 
 ```
+cd networknt
+git clone git@github.com:networknt/portal-view.git
 cd ~/networknt/portal-view/view
 yarn install
 HTTPS=true yarn start
