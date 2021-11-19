@@ -95,20 +95,12 @@ docker-compose up
 ```
 Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
 
-To run the event-importer, we need to checkout the following repo and build it locally. 
-
-```
-cd ~/lightapi
-git clone git@github.com:lightapi/event-importer.git
-cd event-importer
-mvn clean install
-cp target/event-importer.jar ~/lightapi/portal-config-loc/light-portal
-```
-
-Once you have the jar file in the portal-config-loc/light-portal folder, you can use it to import the events.json file.
+To run the event-importer, we need to download the jar. Once you have the jar file in the portal-config-loc/light-portal folder, you can use it to import the events.json file.
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
+wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/event-importer/2.0.33-SNAPSHOT/event-importer-2.0.33-20211119.191950-5.jar
+mv event-importer-2.0.33-20211119.191950-5.jar event-importer.jar
 ./importer.sh events.json
 ```
 
