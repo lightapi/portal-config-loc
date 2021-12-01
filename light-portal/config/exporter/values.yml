@@ -1,0 +1,4 @@
+kafka-consumer.topic: portal-event
+# For the same Kafka cluster, you can increase the number below
+# to export from offset 0 if you want to rerun the export.
+kafka-consumer.group.id: group001

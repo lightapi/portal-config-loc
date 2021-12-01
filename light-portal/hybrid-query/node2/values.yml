@@ -17,6 +17,7 @@ client.injectOpenTracing: true
 # kafka-streams.yml
 kafka-streams.bootstrap.servers: broker:29092
 kafka-streams.schema.registry.url: http://schema-registry:8081
+# kafka-streams.cleanUp: true
 
 # portal.yml
 portal.sendEmail: false
