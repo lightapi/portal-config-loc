@@ -28,6 +28,8 @@ docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zoo
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+
 # light-scheduler topics
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
 docker-compose exec broker kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 3 --topic controller-health-check
@@ -70,9 +72,9 @@ Checkout the lightapi/portal-config-loc and download the user, market and ref qu
 ```
 cd ~/lightapi/portal-config-loc/light-portal/hybrid-query/service
 rm *
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-query/2.0.33-SNAPSHOT/market-query-2.0.33-20211115.180759-10.jar
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-query/2.0.33-SNAPSHOT/user-query-2.0.33-20211115.180823-10.jar
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-query/2.0.33-SNAPSHOT/ref-query-2.0.33-20211115.180842-4.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-query/2.0.33-SNAPSHOT/market-query-2.0.33-20211125.173457-17.jar -o market-query.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-query/2.0.33-SNAPSHOT/user-query-2.0.33-20211125.173522-16.jar -o user-query.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-query/2.0.33-SNAPSHOT/ref-query-2.0.33-20211125.173542-8.jar -o ref-query.jar
 
 ```
 
@@ -81,9 +83,9 @@ Download command side jar files.
 ```
 cd ~/lightapi/portal-config-loc/light-portal/hybrid-command/service
 rm *
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-command/2.0.33-SNAPSHOT/user-command-2.0.33-20211115.180811-11.jar
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-command/2.0.33-SNAPSHOT/market-command-2.0.33-20211115.180747-8.jar
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-command/2.0.33-SNAPSHOT/ref-command-2.0.33-20211115.180833-4.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-command/2.0.33-SNAPSHOT/user-command-2.0.33-20211125.173509-15.jar -o user-command.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-command/2.0.33-SNAPSHOT/market-command-2.0.33-20211125.173444-12.jar -o market-command.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-command/2.0.33-SNAPSHOT/ref-command-2.0.33-20211125.173532-8.jar -o ref-command.jar
 ```
 
 start the light-portal services with the following docker-compose.
@@ -99,8 +101,7 @@ To run the event-importer, we need to download the jar. Once you have the jar fi
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
-wget https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/event-importer/2.0.33-SNAPSHOT/event-importer-2.0.33-20211119.191950-5.jar
-mv event-importer-2.0.33-20211119.191950-5.jar event-importer.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/event-importer/2.0.33-SNAPSHOT/event-importer-2.0.33-20211129.204853-10.jar -o event-importer.jar
 ./importer.sh events.json
 ```
 

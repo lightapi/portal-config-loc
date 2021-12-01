@@ -13,6 +13,3 @@ singletons:
   # Default decryptor implementation
   - com.networknt.utility.Decryptor:
       - com.networknt.decrypt.AESDecryptor
-  # Authenticator implementation mapping
-  - com.networknt.oauth.auth.Authenticator<com.networknt.oauth.auth.LightPortalAuth>:
-      - com.networknt.oauth.auth.LightPortalAuthenticator
