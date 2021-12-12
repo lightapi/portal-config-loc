@@ -1,0 +1,16 @@
+# server configuration
+server.httpsPort: 8437
+server.serviceId: com.networknt.controller-1.0.0
+
+# controller configuration
+controller.clusterMode: true
+
+# producer format configuration
+kafka-producer.bootstrap.servers: broker:29092
+kafka-producer.schema.registry.url: http://schema-registry:8081
+
+# streams configuration
+kafka-streams.bootstrap.servers: broker:29092
+kafka-streams.schema.registry.url: http://schema-registry:8081
+kafka-streams.application.id: light-controller
+kafka-streams.cleanUp: false
