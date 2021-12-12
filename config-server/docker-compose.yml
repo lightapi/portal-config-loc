@@ -1,0 +1,27 @@
+version: "2"
+
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    networks:
+      - localnet
+
+  config-server:
+    image: networknt/config-server:2.0.32
+    volumes:
+      - ./config-server:/config
+    ports:
+      - 8435:8435
+    hostname: config-server
+    container_name: config-server
+    networks:
+      - localnet
+networks:
+  localnet:
+    # driver: bridge
+    external: true

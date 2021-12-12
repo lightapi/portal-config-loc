@@ -1,5 +1,5 @@
 # portal-config-loc
-portal configuration and docker-compose to start at local to help service developers and UI developers.
+portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers.
 
 This repository contains several folders configurations to start the light-portal services locally for testing and debugging. Each folder will have a README.md to guide users how to start.
 
@@ -43,25 +43,21 @@ http://localhost:9021/
 
 ### light-scheduler
 
-Note: If you only work on the portal components, you don't need to start light-scheduler.
+You only need to start the light-scheduler if you want to use the light-controller. You can start three instances with the docker-compose in light-scheduler subfolder from portal-config-loc folder. 
 
-You only need to start the light-scheduler if you want to use the light-controller. You can start three instances with the docker-compose in light-scheduler repository. If light-scheduler is not in your networknt workspace, check it out first.
+Checkout the lightapi/portal-config-loc if it is not checked out yet.
 
 ```
-cd ~/networknt
-cd light-scheduler
+cd ~/lightapi/portal-config-loc/light-scheduler
 docker-compose up
 ```
 
 ### light-controller
 
-Note: If you only work on the portal components, you don't need to start light-controller.
-
 You only need to start the light-controller if you are about to start some real APIs that register to the controller. If light-controller is not in your networknt workspace, check it out first. 
 
 ```
-cd ~/networknt
-cd light-controller
+cd ~/lightapi/portal-config-loc/light-controller
 docker-compose up
 ```
 
@@ -72,7 +68,7 @@ Checkout the lightapi/portal-config-loc and download the user, market and ref qu
 ```
 cd ~/lightapi/portal-config-loc/light-portal/hybrid-query/service
 rm *
-curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-query/2.0.33-SNAPSHOT/market-query-2.0.33-20211125.173457-17.jar -o market-query.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/market-query/2.0.33-SNAPSHOT/market-query-2.0.33-20211201.230417-18.jar -o market-query.jar
 curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/user-query/2.0.33-SNAPSHOT/user-query-2.0.33-20211125.173522-16.jar -o user-query.jar
 curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/ref-query/2.0.33-SNAPSHOT/ref-query-2.0.33-20211125.173542-8.jar -o ref-query.jar
 
@@ -91,8 +87,7 @@ curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi
 start the light-portal services with the following docker-compose.
 
 ```
-cd ~/lightapi
-cd portal-config-loc/light-portal
+cd ~/lightapi/portal-config-loc/light-portal
 docker-compose up
 ```
 Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
@@ -101,7 +96,7 @@ To run the event-importer, we need to download the jar. Once you have the jar fi
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
-curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/event-importer/2.0.33-SNAPSHOT/event-importer-2.0.33-20211129.204853-10.jar -o event-importer.jar
+curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi/event-importer/2.0.33-SNAPSHOT/event-importer-2.0.33-20211201.192409-11.jar -o event-importer.jar
 ./importer.sh events.json
 ```
 
@@ -111,6 +106,15 @@ Start the OAuth 2.0 provider.
 
 ```
 cd ~/lightapi/portal-config-loc/oauth-kafka
+docker-compose up
+```
+
+### config-server
+
+Start the light-config-server
+
+```
+cd ~/lightapi/portal-config-loc/config-server
 docker-compose up
 ```
 
@@ -158,7 +162,7 @@ Start the portal view in Nodejs to UI development.
 ```
 cd networknt
 git clone git@github.com:networknt/portal-view.git
-cd ~/networknt/portal-view/view
+cd ~/networknt/portal-view
 yarn install
 HTTPS=true yarn start
 
