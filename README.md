@@ -123,7 +123,7 @@ docker-compose up
 The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added. 
 
 ```
-192.168.1.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
+192.168.4.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
 ```
 
 Based on your desktop IP, you need to change the IP address. 
