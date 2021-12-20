@@ -312,6 +312,146 @@ paths:
     method: 'post'
     exec:
       - default
+  
+  # light-scheduler
+  - path: '/schedulers'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/schedulers'
+    method: 'GET'
+    exec:
+      - default
+  
+  # light-controller
+  - path: '/services'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/services'
+    method: 'DELETE'
+    exec:
+      - default
+  - path: '/services'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/lookup'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/check'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/check'
+    method: 'PUT'
+    exec:
+      - default
+  - path: '/services/check/{id}'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/info'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/chaosmonkey'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/chaosmonkey'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/services/chaosmonkey/assault'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/ws'
+    method: 'get'
+    exec:
+      - default
+  - path: '/services/logger'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/logger'
+    method: 'POST'
+    exec:
+      - default
+  
+  # Config Server
+  - path: '/config-server/services'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/configs/{module_name}/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/configs'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/configs/{type}'
+    method: 'Post'
+    exec:
+      - default
+
+  - path: '/config-server/configs/{type}'
+    method: 'Put'
+    exec:
+      - default
+
+  - path: '/config-server/configs/{type}'
+    method: 'DELETE'
+    exec:
+      - default
+
+  - path: '/config-server/certs/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/certs/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'POST'
+    exec:
+      - default
+
+  - path: '/config-server/certs/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'PUT'
+    exec:
+      - default
+
+  - path: '/config-server/certs/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'DELETE'
+    exec:
+      - default
+
+  - path: '/config-server/files/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/files/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'POST'
+    exec:
+      - default
+
+  - path: '/config-server/files/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'PUT'
+    exec:
+      - default
+
+  - path: '/config-server/files/{project_name}/{project_version}/{service_name}/{service_version}/{environment}'
+    method: 'DELETE'
+    exec:
+      - default
+
 
   # - path: '/spec.yaml'
   #   method: 'get'
