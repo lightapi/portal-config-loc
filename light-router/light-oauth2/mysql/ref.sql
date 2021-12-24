@@ -802,6 +802,15 @@ INSERT INTO value_locale(value_id, language, value_desc) VALUES ('pt', 'en', 'Po
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('ru', 'en', 'Russian');
 
 
+-- Ad lob and relationship with host
+INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('lob', 'lob', 'Line of Business', 'lightapi.net');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('portal', 'lob', 'portal', 100, 'Y');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('portal', 'en', 'portal');
+INSERT INTO relation_type(relation_id, relation_name, relation_desc) VALUES ('host-lob', 'host-lob', 'host and line of businss mapping');
+INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('host-lob', 'lightapi.net', 'portal');
+
+
+
 -- TODO This will be removed to the light-portal category in the future
 -- INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('quiz-type', 'quiz-type', 'quiz type', 'lightapi.net');
 -- INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('quiz-category', 'quiz-category', 'quiz category', 'lightapi.net');

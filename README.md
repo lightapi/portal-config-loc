@@ -1,5 +1,5 @@
 # portal-config-loc
-portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers.
+portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers. For pure UI developers, he/she can use the https://localhost:3000 to connect to the dev portal server.
 
 This repository contains several folders configurations to start the light-portal services locally for testing and debugging. Each folder will have a README.md to guide users how to start.
 
