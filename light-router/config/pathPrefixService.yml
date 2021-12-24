@@ -10,3 +10,7 @@ mapping:
   /r: com.networknt.reference-1.0.0
   /portal/command: com.networknt.portal.hybrid.command-1.0.0
   /portal/query: com.networknt.portal.hybrid.query-1.0.0
+  /config-server: com.networknt.config-server-1.0.0
+  /services: com.networknt.controller-1.0.0
+  /schedulers: com.networknt.scheduler-1.0.0
+  
