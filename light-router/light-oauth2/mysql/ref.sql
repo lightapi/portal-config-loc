@@ -813,11 +813,17 @@ INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('host-lob'
 INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('rule-type', 'rule-type', 'The type of the rule', 'lightapi.net');
 INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('request-access', 'rule-type', 'request-access', 100, 'Y');
 INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('response-filter', 'rule-type', 'response-filter', 200, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('request-validation', 'rule-type', 'request-validation', 300, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('response-validation', 'rule-type', 'response-validation', 400, 'Y');
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('request-access', 'en', 'Request Access');
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('response-filter', 'en', 'Response Filter');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('request-validation', 'en', 'Request Validation');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('response-validation', 'en', 'Response Validation');
 INSERT INTO relation_type(relation_id, relation_name, relation_desc) VALUES ('hostrtype', 'host-rule-type', 'host and rule type mapping');
 INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'request-access');
 INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'response-filter');
+INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'request-validation');
+INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'response-validation');
 
 
 -- TODO This will be removed to the light-portal category in the future
