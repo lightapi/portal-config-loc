@@ -46,7 +46,7 @@ CREATE TABLE value_locale (
 
 
 CREATE TABLE relation_type (
-  relation_id           VARCHAR(10) NOT NULL,
+  relation_id           VARCHAR(32) NOT NULL,
   relation_name         VARCHAR(32) NOT NULL,
   relation_desc         VARCHAR(256) NOT NULL,
   PRIMARY KEY(relation_id)
@@ -55,7 +55,7 @@ CREATE TABLE relation_type (
 
 
 CREATE TABLE relation (
-  relation_id           VARCHAR(10) NOT NULL,
+  relation_id           VARCHAR(32) NOT NULL,
   value_id_from         VARCHAR(160) NOT NULL,
   value_id_to           VARCHAR(160) NOT NULL,
   active                VARCHAR(1) NOT NULL DEFAULT 'Y',
@@ -802,13 +802,22 @@ INSERT INTO value_locale(value_id, language, value_desc) VALUES ('pt', 'en', 'Po
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('ru', 'en', 'Russian');
 
 
--- Ad lob and relationship with host
+-- Add lob and relationship with host
 INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('lob', 'lob', 'Line of Business', 'lightapi.net');
 INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('portal', 'lob', 'portal', 100, 'Y');
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('portal', 'en', 'portal');
 INSERT INTO relation_type(relation_id, relation_name, relation_desc) VALUES ('host-lob', 'host-lob', 'host and line of businss mapping');
 INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('host-lob', 'lightapi.net', 'portal');
 
+-- Add rule type and relationship with host
+INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('rule-type', 'rule-type', 'The type of the rule', 'lightapi.net');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('request-access', 'rule-type', 'request-access', 100, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('response-filter', 'rule-type', 'response-filter', 200, 'Y');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('request-access', 'en', 'Request Access');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('response-filter', 'en', 'Response Filter');
+INSERT INTO relation_type(relation_id, relation_name, relation_desc) VALUES ('hostrtype', 'host-rule-type', 'host and rule type mapping');
+INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'request-access');
+INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'response-filter');
 
 
 -- TODO This will be removed to the light-portal category in the future
