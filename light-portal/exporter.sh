@@ -15,6 +15,6 @@ if [ -z "$JAVA_HOME" ]; then
 fi
 
 # Note: please point JAVA_HOME to a JDK installation. JRE is not sufficient.
-"$JAVA_HOME/bin/java" -jar $JARFILE -f local.json -s localhost:9092
+"$JAVA_HOME/bin/java" -jar -Dlight-4j-config-dir=$CURRENT_DIR/config/exporter $JARFILE -f local.json
 
 exit 0
