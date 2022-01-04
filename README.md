@@ -49,6 +49,7 @@ Checkout the lightapi/portal-config-loc if it is not checked out yet.
 
 ```
 cd ~/lightapi/portal-config-loc/light-scheduler
+docker-compose down
 docker-compose up
 ```
 
@@ -58,6 +59,7 @@ You only need to start the light-controller if you are about to start some real 
 
 ```
 cd ~/lightapi/portal-config-loc/light-controller
+docker-compose down
 docker-compose up
 ```
 
@@ -88,6 +90,7 @@ start the light-portal services with the following docker-compose.
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
+docker-compose down
 docker-compose up
 ```
 Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
