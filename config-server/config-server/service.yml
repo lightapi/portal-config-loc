@@ -1,0 +1,21 @@
+# Singleton service factory configuration/IoC injection
+singletons:
+  - com.networknt.configserver.provider.IProvider:
+      # - com.networknt.configserver.provider.MongoDBProviderImpl
+      - com.networknt.configserver.provider.SqlProviderImpl
+  - com.networknt.server.StartupHookProvider:
+      - com.networknt.configserver.db.SqlStartupHook
+  - com.networknt.server.ShutdownHookProvider:
+      # - com.networknt.configserver.db.SqlShutdownHook
+
+  - javax.sql.DataSource:
+      - com.zaxxer.hikari.HikariDataSource:
+          jdbcUrl: jdbc:mysql://mysqldb:3306/cfg?useSSL=false&disableMariaDbDriver
+          username: mysqluser
+          password: mysqlpw
+          maximumPoolSize: 2
+          useServerPrepStmts: true
+          cachePrepStmts: true
+          cacheCallableStmts: true
+          prepStmtCacheSize: 4096
+          prepStmtCacheSqlLimit: 2048
