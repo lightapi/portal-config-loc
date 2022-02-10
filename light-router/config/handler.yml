@@ -380,6 +380,10 @@ paths:
     method: 'POST'
     exec:
       - default
+  - path: '/services/logger/content'
+    method: 'POST'
+    exec:
+      - default
   
   # Config Server
   - path: '/config-server/configs/property/ref'
