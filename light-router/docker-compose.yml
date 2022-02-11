@@ -52,7 +52,7 @@ services:
       - localnet
 
   # petstore API for testing control pane.
-  reference:
+  petstore:
     image: networknt/com.networknt.petstore-3.0.1:2.0.32
     ports:
       - 9443:9443
