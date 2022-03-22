@@ -1,7 +1,7 @@
 version: '2'
 services:
   oauth-code:
-    image: networknt/oauth-code:2.0.32
+    image: networknt/oauth-code:2.1.0
     ports:
       - "6881:6881"
     volumes:
@@ -11,7 +11,7 @@ services:
     networks:
       - localnet
   oauth-token:
-    image: networknt/oauth-token:2.0.32
+    image: networknt/oauth-token:2.1.0
     ports:
       - "6882:6882"
     volumes:
@@ -21,7 +21,7 @@ services:
     networks:
       - localnet
   oauth-key:
-    image: networknt/oauth-key:2.0.32
+    image: networknt/oauth-key:2.1.0
     ports:
       - "6886:6886"
     volumes:
