@@ -12,7 +12,7 @@ services:
       - localnet
 
   config-server:
-    image: networknt/config-server:2.0.32
+    image: networknt/config-server:2.1.0
     volumes:
       - ./config-server:/config
     ports:
