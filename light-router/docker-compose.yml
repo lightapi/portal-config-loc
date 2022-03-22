@@ -21,7 +21,7 @@ services:
       - localnet
 
   light-router:
-    image:  networknt/light-router:2.0.32
+    image:  networknt/light-router:2.1.0
     ports:
       - 8443:8443
     volumes:
@@ -40,7 +40,7 @@ services:
 
   # reference API
   reference:
-    image: networknt/com.networknt.reference-1.0.0:2.0.20
+    image: networknt/com.networknt.reference-1.0.0:2.1.0
     ports:
       - 2498:2498
     volumes:
@@ -52,16 +52,16 @@ services:
       - localnet
 
   # petstore API for testing control pane.
-  petstore:
-    image: networknt/com.networknt.petstore-3.0.1:2.0.32
-    ports:
-      - 9443:9443
-    volumes:
-      - ./petstore:/config
-    hostname: petstore
-    container_name: petstore
-    networks:
-      - localnet
+  # petstore:
+  #   image: networknt/com.networknt.petstore-3.0.1:2.1.0
+  #   ports:
+  #     - 9443:9443
+  #   volumes:
+  #     - ./petstore:/config
+  #   hostname: petstore
+  #   container_name: petstore
+  #   networks:
+  #     - localnet
       
 networks:
   localnet:
