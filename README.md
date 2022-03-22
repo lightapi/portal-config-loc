@@ -53,16 +53,6 @@ docker-compose down
 docker-compose up
 ```
 
-### light-controller
-
-You only need to start the light-controller if you are about to start some real APIs that register to the controller. If light-controller is not in your networknt workspace, check it out first. 
-
-```
-cd ~/lightapi/portal-config-loc/light-controller
-docker-compose down
-docker-compose up
-```
-
 ### light-portal
 
 Checkout the lightapi/portal-config-loc and download the user, market and ref query jars.
@@ -103,12 +93,23 @@ curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi
 ./importer.sh events.json
 ```
 
+### light-controller
+
+You only need to start the light-controller if you are about to start some real APIs that register to the controller. If light-controller is not in your networknt workspace, check it out first. 
+
+```
+cd ~/lightapi/portal-config-loc/light-controller
+docker-compose down
+docker-compose up
+```
+
 ### oauth-kafka
 
 Start the OAuth 2.0 provider. 
 
 ```
 cd ~/lightapi/portal-config-loc/oauth-kafka
+docker-compose down
 docker-compose up
 ```
 
@@ -118,6 +119,7 @@ Start the light-config-server
 
 ```
 cd ~/lightapi/portal-config-loc/config-server
+docker-compose down
 docker-compose up
 ```
 
