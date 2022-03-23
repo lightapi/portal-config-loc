@@ -43,3 +43,4 @@ urlRewriteRules: ${router.urlRewriteRules:}
 # examples.
 # Note: you cannot rewrite a method with a body to a method without a body or vice versa.
 methodRewriteRules: ${router.methodRewriteRules:}
+
