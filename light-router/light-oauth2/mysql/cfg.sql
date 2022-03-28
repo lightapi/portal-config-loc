@@ -16,13 +16,14 @@ DROP table IF EXISTS serv_cert;
 DROP table IF EXISTS serv;
 
 CREATE TABLE prop (
-  host                  VARCHAR(64) NOT NULL,
-  cap                   VARCHAR(64) NOT NULL,
-  project               VARCHAR(64) NOT NULL,
-  projver               VARCHAR(64) NOT NULL,
-  scope                 VARCHAR(32) NOT NULL,
-  pkey                  VARCHAR(128) NOT NULL,
-  porder                INT,
+  host                 VARCHAR(64) NOT NULL,
+  cap                  VARCHAR(64) NOT NULL, -- capability runtime, deployment
+  project              VARCHAR(64) NOT NULL,
+  projver              VARCHAR(64) NOT NULL,
+  scope                VARCHAR(32) NOT NULL, -- admin, client/application, service
+  pkey                 VARCHAR(128) NOT NULL,
+  ptype                CHAR(1) NOT NULL, -- S string B boolean I integer M map L list
+  porder               INT,
   PRIMARY KEY(host, cap, project, projver, scope, pkey)
 );
 
@@ -109,12 +110,11 @@ ALTER TABLE serv_cert ADD FOREIGN KEY(sid) REFERENCES serv(sid);
 
 CREATE TABLE serv_pmod (
   sid                   INT NOT NULL,
+  rid                   VARCHAR(128) NOT NULL,
   pkey                  VARCHAR(128) NOT NULL,
   module                VARCHAR(128) NOT NULL,
   typ                   VARCHAR(16) NOT NULL,
-  rid                   VARCHAR(128) NOT NULL,
   pvalue                VARCHAR(1024),
-  PRIMARY KEY(sid, pkey, module, typ, rid)
+  PRIMARY KEY(sid, rid, pkey, module, typ)
 );
 
-ALTER TABLE serv_pmod ADD FOREIGN KEY(sid, pkey) REFERENCES serv_prop(sid, pkey);
