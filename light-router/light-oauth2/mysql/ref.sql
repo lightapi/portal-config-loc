@@ -825,6 +825,20 @@ INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype
 INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'request-validation');
 INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('hostrtype', 'lightapi.net', 'response-validation');
 
+-- add config property type
+INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('cfg-prop-type', 'cfg-prop-type', 'The config property type', 'lightapi.net');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('S', 'cfg-prop-type', 'S', 100, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('B', 'cfg-prop-type', 'B', 101, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('I', 'cfg-prop-type', 'I', 102, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('M', 'cfg-prop-type', 'M', 103, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('L', 'cfg-prop-type', 'L', 104, 'Y');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('S', 'en', 'String');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('B', 'en', 'Boolean');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('I', 'en', 'Integer');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('M', 'en', 'Map');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('L', 'en', 'List');
+
+
 
 -- TODO This will be removed to the light-portal category in the future
 -- INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('quiz-type', 'quiz-type', 'quiz type', 'lightapi.net');
