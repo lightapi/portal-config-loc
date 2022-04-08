@@ -10,6 +10,7 @@ The light-portal depends on Kafka and confluent schema registry. To start the co
 ```
 cd ~/networknt
 cd kafka-sidecar
+docker-compose down
 docker-compose up
 ```
 
