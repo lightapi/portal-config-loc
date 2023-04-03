@@ -23,6 +23,8 @@ singletons:
   # - net.lightapi.portal.covid.query.CovidQueryStartup
   # Market Query Startup Hook
   - net.lightapi.portal.market.query.MarketQueryStartup
+  # database startup hook to initialize datasource and cache.
+  - net.lightapi.portal.db.SqlDbStartupHook
 # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
 - com.networknt.server.ShutdownHookProvider:
   # User Query Shutdown Hook
@@ -34,16 +36,3 @@ singletons:
 # Schema Registry client implementation
 - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
   - com.networknt.kafka.common.LightSchemaRegistryClient
-- javax.sql.DataSource:
-  - com.zaxxer.hikari.HikariDataSource:
-      DriverClassName: com.mysql.jdbc.Driver
-      jdbcUrl: jdbc:mysql://mysqldb:3306/ref?useSSL=false
-      username: mysqluser
-      password: mysqlpw
-      maximumPoolSize: 3
-      useServerPrepStmts: true
-      cachePrepStmts: true
-      cacheCallableStmts: true
-      prepStmtCacheSize: 10
-      prepStmtCacheSqlLimit: 2048
-      connectionTimeout: 2000

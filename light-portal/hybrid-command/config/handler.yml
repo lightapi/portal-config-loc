@@ -40,7 +40,7 @@ auditStackTrace: ${handler.auditStackTrace:false}
 handlers:
   # Light-framework cross-cutting concerns implemented in the microservice
   - com.networknt.exception.ExceptionHandler@exception
-  - com.networknt.metrics.MetricsHandler@metrics
+  # - com.networknt.metrics.MetricsHandler@metrics
   - com.networknt.traceability.TraceabilityHandler@traceability
   - com.networknt.correlation.CorrelationHandler@correlation
   # - com.networknt.jaeger.tracing.JaegerHandler@jaeger
@@ -69,7 +69,7 @@ handlers:
 chains:
   default:
     - exception
-    - metrics
+    # - metrics
     - traceability
     - correlation
     # - jaeger

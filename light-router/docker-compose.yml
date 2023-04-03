@@ -2,23 +2,25 @@ version: '2'
 
 services:
   # the mysqldb is used by the reference only. 
-  mysqldb:
-    image: mysql:5.7.29
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    ports:
-      - 3306:3306
-    volumes:
-      - ./light-oauth2/mysql:/docker-entrypoint-initdb.d
-      - /home/steve/mysql:/var/lib/mysql
-    environment:
-      LANG: C.UTF-8
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_USER: mysqluser
-      MYSQL_PASSWORD: mysqlpw
-    hostname: mysqldb
-    container_name: mysqldb
-    networks:
-      - localnet
+  # mysqldb:
+  #   image: mysql:5.7.29
+  #   command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  #   ports:
+  #     - 3306:3306
+  #   volumes:
+  #     - ./light-oauth2/mysql:/docker-entrypoint-initdb.d
+  #     - /home/steve/mysql:/var/lib/mysql
+  #   environment:
+  #     LANG: C.UTF-8
+  #     MYSQL_ROOT_PASSWORD: rootpassword
+  #     MYSQL_USER: mysqluser
+  #     MYSQL_PASSWORD: mysqlpw
+  #   hostname: mysqldb
+  #   container_name: mysqldb
+  #   networks:
+  #     - localnet
+
+
 
   light-router:
     image:  networknt/light-router:2.1.0

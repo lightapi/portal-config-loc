@@ -17,12 +17,13 @@ DROP table IF EXISTS serv;
 
 CREATE TABLE prop (
   host                 VARCHAR(64) NOT NULL,
-  cap                  VARCHAR(64) NOT NULL, -- capability runtime, deployment
+  cap                  VARCHAR(64) NOT NULL,   -- capability runtime, deployment
   project              VARCHAR(64) NOT NULL,
   projver              VARCHAR(64) NOT NULL,
-  scope                VARCHAR(32) NOT NULL, -- admin, client/application, service
+  scope                VARCHAR(32) NOT NULL,   -- proxy, application, api
   pkey                 VARCHAR(128) NOT NULL,
-  ptype                CHAR(1) NOT NULL, -- S string B boolean I integer M map L list
+  pmod                 VARCHAR(128) NOT NULL,  -- the module or handler with package of the property
+  ptype                CHAR(1) NOT NULL,       -- S string B boolean I integer M map L list
   porder               INT,
   PRIMARY KEY(host, cap, project, projver, scope, pkey)
 );
@@ -110,11 +111,10 @@ ALTER TABLE serv_cert ADD FOREIGN KEY(sid) REFERENCES serv(sid);
 
 CREATE TABLE serv_pmod (
   sid                   INT NOT NULL,
-  rid                   VARCHAR(128) NOT NULL,
+  rid                   INT NOT NULL,          -- related sid in serv table for api or app proxy client
+  rtype                 VARCHAR(16) NOT NULL,  -- relationship type application or client
   pkey                  VARCHAR(128) NOT NULL,
-  module                VARCHAR(128) NOT NULL,
-  typ                   VARCHAR(16) NOT NULL,
   pvalue                VARCHAR(1024),
-  PRIMARY KEY(sid, rid, pkey, module, typ)
+  PRIMARY KEY(sid, rid, rtype, pkey)
 );
 

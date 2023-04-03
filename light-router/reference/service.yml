@@ -2,6 +2,7 @@
 singletons:
   - javax.sql.DataSource:
     - com.zaxxer.hikari.HikariDataSource:
+        dataSourceClassName: org.postgresql.ds.PGSimpleDataSource
         jdbcUrl: jdbc:mysql://mysqldb:3306/ref?useSSL=false&disableMariaDbDriver
         username: mysqluser
         password: mysqlpw
