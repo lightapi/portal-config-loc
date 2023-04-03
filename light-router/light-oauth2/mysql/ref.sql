@@ -838,6 +838,13 @@ INSERT INTO value_locale(value_id, language, value_desc) VALUES ('I', 'en', 'Int
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('M', 'en', 'Map');
 INSERT INTO value_locale(value_id, language, value_desc) VALUES ('L', 'en', 'List');
 
+INSERT INTO ref_table(table_id, table_name, table_desc, host) values ('cfg-prop-scope', 'cfg-prop-scope', 'The config property scope', 'lightapi.net');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('API', 'API', 'API', 100, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('PROXY', 'Proxy', 'PROXY', 101, 'Y');
+INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('APPLICATION', 'Application', 'APPLICATION', 102, 'Y');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('API', 'en', 'API');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('PROXY', 'en', 'Proxy');
+INSERT INTO value_locale(value_id, language, value_desc) VALUES ('APPLICATION', 'en', 'Application');
 
 
 -- TODO This will be removed to the light-portal category in the future

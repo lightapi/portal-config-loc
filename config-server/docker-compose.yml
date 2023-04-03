@@ -1,16 +1,6 @@
 version: "2"
 
 services:
-  mongo:
-    image: mongo:latest
-    ports:
-      - 27017:27017
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
-    networks:
-      - localnet
-
   config-server:
     image: networknt/config-server:2.1.0
     volumes:

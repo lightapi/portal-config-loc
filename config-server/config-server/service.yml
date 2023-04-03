@@ -10,9 +10,10 @@ singletons:
 
   - javax.sql.DataSource:
       - com.zaxxer.hikari.HikariDataSource:
-          jdbcUrl: jdbc:mysql://mysqldb:3306/cfg?useSSL=false&disableMariaDbDriver
-          username: mysqluser
-          password: mysqlpw
+          dataSourceClassName: org.postgresql.ds.PGSimpleDataSource
+          jdbcUrl: jdbc:postgresql://timescale:5432/configserver
+          username: postgres
+          password: secret
           maximumPoolSize: 2
           useServerPrepStmts: true
           cachePrepStmts: true
