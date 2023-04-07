@@ -26,8 +26,8 @@ services:
       - /home/steve/data:/data
     ports:
       - 8440:8440
-    depends_on:
-      - timescale
+    # depends_on:
+    #   - timescale
     hostname: hybrid-query1
     container_name: hybrid-query1
     networks:
@@ -41,8 +41,8 @@ services:
       - /home/steve/data:/data
     ports:
       - 8441:8441
-    depends_on:
-      - timescale
+    # depends_on:
+    #   - timescale
     hostname: hybrid-query2
     container_name: hybrid-query2
     networks:
@@ -56,27 +56,13 @@ services:
       - /home/steve/data:/data
     ports:
       - 8442:8442
-    depends_on:
-      - timescale
+    # depends_on:
+    #   - timescale
     hostname: hybrid-query3
     container_name: hybrid-query3
     networks:
       - localnet
 
-  # timescale database is the main database used by the portal. Also it is used by aiotrade. 
-  timescale:
-    image: timescale/timescaledb:latest-pg15
-    volumes:
-      - /opt/timescale/15/data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_PASSWORD: secret
-    ports:
-      - 5432:5432
-    hostname: timescale
-    container_name: timescale
-    # network_mode: host
-    networks:
-      - localnet
 
 networks:
   localnet:
