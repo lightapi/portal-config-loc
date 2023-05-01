@@ -1,7 +1,7 @@
 # server.yml
 server.httpsPort: 8440
-# overwrite environment tag to simplify the service discovery.
-server.environment: null
+
+
 
 # client.yml
 client.verifyHostname: false
