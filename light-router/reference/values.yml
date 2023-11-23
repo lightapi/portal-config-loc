@@ -9,19 +9,14 @@ db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
 
-# cache.yml
-cache.caches:
-  - cacheName: ref-data
-    expiryInMinutes: 60
-    maxSize: 1000
-
-
 # service.yml
 service.singletons:
   - com.networknt.db.provider.DbProvider:
       - com.networknt.reference.ReferenceDbProviderImpl
   - com.networknt.server.StartupHookProvider:
       - com.networknt.db.provider.SqlDbStartupHook
+    - com.networknt.cache.CacheManager:
+      - com.networknt.cache.CaffeineCacheManager
 
 # openapi-security.yml
 openapi-security.enableVerifyJwt: false
@@ -46,3 +41,16 @@ reference.dataPath: /data
 
 # metrics.yml
 metrics.enabled: false
+
+# cache.yml
+cache.caches:
+  - cacheName: jwt
+    expiryInMinutes: 15
+    maxSize: 100
+  - cacheName: jwk
+    expiryInMinutes: 129600
+    maxSize: 100
+  - cacheName: ref-data
+    expiryInMinutes: 60
+    maxSize: 1000
+

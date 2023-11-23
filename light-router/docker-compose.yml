@@ -22,7 +22,7 @@ services:
 
   # reference API
   reference:
-    image: networknt/com.networknt.reference-1.0.0:2.1.11
+    image: networknt/com.networknt.reference-1.0.0:2.1.30
     ports:
       - 2498:2498
     volumes:
