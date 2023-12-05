@@ -1,4 +1,4 @@
-# Generic Kafka Streams Configuration
+# Generic Kafka Streams Configuration with security disabled.
 properties:
   bootstrap.servers: ${kafka-streams.bootstrap.servers:localhost:9092}
   # Kafka Streams will use the schema for deserialization from byte array

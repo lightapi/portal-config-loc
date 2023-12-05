@@ -1,4 +1,3 @@
----
 # Generic configuration for Kafka producer.
 properties:
   # The sidecar does the serialization to byte array for both key and value
