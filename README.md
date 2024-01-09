@@ -3,7 +3,72 @@ portal configuration and docker-compose to start light-portal services at local 
 
 This repository contains several folders configurations to start the light-portal services locally for testing and debugging. Each folder will have a README.md to guide users how to start.
 
-### Kafka
+### Confluent
+
+For easy debugging with host network and standalone services in IDE, we will start the Kafka with the confluent command line. 
+
+
+To install the confluent local, go to https://www.confluent.io/installation/ to download the tar file. Once it is downloaded, move the file to the ~/tool folder and unzip it.
+
+```
+tar xzf confluent-7.5.2.tar
+```
+
+Update the export in .profile for the new folder of of confluent version. To start the services.
+
+```
+confluent local services start
+```
+
+Due to permission issue, you might need to create /opt/confluent folder and change owner to your user. 
+
+```
+cd ~/opt
+sudo mkdir confluent
+sudo chown steve:steve confluent
+```
+
+Now, let's create topics.
+
+```
+#### Block Chain
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
+
+#### Light Portal
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
+
+# city an map should be removed as sync between nodes are not working in a timely fasion.
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
+# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
+
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
+kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic controller-health-check
+
+
+# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
+
+```
+
+Above steps are one time process after installation. For daily restarting, you can just run the following command from the confluent-x.x.x/bin folder.
+
+```
+confluent local services start
+```
+
+### Kafka Docker
+
+This is another way to start the confluent with docker-compose for local demo only. For development and debugging, use the confluent local instead. 
+
 
 The light-portal depends on Kafka and confluent schema registry. To start the confluent platform, you can checkout the kafka-sidecar and start the docker-compose in that repository. The following is the first step before going into any sub folder in the portal-config-loc. 
 
