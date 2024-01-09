@@ -11,12 +11,12 @@ services:
       - ./hybrid-command/config:/config
       - ./hybrid-command/service:/service
       - /home/steve/data:/data
-    ports:
-      - 8439:8439
-    hostname: hybrid-command
+    # ports:
+    #   - 8439:8439
     container_name: hybrid-command
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   hybrid-query1:
     image: networknt/portal-hybrid-query:2.1.31-slim
@@ -24,14 +24,12 @@ services:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service
       - /home/steve/data:/data
-    ports:
-      - 8440:8440
-    # depends_on:
-    #   - timescale
-    hostname: hybrid-query1
+    # ports:
+    #   - 8440:8440
     container_name: hybrid-query1
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   hybrid-query2:
     image: networknt/portal-hybrid-query:2.1.31-slim
@@ -39,14 +37,12 @@ services:
       - ./hybrid-query/node2:/config
       - ./hybrid-query/service:/service
       - /home/steve/data:/data
-    ports:
-      - 8441:8441
-    # depends_on:
-    #   - timescale
-    hostname: hybrid-query2
+    # ports:
+    #   - 8441:8441
     container_name: hybrid-query2
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   hybrid-query3:
     image: networknt/portal-hybrid-query:2.1.31-slim
@@ -54,17 +50,15 @@ services:
       - ./hybrid-query/node3:/config
       - ./hybrid-query/service:/service
       - /home/steve/data:/data
-    ports:
-      - 8442:8442
-    # depends_on:
-    #   - timescale
-    hostname: hybrid-query3
+    # ports:
+    #   - 8442:8442
     container_name: hybrid-query3
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
 
-networks:
-  localnet:
-    # driver: bridge
-    external: true
+# networks:
+#   localnet:
+#     # driver: bridge
+#     external: true
