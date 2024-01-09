@@ -1,36 +1,16 @@
-version: '2'
+version: '3.1'
 services:
-  oauth-code:
-    image: networknt/oauth-code:2.1.0
-    ports:
-      - "6881:6881"
+  oauth-kafka:
+    image: networknt/oauth-kafka:2.1.31
+    # ports:
+    #   - "6881:6881"
     volumes:
-      - ./oauth-code:/config
-    hostname: oauth-code
-    container_name: oauth-code
-    networks:
-      - localnet
-  oauth-token:
-    image: networknt/oauth-token:2.1.0
-    ports:
-      - "6882:6882"
-    volumes:
-      - ./oauth-token:/config
-    hostname: oauth-token
-    container_name: oauth-token
-    networks:
-      - localnet
-  oauth-key:
-    image: networknt/oauth-key:2.1.0
-    ports:
-      - "6886:6886"
-    volumes:
-      - ./oauth-key:/config
-    hostname: oauth-key
-    container_name: oauth-key
-    networks:
-      - localnet
-networks:
-  localnet:
-    # driver: bridge
-    external: true
+      - ./config:/config
+    container_name: oauth-kafka
+    network_mode: host
+    # networks:
+    #   - localnet
+# networks:
+#   localnet:
+#     # driver: bridge
+#     external: true
