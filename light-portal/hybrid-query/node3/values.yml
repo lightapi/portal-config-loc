@@ -1,5 +1,6 @@
 # server.yml
 server.httpsPort: 8442
+server.serviceId: com.networknt.portal.hybrid.query-1.0.0
 
 # client.yml
 client.verifyHostname: false
@@ -13,19 +14,19 @@ client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.injectOpenTracing: true
 
 # kafka-streams.yml
-kafka-streams.bootstrap.servers: broker:29092
-kafka-streams.schema.registry.url: http://schema-registry:8081
+kafka-streams.bootstrap.servers: localhost:9092
+kafka-streams.schema.registry.url: http://localhost:8081
 # kafka-streams.cleanUp: true
 
 # portal.yml
 portal.sendEmail: false
-portal.cmdHost: https://hybrid-command:8439
+portal.cmdHost: https://localhost:8439
 portal.resetHost: https://devsignin.lightapi.net
 
 # db-provider.yml
 # For postgres database running in a docker container, you have to use the driverClassName.
 db-provider.driverClassName: org.postgresql.Driver
-db-provider.jdbcUrl: jdbc:postgresql://timescale:5432/configserver
+db-provider.jdbcUrl: jdbc:postgresql://localhost:5432/configserver
 db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
@@ -39,14 +40,17 @@ cache.caches:
     expiryInMinutes: 5
     maxSize: 1000
 
+# direct-registry.yml
+direct-registry.directUrls:
+  com.networknt.portal.hybrid.query-1.0.0: https://localhost:8440,https://localhost:8441,https://localhost:8442
+  com.networknt.portal.hybrid.command-1.0.0: https://localhost:8439
+  com.networknt.oauth-kafka-1.0.0: https://localhost:6881
+  com.networknt.reference-1.0.0: https://localhost:2498
+
 # service.yml
 service.singletons:
   - com.networknt.registry.URL:
-    - com.networknt.registry.URLImpl:
-        parameters:
-          com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440,https://hybrid-query2:8441,https://hybrid-query3:8442
-          com.networknt.oauth-key-1.0.0: https://oauth-key:6886
-          com.networknt.oauth-token-1.0.0: https://oauth-token:6882
+    - com.networknt.registry.URLImpl
   - com.networknt.registry.Registry:
     - com.networknt.registry.support.DirectRegistry
   - com.networknt.balance.LoadBalance:
