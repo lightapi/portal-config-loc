@@ -8,49 +8,52 @@ services:
       - /opt/timescale/15/data:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: secret
-    ports:
-      - 5432:5432
+    # ports:
+    #   - 5432:5432
     hostname: timescale
     container_name: timescale
-    # network_mode: host
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   scheduler-node1:
-    image: networknt/light-scheduler:2.1.0
+    image: networknt/light-scheduler:2.1.31
     volumes:
       - ./config/node1:/config
-    ports:
-      - 8401:8401
+    # ports:
+    #   - 8401:8401
     hostname: scheduler-node1
     container_name: scheduler-node1
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   scheduler-node2:
-    image: networknt/light-scheduler:2.1.0
+    image: networknt/light-scheduler:2.1.31
     volumes:
       - ./config/node2:/config
-    ports:
-      - 8402:8402
+    # ports:
+    #   - 8402:8402
     hostname: scheduler-node2
     container_name: scheduler-node2
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
   scheduler-node3:
-    image: networknt/light-scheduler:2.1.0
+    image: networknt/light-scheduler:2.1.31
     volumes:
       - ./config/node3:/config
-    ports:
-      - 8403:8403
+    # ports:
+    #   - 8403:8403
     hostname: scheduler-node3
     container_name: scheduler-node3
-    networks:
-      - localnet
+    network_mode: host
+    # networks:
+    #   - localnet
 
 
-networks:
-  localnet:
-    # driver: bridge
-    external: true
+# networks:
+#   localnet:
+#     # driver: bridge
+#     external: true
