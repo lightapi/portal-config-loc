@@ -1,0 +1,56 @@
+version: '3.1'
+
+services:
+
+  light-router:
+    image:  networknt/light-gateway:2.1.31-slim
+    # ports:
+    #   - 8443:8443
+    #   - 5005:5005
+    volumes:
+      - ./config:/config
+      - ./lightapi/build:/lightapi/build
+      - ./signin/build:/signin/build
+    environment:
+      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
+      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
+      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      # The following environment varialbe will enable the debug in the container. 
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+    container_name: light-gateway
+    network_mode: host
+    # networks:
+    #   - localnet
+
+  # reference API
+  reference:
+    image: networknt/com.networknt.reference-1.0.0:2.1.30
+    # ports:
+    #   - 2498:2498
+    volumes:
+      - ./reference:/config
+      - /home/steve/data:/data
+    # depends_on:
+    #   - timescale
+    container_name: reference
+    network_mode: host
+    # networks:
+    #   - localnet
+
+  # petstore API for testing control pane.
+  # petstore:
+  #   image: networknt/com.networknt.petstore-3.0.1:2.1.0
+  #   ports:
+  #     - 9443:9443
+  #   volumes:
+  #     - ./petstore:/config
+  #   hostname: petstore
+  #   container_name: petstore
+  #   networks:
+  #     - localnet
+      
+# networks:
+#   localnet:
+#     # driver: bridge
+#     external: true
