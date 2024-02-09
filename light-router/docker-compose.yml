@@ -3,7 +3,7 @@ version: '3.1'
 services:
 
   light-router:
-    image:  networknt/light-router:2.1.0
+    image:  networknt/light-router:2.1.31
     ports:
       - 8443:8443
     volumes:
@@ -46,7 +46,7 @@ services:
   #   container_name: petstore
   #   networks:
   #     - localnet
-      
+
 networks:
   localnet:
     # driver: bridge

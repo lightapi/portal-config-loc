@@ -88,7 +88,7 @@ chains:
     - path
     - router
 
-  google: 
+  google:
     - exception
     - jaeger
     - cors
@@ -98,7 +98,7 @@ chains:
     - path
     - router
 
-  facebook: 
+  facebook:
     - exception
     - jaeger
     - cors
@@ -108,7 +108,7 @@ chains:
     - path
     - router
 
-  github: 
+  github:
     - exception
     - jaeger
     - cors
@@ -210,7 +210,7 @@ paths:
     method: 'get'
     exec:
       - default
-  
+
   # oauth2-code
   - path: '/oauth2/code'
     method: 'get'
@@ -221,7 +221,7 @@ paths:
     exec:
       - code
 
-  # oauth2-key 
+  # oauth2-key
   - path: '/oauth2/key/{keyId}'
     method: 'get'
     exec:

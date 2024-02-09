@@ -5,7 +5,7 @@ This repository contains several folders configurations to start the light-porta
 
 ### Confluent
 
-For easy debugging with host network and standalone services in IDE, we will start the Kafka with the confluent command line. 
+For easy debugging with host network and standalone services in IDE, we will start the Kafka with the confluent command line.
 
 
 To install the confluent local, go to https://www.confluent.io/installation/ to download the tar file. Once it is downloaded, move the file to the ~/tool folder and unzip it.
@@ -20,7 +20,7 @@ Update the export in .profile for the new folder of of confluent version. To sta
 confluent local services start
 ```
 
-Due to permission issue, you might need to create /opt/confluent folder and change owner to your user. 
+Due to permission issue, you might need to create /opt/confluent folder and change owner to your user.
 
 ```
 cd ~/opt
@@ -32,30 +32,30 @@ Now, let's create topics.
 
 ```
 #### Block Chain
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
 
 #### Light Portal
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
 
 # city an map should be removed as sync between nodes are not working in a timely fasion.
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
-# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
+# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
 
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
 
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic controller-health-check
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic controller-health-check
 
 
-# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
+# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
 
 ```
 
@@ -67,10 +67,10 @@ confluent local services start
 
 ### Kafka Docker
 
-This is another way to start the confluent with docker-compose for local demo only. For development and debugging, use the confluent local instead. 
+This is another way to start the confluent with docker-compose for local demo only. For development and debugging, use the confluent local instead.
 
 
-The light-portal depends on Kafka and confluent schema registry. To start the confluent platform, you can checkout the kafka-sidecar and start the docker-compose in that repository. The following is the first step before going into any sub folder in the portal-config-loc. 
+The light-portal depends on Kafka and confluent schema registry. To start the confluent platform, you can checkout the kafka-sidecar and start the docker-compose in that repository. The following is the first step before going into any sub folder in the portal-config-loc.
 
 ```
 cd ~/networknt
@@ -109,7 +109,7 @@ http://localhost:9021/
 
 ### light-scheduler
 
-You only need to start the light-scheduler if you want to use the light-controller. You can start three instances with the docker-compose in light-scheduler subfolder from portal-config-loc folder. 
+You only need to start the light-scheduler if you want to use the light-controller. You can start three instances with the docker-compose in light-scheduler subfolder from portal-config-loc folder.
 
 Checkout the lightapi/portal-config-loc if it is not checked out yet.
 
@@ -149,7 +149,7 @@ cd ~/lightapi/portal-config-loc/light-portal
 docker-compose down
 docker-compose up
 ```
-Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application. 
+Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application.
 
 To run the event-importer, we need to download the jar. Once you have the jar file in the portal-config-loc/light-portal folder, you can use it to import the events.json file.
 
@@ -161,7 +161,7 @@ curl -k https://s01.oss.sonatype.org/content/repositories/snapshots/net/lightapi
 
 ### light-controller
 
-You only need to start the light-controller if you are about to start some real APIs that register to the controller. If light-controller is not in your networknt workspace, check it out first. 
+You only need to start the light-controller if you are about to start some real APIs that register to the controller. If light-controller is not in your networknt workspace, check it out first.
 
 ```
 cd ~/lightapi/portal-config-loc/light-controller
@@ -171,7 +171,7 @@ docker-compose up
 
 ### oauth-kafka
 
-Start the OAuth 2.0 provider. 
+Start the OAuth 2.0 provider.
 
 ```
 cd ~/lightapi/portal-config-loc/oauth-kafka
@@ -189,15 +189,15 @@ docker-compose down
 docker-compose up
 ```
 
-### light-router
+### light-gateway
 
-The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added. 
+The login page for oauth-kafka code service is served by the light-gateway with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added.
 
 ```
 192.168.4.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
 ```
 
-Based on your desktop IP, you need to change the IP address. 
+Based on your desktop IP, you need to change the IP address.
 
 
 Make sure that you have the bootstrap token in the .profile as environment variable to support the integration. Also, if you want to use google, facebook and github for authentication, you need to have the client secret for them in the .profile file.
@@ -206,10 +206,10 @@ Make sure that you have the bootstrap token in the .profile as environment varia
 export STATELESS_AUTH_BOOTSTRAP_TOKEN=eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MTkxMjk0MzAzMiwianRpIjoia3NPRHl0MlFVU25CY0NublpOMmZSZyIsImlhdCI6MTU5NzU4MzAzMiwibmJmIjoxNTk3NTgyOTEyLCJ2ZXJzaW9uIjoiMS4wIiwiY2xpZW50X2lkIjoiZjdkNDIzNDgtYzY0Ny00ZWZiLWE1MmQtNGM1Nzg3NDIxZTczIiwic2NvcGUiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdfQ.uCfoIZMx5xhlHvLAnmgkyuSnTGm0pTEosZOgFdGf946XeAxzULQk6mwHz0wu0oNL_L0hT1uOsgANfNpVmS44nbedkqELgHAnJpHf4IP7EStHk3o99MPZSVLufKvKmbP6-G0Th-1a8wK5XkX1_9WIhHAmxr-D23VQpvJq_XOKH24Ik06qSVUj-B3YAHrqlNIk4b-WqUYhUkluOYvI4mvCwB-xi5-Nioqa6JqpXO9fv7bb9xQzKX_3MsuEYT-LO8vquNtKPJLbz42vP1A5calbyBNZ4pnKgJyjH9_TFMywNZ-C7y2ZlhNR5_F-MKKysVkOC25TJmV49om_kb2lnoEDKg
 ```
 
-Now, let's start the light-router and other services. 
+Now, let's start the light-router and other services.
 
 ```
-cd ~/lightapi/portal-config-loc/light-router
+cd ~/lightapi/portal-config-loc/light-gateway
 docker-compose up
 
 ```
@@ -220,7 +220,7 @@ To allow the access to the port 443 on the browser and redirect to 8443 listenin
 sudo iptables -t nat -A OUTPUT -p tcp --dport 443 -o lo -j REDIRECT --to-port 8443
 ```
 
-On Windows desktop, maybe we can use 443 as the port to start the light-router in the docker-compose. However, the idea is not tested yet. If you are using Windows, try the following command. 
+On Windows desktop, maybe we can use 443 as the port to start the light-router in the docker-compose. However, the idea is not tested yet. If you are using Windows, try the following command.
 
 ```
 docker-compose -f docker-compose-windows.yml up
@@ -239,7 +239,7 @@ HTTPS=true yarn start
 
 ```
 
-click the user profile icon on the top right corner to login with 
+click the user profile icon on the top right corner to login with
 
 ```
 stevehu@gmail.com

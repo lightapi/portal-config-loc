@@ -1031,4 +1031,3 @@ INSERT INTO value_locale(value_id, language, value_desc) VALUES ('APPLICATION', 
 -- INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('quiz-cat-sub', 'DataManagementAndProbability', 'CollectionAndOrganizationOfData');
 -- INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('quiz-cat-sub', 'DataManagementAndProbability', 'DataRelationships');
 -- INSERT INTO relation(relation_id, value_id_from, value_id_to) VALUES ('quiz-cat-sub', 'DataManagementAndProbability', 'Probability');
-
