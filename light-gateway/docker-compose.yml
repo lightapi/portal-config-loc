@@ -16,8 +16,8 @@ services:
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
       STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
-      # The following environment varialbe will enable the debug in the container. 
-      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
     container_name: light-gateway
     network_mode: host
     # networks:
@@ -49,7 +49,7 @@ services:
   #   container_name: petstore
   #   networks:
   #     - localnet
-      
+
 # networks:
 #   localnet:
 #     # driver: bridge

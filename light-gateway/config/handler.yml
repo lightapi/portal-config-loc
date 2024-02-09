@@ -60,7 +60,7 @@ chains:
     - prefix
     - router
 
-  google: 
+  google:
     - exception
     - traceability
     - correlation
@@ -71,7 +71,7 @@ chains:
     - prefix
     - router
 
-  facebook: 
+  facebook:
     - exception
     - traceability
     - correlation
@@ -82,7 +82,7 @@ chains:
     - prefix
     - router
 
-  github: 
+  github:
     - exception
     - traceability
     - correlation
@@ -153,7 +153,7 @@ paths:
     method: 'GET'
     exec:
       - default
-  
+
   # light-controller
   - path: '/services'
     method: 'POST'
@@ -215,7 +215,7 @@ paths:
     method: 'POST'
     exec:
       - default
-  
+
   # Config Server
   - path: '/config-server/configs'
     method: 'GET'
@@ -231,6 +231,20 @@ paths:
     method: 'GET'
     exec:
       - default
+
+  - path: '/oauth2/{hostId}/keys'
+    method: 'GET'
+    exec:
+      - code
+  - path: '/oauth2/{hostId}/token'
+    method: 'POST'
+    exec:
+      - code
+  - path: '/oauth2/{hostId}/code'
+    method: 'POST'
+    exec:
+      - code
+
 
   # In most case, the /server/info endpoint shouldn't be exposed. If it is, then it must be protected by OAuth 2.0
   - path: '/adm/server/info'

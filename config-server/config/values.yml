@@ -1,0 +1,42 @@
+# server.yml
+server.serviceId: com.networknt.config-server-1.0.0
+server.httpsPort: 8435
+
+# client.yml
+client.timeout: 3000
+
+# openapi-security.yml
+openapi-security.enableVerifyJwt: false
+
+# service.yml
+service.singletons:
+- com.networknt.registry.URL:
+  - com.networknt.registry.URLImpl
+- com.networknt.portal.registry.client.PortalRegistryClient:
+  - com.networknt.portal.registry.client.PortalRegistryClientImpl
+- com.networknt.registry.Registry:
+  - com.networknt.portal.registry.PortalRegistry
+- com.networknt.balance.LoadBalance:
+  - com.networknt.balance.RoundRobinLoadBalance
+- com.networknt.cluster.Cluster:
+  - com.networknt.cluster.LightCluster
+- com.networknt.db.provider.DbProvider:
+  - com.networknt.configserver.ConfigDbProviderImpl
+
+# StartupHookProvider implementations, there are one to many, and they are called in the same sequence defined.
+- com.networknt.server.StartupHookProvider:
+
+
+# ShutdownHookProvider implementations, there are one to many, and they are called in the same sequence defined.
+- com.networknt.server.ShutdownHookProvider:
+
+# db-provider.yml
+# For postgres database running in a docker container, you have to use the driverClassName.
+db-provider.driverClassName: org.postgresql.Driver
+db-provider.jdbcUrl: jdbc:postgresql://localhost:5432/configserver
+db-provider.username: postgres
+db-provider.password: secret
+db-provider.maximumPoolSize: 3
+
+# metrics.yml
+metrics.enabled: false
