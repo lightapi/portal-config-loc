@@ -1,17 +1,16 @@
-version: "2"
+version: "3"
 
 services:
   config-server:
-    image: networknt/config-server:2.1.31
+    image: networknt/config-server:2.1.35
     volumes:
-      - ./config-server:/config
-    ports:
-      - 8435:8435
-    hostname: config-server
+      - ./config:/config
+    # ports:
+    #   - 8435:8435
+    # hostname: config-server
     container_name: config-server
-    networks:
-      - localnet
-networks:
-  localnet:
-    # driver: bridge
-    external: true
+    network_mode: host
+# networks:
+#   localnet:
+#     # driver: bridge
+#     external: true

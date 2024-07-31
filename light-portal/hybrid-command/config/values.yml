@@ -71,3 +71,6 @@ service.singletons:
 # Schema Registry client implementation
 - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
   - com.networknt.kafka.common.LightSchemaRegistryClient
+
+# hybrid-security.yml
+hybrid-security.enableVerifyJwt: false

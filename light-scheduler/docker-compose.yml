@@ -1,11 +1,10 @@
 ---
 version: '3.1'
 services:
-  # timescale database is the main database used by the portal. Also it is used by aiotrade. 
   timescale:
-    image: timescale/timescaledb:latest-pg15
+    image: timescale/timescaledb:latest-pg16
     volumes:
-      - /opt/timescale/15/data:/var/lib/postgresql/data
+      - /opt/timescale/16/data:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: secret
     # ports:
@@ -17,7 +16,7 @@ services:
     #   - localnet
 
   scheduler-node1:
-    image: networknt/light-scheduler:2.1.31
+    image: networknt/light-scheduler:2.1.35
     volumes:
       - ./config/node1:/config
     # ports:
@@ -29,7 +28,7 @@ services:
     #   - localnet
 
   scheduler-node2:
-    image: networknt/light-scheduler:2.1.31
+    image: networknt/light-scheduler:2.1.35
     volumes:
       - ./config/node2:/config
     # ports:
@@ -41,7 +40,7 @@ services:
     #   - localnet
 
   scheduler-node3:
-    image: networknt/light-scheduler:2.1.31
+    image: networknt/light-scheduler:2.1.35
     volumes:
       - ./config/node3:/config
     # ports:

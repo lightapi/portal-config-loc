@@ -3,7 +3,7 @@ version: '3.1'
 services:
 
   light-router:
-    image:  networknt/light-gateway:2.1.31-slim
+    image:  networknt/light-gateway:2.1.35-slim
     # ports:
     #   - 8443:8443
     #   - 5005:5005
@@ -16,8 +16,8 @@ services:
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
       STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
-      # The following environment varialbe will enable the debug in the container. 
-      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
     container_name: light-gateway
     network_mode: host
     # networks:
@@ -25,7 +25,7 @@ services:
 
   # reference API
   reference:
-    image: networknt/com.networknt.reference-1.0.0:2.1.30
+    image: networknt/com.networknt.reference-1.0.0:2.1.35
     # ports:
     #   - 2498:2498
     volumes:
@@ -49,7 +49,7 @@ services:
   #   container_name: petstore
   #   networks:
   #     - localnet
-      
+
 # networks:
 #   localnet:
 #     # driver: bridge

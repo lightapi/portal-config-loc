@@ -118,12 +118,12 @@ handler.chains.default:
   - limit
   - traceability
   - correlation
-  - killapp
-  - latency
-  - memory
-  - exchaos
+  # - killapp
+  # - latency
+  # - memory
+  # - exchaos
   - cors
-  # - stateless
+  - stateless
   - header
   # - body
   # - specification
