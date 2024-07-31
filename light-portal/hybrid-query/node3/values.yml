@@ -59,7 +59,7 @@ service.singletons:
     - com.networknt.cluster.LightCluster
   - com.networknt.cache.CacheManager:
     - com.networknt.cache.CaffeineCacheManager
-  # PortalDbProviderImpl of DbProvider 
+  # PortalDbProviderImpl of DbProvider
   - com.networknt.db.provider.DbProvider:
     - net.lightapi.portal.db.PortalDbProviderImpl
   # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
@@ -99,3 +99,5 @@ cors.allowedMethods:
   - PUT
   - DELETE
 
+# hybrid-security.yml
+hybrid-security.enableVerifyJwt: false
