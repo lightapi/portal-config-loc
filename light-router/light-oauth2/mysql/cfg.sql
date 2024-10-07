@@ -117,4 +117,3 @@ CREATE TABLE serv_pmod (
   pvalue                VARCHAR(1024),
   PRIMARY KEY(sid, rid, rtype, pkey)
 );
-

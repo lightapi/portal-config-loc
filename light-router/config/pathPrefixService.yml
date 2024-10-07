@@ -13,4 +13,3 @@ mapping:
   /config-server: com.networknt.config-server-1.0.0
   /services: com.networknt.controller-1.0.0
   /schedulers: com.networknt.scheduler-1.0.0
-  
