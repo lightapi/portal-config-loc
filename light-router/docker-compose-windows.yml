@@ -1,7 +1,7 @@
 version: '2'
 
 services:
-  # the mysqldb is used by the reference only. 
+  # the mysqldb is used by the reference only.
   mysqldb:
     image: mysql:5.7.29
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
@@ -67,5 +67,3 @@ networks:
   localnet:
     # driver: bridge
     external: true
-
-  
