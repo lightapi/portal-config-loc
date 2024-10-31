@@ -16,7 +16,7 @@ services:
     #   - localnet
 
   scheduler-node1:
-    image: networknt/light-scheduler:2.1.35
+    image: networknt/light-scheduler:2.1.37
     volumes:
       - ./config/node1:/config
     # ports:
@@ -28,7 +28,7 @@ services:
     #   - localnet
 
   scheduler-node2:
-    image: networknt/light-scheduler:2.1.35
+    image: networknt/light-scheduler:2.1.37
     volumes:
       - ./config/node2:/config
     # ports:
@@ -40,7 +40,7 @@ services:
     #   - localnet
 
   scheduler-node3:
-    image: networknt/light-scheduler:2.1.35
+    image: networknt/light-scheduler:2.1.37
     volumes:
       - ./config/node3:/config
     # ports:

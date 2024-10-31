@@ -11,16 +11,24 @@ For easy debugging with host network and standalone services in IDE, we will sta
 To install the confluent local, go to https://www.confluent.io/installation/ to download the tar file. Once it is downloaded, move the file to the ~/tool folder and unzip it.
 
 ```
-tar xzf confluent-7.5.2.tar
+tar xzf confluent-7.7.0.tar
 ```
 
-Update the export in .profile for the new folder of of confluent version. To start the services.
+Update the export in .profile for the new folder of of confluent version. 
+
+```
+export CONFLUENT_HOME=~/tool/confluent-7.7.0
+export PATH=$PATH:$CONFLUENT_HOME/bin
+export CONFLUENT_CURRENT=/opt/confluent
+```
+
+To start the services.
 
 ```
 confluent local services start
 ```
 
-Due to permission issue, you might need to create /opt/confluent folder and change owner to your user.
+By default the confluent log will be in the /tmp folder. We want to make sure that the log can survive desktop restart. Due to permission issue, you might need to create /opt/confluent folder and change owner to your user. 
 
 ```
 cd ~/opt
@@ -32,30 +40,30 @@ Now, let's create topics.
 
 ```
 #### Block Chain
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
 
 #### Light Portal
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
 
 # city an map should be removed as sync between nodes are not working in a timely fasion.
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
-# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
+# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
 
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
 
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
-kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic controller-health-check
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic controller-health-check
 
 
-# kafka-topics --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
+# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
 
 ```
 
@@ -115,8 +123,8 @@ Checkout the lightapi/portal-config-loc if it is not checked out yet.
 
 ```
 cd ~/lightapi/portal-config-loc/light-scheduler
-docker-compose down
-docker-compose up
+docker compose down
+docker compose up
 ```
 
 ### light-portal
@@ -146,8 +154,8 @@ start the light-portal services with the following docker-compose.
 
 ```
 cd ~/lightapi/portal-config-loc/light-portal
-docker-compose down
-docker-compose up
+docker compose down
+docker compose up
 ```
 Once the services are up and running, we need to import the events to create users and clients etc. The imported events will create an admin user stevehu@gmail.com and this user will be able to create other necessary entities to bootstrap the application.
 
@@ -165,8 +173,8 @@ You only need to start the light-controller if you are about to start some real 
 
 ```
 cd ~/lightapi/portal-config-loc/light-controller
-docker-compose down
-docker-compose up
+docker compose down
+docker compose up
 ```
 
 ### oauth-kafka
@@ -175,8 +183,8 @@ Start the OAuth 2.0 provider.
 
 ```
 cd ~/lightapi/portal-config-loc/oauth-kafka
-docker-compose down
-docker-compose up
+docker compose down
+docker compose up
 ```
 
 ### config-server
@@ -185,16 +193,16 @@ Start the light-config-server
 
 ```
 cd ~/lightapi/portal-config-loc/config-server
-docker-compose down
-docker-compose up
+docker compose down
+docker compose up
 ```
 
-### light-router
+### light-gateway
 
-The login page for oauth-kafka code service is served by the light-router with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added.
+The login page for oauth-kafka service is served by the light-gateway with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added. 
 
 ```
-192.168.4.102   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
+192.168.5.10   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
 ```
 
 Based on your desktop IP, you need to change the IP address.
@@ -209,8 +217,8 @@ export STATELESS_AUTH_BOOTSTRAP_TOKEN=eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc
 Now, let's start the light-router and other services.
 
 ```
-cd ~/lightapi/portal-config-loc/light-router
-docker-compose up
+cd ~/lightapi/portal-config-loc/light-gateway
+docker compose up
 
 ```
 
@@ -223,7 +231,7 @@ sudo iptables -t nat -A OUTPUT -p tcp --dport 443 -o lo -j REDIRECT --to-port 84
 On Windows desktop, maybe we can use 443 as the port to start the light-router in the docker-compose. However, the idea is not tested yet. If you are using Windows, try the following command.
 
 ```
-docker-compose -f docker-compose-windows.yml up
+docker compose -f docker-compose-windows.yml up
 ```
 
 ### Portal View
