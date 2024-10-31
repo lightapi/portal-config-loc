@@ -46,7 +46,7 @@ services:
   #   container_name: petstore
   #   networks:
   #     - localnet
-      
+
 networks:
   localnet:
     # driver: bridge
