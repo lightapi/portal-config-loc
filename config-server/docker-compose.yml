@@ -2,7 +2,7 @@ version: "3"
 
 services:
   config-server:
-    image: networknt/config-server:2.1.35
+    image: networknt/config-server:2.1.37
     volumes:
       - ./config:/config
     # ports:
