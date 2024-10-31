@@ -14,7 +14,7 @@ To install the confluent local, go to https://www.confluent.io/installation/ to 
 tar xzf confluent-7.7.0.tar
 ```
 
-Update the export in .profile for the new folder of of confluent version. 
+Update the export in .profile for the new folder of of confluent version.
 
 ```
 export CONFLUENT_HOME=~/tool/confluent-7.7.0
@@ -28,7 +28,7 @@ To start the services.
 confluent local services start
 ```
 
-By default the confluent log will be in the /tmp folder. We want to make sure that the log can survive desktop restart. Due to permission issue, you might need to create /opt/confluent folder and change owner to your user. 
+By default the confluent log will be in the /tmp folder. We want to make sure that the log can survive desktop restart. Due to permission issue, you might need to create /opt/confluent folder and change owner to your user.
 
 ```
 cd ~/opt
@@ -199,7 +199,7 @@ docker compose up
 
 ### light-gateway
 
-The login page for oauth-kafka service is served by the light-gateway with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added. 
+The login page for oauth-kafka service is served by the light-gateway with a domain name `devsignin.lightapi.net` and it must be added to the /etc/hosts (for windows: C:\Windows\System32\drivers\etc) file. On my computer the following entry is added.
 
 ```
 192.168.5.10   local.lightapi.net devsignin.lightapi.net devoauth.lightapi.net local.taiji.io devfaucet.taiji.io
