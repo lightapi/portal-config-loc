@@ -6,18 +6,18 @@ router.maxRequestTime: 5000
 
 #client.yml
 client.verifyHostname: false
-#client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.tokenKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.signClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.signKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-#client.injectOpenTracing: true
-#client.tokenServiceId: com.networknt.oauth-token-1.0.0
-#client.tokenKeyServiceId: com.networknt.oauth-key-1.0.0
-#client.signServiceId: com.networknt.oauth-token-1.0.0
-#client.signKeyServiceId: com.networknt.oauth-key-1.0.0
-#client.derefServiceId: com.networknt.oauth-token-1.0.0
+client.tokenServerUrl: https://localhost:6881
+client.tokenAcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
+client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenAcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenAcRedirectUri: https://localhost:3000/authorization
+client.tokenAcScope:
+  - portal.r
+  - portal.w
+
+client.tokenKeyServerUrl: https://localhost:6881
+client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
+
 
 # service.yml
 service.singletons:

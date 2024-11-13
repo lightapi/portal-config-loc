@@ -6,8 +6,8 @@ server.httpsPort: 6881
 client.timeout: 3000
 client.verifyHostname: false
 
-# openapi-security.yml
-openapi-security.enableVerifyJwt: false
+# security.yml
+security.enableVerifyJwt: false
 
 # cors.yml
 cors.enabled: true
@@ -63,7 +63,6 @@ handler.handlers:
   # Light-framework cross-cutting concerns implemented in the microservice
   - com.networknt.exception.ExceptionHandler@exception
   - com.networknt.metrics.MetricsHandler@metrics
-  - com.networknt.traceability.TraceabilityHandler@traceability
   - com.networknt.correlation.CorrelationHandler@correlation
   - com.networknt.openapi.OpenApiHandler@specification
   - com.networknt.openapi.JwtVerifyHandler@security
@@ -100,10 +99,8 @@ handler.handlers:
 
 handler.chains.default:
   - exception
-  - traceability
   - correlation
   - specification
-  - security
   - body
   - audit
   - validator

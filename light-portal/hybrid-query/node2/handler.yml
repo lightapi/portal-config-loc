@@ -32,7 +32,6 @@ handlers:
   # Light-framework cross-cutting concerns implemented in the microservice
   - com.networknt.exception.ExceptionHandler@exception
   # - com.networknt.metrics.MetricsHandler@metrics
-  - com.networknt.traceability.TraceabilityHandler@traceability
   - com.networknt.correlation.CorrelationHandler@correlation
   # - com.networknt.jaeger.tracing.JaegerHandler@jaeger
   # Cors handler to handler post/put pre-flight
@@ -50,6 +49,8 @@ handlers:
   # - com.networknt.router.RouterHandler@router
   # - com.networknt.resource.PathResourceHandler@resource
   - com.networknt.rpc.router.JsonHandler@json
+  - com.networknt.rpc.router.SchemaHandler@schema
+  - com.networknt.rpc.security.HybridJwtVerifyHandler@jwt
   # Customer business domain specific cross-cutting concerns handlers
   # - com.example.validator.CustomizedValidator@custvalidator
   # Framework endpoint handlers
@@ -60,11 +61,10 @@ handlers:
 chains:
   default:
     - exception
-    # - metrics
-    - traceability
     - correlation
-    # - jaeger
     - cors
+    - schema
+    - jwt
     - json
 
 paths:

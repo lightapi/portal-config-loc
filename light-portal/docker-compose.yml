@@ -1,10 +1,9 @@
-version: "3.1"
 #
 # Services
 #
 services:
   hybrid-command:
-    image: networknt/portal-hybrid-command:2.1.37
+    image: networknt/portal-hybrid-command:2.1.38
     environment:
       - NOREPLAY_EMAIL_PASSWORD=${NOREPLAY_EMAIL_PASSWORD}
     volumes:
@@ -19,7 +18,7 @@ services:
     #   - localnet
 
   hybrid-query1:
-    image: networknt/portal-hybrid-query:2.1.37-slim
+    image: networknt/portal-hybrid-query:2.1.38-slim
     volumes:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service
@@ -32,7 +31,7 @@ services:
     #   - localnet
 
   hybrid-query2:
-    image: networknt/portal-hybrid-query:2.1.37-slim
+    image: networknt/portal-hybrid-query:2.1.38-slim
     volumes:
       - ./hybrid-query/node2:/config
       - ./hybrid-query/service:/service
@@ -45,7 +44,7 @@ services:
     #   - localnet
 
   hybrid-query3:
-    image: networknt/portal-hybrid-query:2.1.37-slim
+    image: networknt/portal-hybrid-query:2.1.38-slim
     volumes:
       - ./hybrid-query/node3:/config
       - ./hybrid-query/service:/service
