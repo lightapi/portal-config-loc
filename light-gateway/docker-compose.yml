@@ -1,16 +1,14 @@
-version: '3.1'
-
 services:
 
-  light-router:
-    image:  networknt/light-gateway:2.1.35-slim
+  light-gateway:
+    image:  networknt/light-gateway:2.1.38-slim
     # ports:
     #   - 8443:8443
     #   - 5005:5005
     volumes:
       - ./config:/config
-      - ./lightapi/build:/lightapi/build
-      - ./signin/build:/signin/build
+      - ./lightapi/dist:/lightapi/dist
+      - ./signin/dist:/signin/dist
     environment:
       STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}

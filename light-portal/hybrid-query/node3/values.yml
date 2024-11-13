@@ -33,6 +33,12 @@ db-provider.maximumPoolSize: 3
 
 # cache.yml
 cache.caches:
+  - cacheName: jwt
+    expiryInMinutes: 15
+    maxSize: 100
+  - cacheName: jwk
+    expiryInMinutes: 129600
+    maxSize: 100
   - cacheName: portal-data
     expiryInMinutes: 60
     maxSize: 1000
@@ -99,5 +105,5 @@ cors.allowedMethods:
   - PUT
   - DELETE
 
-# hybrid-security.yml
-hybrid-security.enableVerifyJwt: false
+# security.yml
+security.enableVerifyJwt: false
