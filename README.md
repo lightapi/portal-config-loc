@@ -243,7 +243,7 @@ cd networknt
 git clone git@github.com:networknt/portal-view.git
 cd ~/networknt/portal-view
 yarn install
-HTTPS=true yarn start
+yarn dev
 
 ```
 
