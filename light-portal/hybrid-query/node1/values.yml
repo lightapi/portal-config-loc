@@ -93,17 +93,5 @@ service.singletons:
   - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
     - com.networknt.kafka.common.LightSchemaRegistryClient
 
-# cors.yml
-cors.enabled: true
-cors.allowedOrigins:
-  - https://localhost:3000
-  - https://lightapi.net
-  - https://dev.lightapi.net
-cors.allowedMethods:
-  - GET
-  - POST
-  - PUT
-  - DELETE
-
 # security.yml
 security.enableVerifyJwt: false

@@ -151,11 +151,11 @@ paths:
   - path: '/r/data'
     method: 'GET'
     exec:
-      - code
+      - default
   - path: '/r/schema/{host}/{file}'
     method: 'GET'
     exec:
-      - code
+      - default
 
   - path: '/portal/query'
     method: 'GET'

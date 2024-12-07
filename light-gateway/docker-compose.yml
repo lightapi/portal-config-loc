@@ -23,18 +23,16 @@ services:
 
   # reference API
   reference:
-    image: networknt/com.networknt.reference-1.0.0:2.1.35
-    # ports:
-    #   - 2498:2498
+    image: networknt/com.networknt.reference:2.1.38
+    # image: networknt/com.networknt.reference:2.1.38-slim
     volumes:
       - ./reference:/config
       - /home/steve/data:/data
-    # depends_on:
-    #   - timescale
+    # environment:
+    #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+
     container_name: reference
     network_mode: host
-    # networks:
-    #   - localnet
 
   # petstore API for testing control pane.
   # petstore:

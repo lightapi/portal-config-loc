@@ -4,9 +4,10 @@ server.serviceId: com.networknt.gateway-1.0.0
 # router.yml
 router.maxRequestTime: 5000
 
-#client.yml
+# client.yml
 client.verifyHostname: false
 client.tokenServerUrl: https://localhost:6881
+# Authorization Code
 client.tokenAcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenAcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
@@ -14,7 +15,18 @@ client.tokenAcRedirectUri: https://localhost:3000/authorization
 client.tokenAcScope:
   - portal.r
   - portal.w
-
+  - ref.r
+  - ref.w
+# Client Credential
+client.tokenCcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
+client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenCcScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+# JSON Web Key
 client.tokenKeyServerUrl: https://localhost:6881
 client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
 
@@ -78,7 +90,7 @@ handler.handlers:
   # Direct requests to named services based on the request path
   # - com.networknt.router.middleware.GatewayServiceDictHandler@path
   - com.networknt.router.middleware.PathPrefixServiceHandler@prefix
-  # - com.networknt.router.middleware.GatewaySAMLTokenHandler@saml
+  - com.networknt.router.middleware.TokenHandler@token
   - com.networknt.router.RouterHandler@router
   - com.networknt.proxy.LightProxyHandler@proxy
   - com.networknt.proxy.ProxyServerInfoHandler@proxyServerInfo
@@ -116,7 +128,6 @@ handler.chains.default:
   - exception
   # - metrics
   - limit
-  - traceability
   - correlation
   # - killapp
   # - latency
@@ -133,6 +144,7 @@ handler.chains.default:
   # - validator
   # - path
   - prefix
+  - token
   - router
 
 # cache.yml
@@ -150,6 +162,7 @@ cors.allowedOrigins:
   - https://devsignin.lightapi.net
   - https://dev.lightapi.net
   - https://localhost:3000
+  - http://localhost:5173
 cors.allowedMethods:
   - GET
   - POST
@@ -161,5 +174,16 @@ statelessAuth.googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps
 statelessAuth.facebookClientId: 603230757035427
 statelessAuth.githubClientId: f13cddcfe475920deca7
 
-# openapi-security.yml
-openapi-security.skipPathPrefixes: ["/adm/server/info"]
+# security.yml
+security.skipPathPrefixes: ["/adm/server/info"]
+
+# token.yml
+token.enabled: true
+token.appliedPathPrefixes:
+  - /oauth2
+  - /r
+  - /portal/query
+  - /portal/command
+  - /config-server
+  - /services
+  - /schedulers
