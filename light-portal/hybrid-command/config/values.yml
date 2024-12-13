@@ -23,6 +23,7 @@ kafka-producer.schema.registry.url: http://localhost:8081
 portal.sendEmail: true
 portal.cmdHost: https://localhost:8439
 portal.resetHost: https://devsignin.lightapi.net
+portal.admin: steve.hu@lightapi.net
 
 # cors.yml
 cors.enabled: true
