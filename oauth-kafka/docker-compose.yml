@@ -6,9 +6,9 @@ services:
     #   - "6881:6881"
     volumes:
       - ./config:/config
-    environment:
+    # environment:
       # The following environment varialbe will enable the debug in the container.
-      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
 
     container_name: oauth-kafka
     network_mode: host
