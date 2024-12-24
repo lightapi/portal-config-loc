@@ -23,13 +23,13 @@ services:
 
   # reference API
   reference:
-    image: networknt/com.networknt.reference:2.1.38
-    # image: networknt/com.networknt.reference:2.1.38-slim
+    # image: networknt/com.networknt.reference:2.1.38
+    image: networknt/com.networknt.reference:2.1.38-slim
     volumes:
       - ./reference:/config
       - /home/steve/data:/data
-    # environment:
-    #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+    environment:
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
 
     container_name: reference
     network_mode: host
