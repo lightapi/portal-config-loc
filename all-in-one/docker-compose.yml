@@ -1,0 +1,227 @@
+---
+services:
+
+  broker:
+    image: confluentinc/cp-kafka:7.8.0
+    hostname: broker
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      # Replace CLUSTER_ID with a unique base64 UUID using "bin/kafka-storage.sh random-uuid"
+      # See https://docs.confluent.io/kafka/operations-tools/kafka-tools.html#kafka-storage-sh
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    # network_mode: host
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.8.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    # network_mode: host
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    depends_on:
+      - broker
+    # network_mode: host
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker:29092 --list
+
+      echo -e 'Creating kafka topics'
+
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server broker:29092 --list
+      "
+
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    depends_on:
+      - broker
+    volumes:
+      - /opt/timescale/16/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: secret
+    ports:
+      - 5432:5432
+    hostname: timescale
+    container_name: timescale
+    # network_mode: host
+
+  scheduler-node1:
+    image: networknt/light-scheduler:2.1.37
+    depends_on:
+      - timescale
+    volumes:
+      - ./light-scheduler/node1:/config
+    ports:
+      - 8401:8401
+    hostname: scheduler-node1
+    restart: on-failure
+    container_name: scheduler-node1
+    # network_mode: host
+
+  scheduler-node2:
+    image: networknt/light-scheduler:2.1.37
+    depends_on:
+      - timescale
+    volumes:
+      - ./light-scheduler/node2:/config
+    ports:
+      - 8402:8402
+    hostname: scheduler-node2
+    restart: on-failure
+    container_name: scheduler-node2
+    # network_mode: host
+
+  scheduler-node3:
+    image: networknt/light-scheduler:2.1.37
+    depends_on:
+      - timescale
+    volumes:
+      - ./light-scheduler/node3:/config
+    ports:
+      - 8403:8403
+    hostname: scheduler-node3
+    restart: on-failure
+    container_name: scheduler-node3
+    # network_mode: host
+
+  hybrid-command:
+    image: networknt/portal-hybrid-command:2.1.38
+    environment:
+      - NOREPLAY_EMAIL_PASSWORD=${NOREPLAY_EMAIL_PASSWORD}
+      - KAFKA_BOOTSTRAP_SERVERS=broker:9092
+    volumes:
+      - ./hybrid-command/config:/config
+      - ./hybrid-command/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8439:8439
+    restart: on-failure
+    container_name: hybrid-command
+    # network_mode: host
+
+  hybrid-query1:
+    image: networknt/portal-hybrid-query:2.1.38-slim
+    volumes:
+      - ./hybrid-query/node1:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8440:8440
+    restart: on-failure
+    container_name: hybrid-query1
+    # network_mode: host
+
+  hybrid-query2:
+    image: networknt/portal-hybrid-query:2.1.38-slim
+    volumes:
+      - ./hybrid-query/node2:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8441:8441
+    restart: on-failure
+    container_name: hybrid-query2
+    # network_mode: host
+
+  hybrid-query3:
+    image: networknt/portal-hybrid-query:2.1.38-slim
+    volumes:
+      - ./hybrid-query/node3:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8442:8442
+    restart: on-failure
+    container_name: hybrid-query3
+    # network_mode: host
+
+  oauth-kafka:
+    # image: networknt/oauth-kafka:2.1.38
+    image: networknt/oauth-kafka:2.1.38-slim
+    ports:
+      - 6881:6881
+    volumes:
+      - ./oauth-kafka/config:/config
+    # environment:
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+    restart: on-failure
+    container_name: oauth-kafka
+    # network_mode: host
+
+  # reference API
+  reference:
+    # image: networknt/com.networknt.reference:2.1.38
+    image: networknt/com.networknt.reference:2.1.38-slim
+    ports:
+      - 2498:2498
+    volumes:
+      - ./light-reference/config:/config
+      - /home/steve/data:/data
+    # environment:
+    #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+    restart: on-failure
+    container_name: reference
+    # network_mode: host
+
+  light-gateway:
+    image:  networknt/light-gateway:2.1.38-slim
+    ports:
+      - 443:8443
+    #   - 5005:5005
+    volumes:
+      - ./light-gateway/config:/config
+      - ./light-gateway/lightapi/dist:/lightapi/dist
+      - ./light-gateway/signin/dist:/signin/dist
+    environment:
+      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
+      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
+      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005'
+    container_name: light-gateway
+    # network_mode: host
