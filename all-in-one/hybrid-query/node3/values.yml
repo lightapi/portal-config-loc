@@ -6,12 +6,8 @@ server.serviceId: com.networknt.portal.hybrid.query-1.0.0
 client.verifyHostname: false
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.tokenKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.signClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.signKeyClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.injectOpenTracing: true
+client.tokenKeyServerUrl: https://oauth-kafka:6881
+client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
 
 # kafka-streams.yml
 kafka-streams.bootstrap.servers: broker:29092
@@ -95,4 +91,4 @@ service.singletons:
     - com.networknt.kafka.common.LightSchemaRegistryClient
 
 # security.yml
-security.enableVerifyJwt: false
+security.enableVerifyJwt: true
