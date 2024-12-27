@@ -26,6 +26,16 @@ client.tokenCcScope:
   - portal.w
   - ref.r
   - ref.w
+# Refresh Token
+client.tokenRtUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
+client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenRtClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenRtScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+
 # JSON Web Key
 client.tokenKeyServerUrl: https://oauth-kafka:6881
 client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
