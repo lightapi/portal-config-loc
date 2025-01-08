@@ -74,6 +74,8 @@ services:
       kafka-topics --bootstrap-server broker:29092 --list
       "
 
+
+
   timescale:
     image: timescale/timescaledb:latest-pg16
     depends_on:
@@ -229,3 +231,28 @@ services:
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     container_name: light-gateway
     # network_mode: host
+
+  openapi-petstore:
+    image: networknt/openapi-petstore:2.1.38
+    depends_on:
+      - light-gateway
+    ports:
+      - 9443:9443
+    hostname: openapi-petstore
+    restart: on-failure
+    container_name: openapi-petstore
+
+  http-sidecar:
+    image: networknt/http-sidecar:2.1.38-slim
+    environment:
+      JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    depends_on:
+      - openapi-petstore
+    ports:
+      - 8443:8443
+      - 5005:5005
+    volumes:
+      - ./http-sidecar/config:/config
+    hostname: http-sidecar
+    restart: on-failure
+    container_name: http-sidecar
