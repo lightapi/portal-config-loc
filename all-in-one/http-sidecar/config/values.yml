@@ -24,8 +24,10 @@ service.singletons:
     - com.networknt.cluster.LightCluster
   - com.networknt.handler.ResponseInterceptor:
     - com.networknt.body.ResponseBodyInterceptor
+    - com.networknt.restrans.ResponseTransformerInterceptor
   - com.networknt.handler.RequestInterceptor:
     - com.networknt.body.RequestBodyInterceptor
+    - com.networknt.reqtrans.RequestTransformerInterceptor
   - com.networknt.cache.CacheManager:
     - com.networknt.cache.CaffeineCacheManager
   - com.networknt.server.StartupHookProvider:
@@ -122,6 +124,14 @@ request-injection.appliedBodyInjectionPathPrefixes:
 
 # response-injection.yml
 response-injection.appliedBodyInjectionPathPrefixes:
+  - /
+
+# response-transformer.yml
+response-transformer.appliedPathPrefixes:
+  - /
+
+# request-transformer.yml
+request-transformer.appliedPathPrefixes:
   - /
 
 # header.yml
