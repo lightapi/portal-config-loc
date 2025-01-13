@@ -23,7 +23,7 @@ portal.resetHost: https://devsignin.lightapi.net
 # db-provider.yml
 # For postgres database running in a docker container, you have to use the driverClassName.
 db-provider.driverClassName: org.postgresql.Driver
-db-provider.jdbcUrl: jdbc:postgresql://timescale:5432/configserver
+db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
 db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
@@ -53,42 +53,42 @@ direct-registry.directUrls:
 # service.yml
 service.singletons:
   - com.networknt.registry.URL:
-    - com.networknt.registry.URLImpl
+      - com.networknt.registry.URLImpl
   - com.networknt.registry.Registry:
-    - com.networknt.registry.support.DirectRegistry
+      - com.networknt.registry.support.DirectRegistry
   - com.networknt.balance.LoadBalance:
-    - com.networknt.balance.RoundRobinLoadBalance
+      - com.networknt.balance.RoundRobinLoadBalance
   - com.networknt.cluster.Cluster:
-    - com.networknt.cluster.LightCluster
+      - com.networknt.cluster.LightCluster
   - com.networknt.cache.CacheManager:
-    - com.networknt.cache.CaffeineCacheManager
+      - com.networknt.cache.CaffeineCacheManager
   # PortalDbProviderImpl of DbProvider
   - com.networknt.db.provider.DbProvider:
-    - net.lightapi.portal.db.PortalDbProviderImpl
+      - net.lightapi.portal.db.PortalDbProviderImpl
   # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.StartupHookProvider:
-    # registry all service handlers by from annotations
-    - com.networknt.rpc.router.RpcStartupHookProvider
-    # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
-    # User Query Startup Hook
-    - net.lightapi.portal.user.query.UserQueryStartup
-    # Covid Query Startup Hook
-    # - net.lightapi.portal.covid.query.CovidQueryStartup
-    # Market Query Startup Hook
-    - net.lightapi.portal.market.query.MarketQueryStartup
-    # database startup hook to initialize datasource and cache.
-    - com.networknt.db.provider.SqlDbStartupHook
+      # registry all service handlers by from annotations
+      - com.networknt.rpc.router.RpcStartupHookProvider
+      # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
+      # User Query Startup Hook
+      - net.lightapi.portal.user.query.UserQueryStartup
+      # Covid Query Startup Hook
+      # - net.lightapi.portal.covid.query.CovidQueryStartup
+      # Market Query Startup Hook
+      - net.lightapi.portal.market.query.MarketQueryStartup
+      # database startup hook to initialize datasource and cache.
+      - com.networknt.db.provider.SqlDbStartupHook
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
-    # User Query Shutdown Hook
-    - net.lightapi.portal.user.query.UserQueryShutdown
-    # Covid Query Shutdown Hook
-    # - net.lightapi.portal.covid.query.CovidQueryShutdown
-    # Market Query Shutdown Hook
-    - net.lightapi.portal.market.query.MarketQueryShutdown
+      # User Query Shutdown Hook
+      - net.lightapi.portal.user.query.UserQueryShutdown
+      # Covid Query Shutdown Hook
+      # - net.lightapi.portal.covid.query.CovidQueryShutdown
+      # Market Query Shutdown Hook
+      - net.lightapi.portal.market.query.MarketQueryShutdown
   # Schema Registry client implementation
   - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
-    - com.networknt.kafka.common.LightSchemaRegistryClient
+      - com.networknt.kafka.common.LightSchemaRegistryClient
 
 # security.yml
 security.enableVerifyJwt: true
