@@ -15,7 +15,6 @@ client.tokenCcScope:
   - ref.r
   - ref.w
 
-
 # security.yml
 security.enableVerifyJwt: false
 
@@ -35,30 +34,30 @@ allowedMethods:
   - DELETE
 
 service.singletons:
-- com.networknt.registry.URL:
-  - com.networknt.registry.URLImpl
-- com.networknt.registry.Registry:
-  - com.networknt.registry.support.DirectRegistry
-- com.networknt.balance.LoadBalance:
-  - com.networknt.balance.RoundRobinLoadBalance
-- com.networknt.cluster.Cluster:
-  - com.networknt.cluster.LightCluster
-- com.networknt.cache.CacheManager:
-  - com.networknt.cache.CaffeineCacheManager
-# PortalDbProviderImpl of DbProvider
-- com.networknt.db.provider.DbProvider:
-  - net.lightapi.portal.db.PortalDbProviderImpl
-# StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
-- com.networknt.server.StartupHookProvider:
-  # database startup hook to initialize datasource and cache.
-  - com.networknt.db.provider.SqlDbStartupHook
-  # - com.networknt.oauth.cache.CacheStartupHookProvider
-# ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
-# - com.networknt.server.ShutdownHookProvider:
+  - com.networknt.registry.URL:
+      - com.networknt.registry.URLImpl
+  - com.networknt.registry.Registry:
+      - com.networknt.registry.support.DirectRegistry
+  - com.networknt.balance.LoadBalance:
+      - com.networknt.balance.RoundRobinLoadBalance
+  - com.networknt.cluster.Cluster:
+      - com.networknt.cluster.LightCluster
+  - com.networknt.cache.CacheManager:
+      - com.networknt.cache.CaffeineCacheManager
+  # PortalDbProviderImpl of DbProvider
+  - com.networknt.db.provider.DbProvider:
+      - net.lightapi.portal.db.PortalDbProviderImpl
+  # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
+  - com.networknt.server.StartupHookProvider:
+      # database startup hook to initialize datasource and cache.
+      - com.networknt.db.provider.SqlDbStartupHook
+    # - com.networknt.oauth.cache.CacheStartupHookProvider
+  # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
+  # - com.networknt.server.ShutdownHookProvider:
   # - com.networknt.oauth.cache.CacheShutdownHookProvider
-# Authenticator implementation mapping
-- com.networknt.oauth.auth.Authenticator<com.networknt.oauth.auth.LightPortalAuth>:
-  - com.networknt.oauth.auth.LightPortalAuthenticator
+  # Authenticator implementation mapping
+  - com.networknt.oauth.auth.Authenticator<com.networknt.oauth.auth.LightPortalAuth>:
+      - com.networknt.oauth.auth.LightPortalAuthenticator
 
 # direct-registry.yml
 direct-registry.directUrls:
@@ -118,7 +117,7 @@ handler.chains.default:
 # db-provider.yml
 # For postgres database running in a docker container, you have to use the driverClassName.
 db-provider.driverClassName: org.postgresql.Driver
-db-provider.jdbcUrl: jdbc:postgresql://timescale:5432/configserver
+db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
 db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
