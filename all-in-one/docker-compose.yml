@@ -242,13 +242,13 @@ services:
 
   http-sidecar:
     image: networknt/http-sidecar:2.1.38-slim
-    environment:
-      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
+    # environment:
+    #   JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
     depends_on:
       - openapi-petstore
     ports:
       - 8443:8443
-      - 5005:5005
+      # - 5005:5005
     volumes:
       - ./http-sidecar/config:/config
     hostname: http-sidecar
