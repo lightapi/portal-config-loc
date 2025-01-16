@@ -17,7 +17,7 @@ kafka-producer.schema.registry.url: http://schema-registry:8081
 
 # portal.yml
 portal.sendEmail: true
-portal.cmdHost: https://hybrid-command:8439
+portal.cmdHost: https://localhost
 portal.resetHost: https://devsignin.lightapi.net
 portal.admin: steve.hu@lightapi.net
 
