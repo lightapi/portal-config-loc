@@ -25,6 +25,8 @@ DROP TABLE IF EXISTS api_version_t CASCADE;
 
 DROP TABLE IF EXISTS app_api_t CASCADE;
 
+DROP TABLE IF EXISTS client_t CASCADE;
+
 DROP TABLE IF EXISTS app_t CASCADE;
 
 DROP TABLE IF EXISTS chain_handler_t CASCADE;
@@ -148,7 +150,17 @@ DROP table IF EXISTS user_host_t CASCADE;
 
 DROP TABLE IF EXISTS user_t CASCADE;
 
-DROP TABLE IF EXISTS refresh_token_t CASCADE;
+DROP TABLE IF EXISTS auth_refresh_token_t CASCADE;
+
+DROP TABLE IF EXISTS auth_code_t CASCADE;
+
+DROP TABLE IF EXISTS auth_ref_token_t CASCADE;
+
+DROP TABLE IF EXISTS auth_provider_client_t CASCADE;
+
+DROP TABLE IF EXISTS auth_provider_key_t CASCADE;
+
+DROP TABLE IF EXISTS auth_provider_t CASCADE;
 
 DROP TABLE IF EXISTS notification_t CASCADE;
 
@@ -373,6 +385,18 @@ CREATE TABLE app_t (
     app_name                VARCHAR(128) NOT NULL,
     app_desc                VARCHAR(2048),
     is_kafka_app            BOOLEAN DEFAULT false,
+    operation_owner         VARCHAR(64),
+    delivery_owner          VARCHAR(64),
+    update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    updated_timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+ALTER TABLE app_t ADD CONSTRAINT app_pk PRIMARY KEY ( host_id, app_id );
+
+
+CREATE TABLE client_t (
+    host_id                 VARCHAR(22) NOT NULL,
+    app_id                  VARCHAR(22) NOT NULL,
     client_id               VARCHAR(36) NOT NULL,
     client_type             VARCHAR(12) NOT NULL, -- public, confidential, trusted, external
     client_profile          VARCHAR(10) NOT NULL, -- webserver, mobile, browser, service, batch
@@ -382,17 +406,11 @@ CREATE TABLE app_t (
     redirect_uri            VARCHAR(1024),
     authenticate_class      VARCHAR(256),
     deref_client_id         VARCHAR(36), -- only this client calls AS to deref token to JWT for external client type
-    operation_owner         VARCHAR(64),
-    delivery_owner          VARCHAR(64),
-    update_user             VARCHAR (64) NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    updated_timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (client_id),
+    FOREIGN KEY (host_id, app_id) REFERENCES app_t(host_id, app_id) ON DELETE CASCADE
 );
-
-
-ALTER TABLE app_t ADD CONSTRAINT app_pk PRIMARY KEY ( host_id, app_id );
-
-ALTER TABLE app_t ADD CONSTRAINT app_client_uk UNIQUE (client_id);
-
 
 
 CREATE TABLE chain_handler_t (
@@ -1027,7 +1045,7 @@ CREATE TABLE employee_t (
     host_id                   VARCHAR(22) NOT NULL,
     employee_id               VARCHAR(50) NOT NULL,  -- Employee ID or number or ACF2 ID. Unique within the host.
     user_id                   VARCHAR(22) NOT NULL,
-    title                     VARCHAR(255) NOT NULL,
+    title                     VARCHAR(126),
     manager_id                VARCHAR(50), -- manager's employee_id if there is one.
     hire_date                 DATE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
@@ -1359,18 +1377,90 @@ CREATE TABLE attribute_col_filter_t (
     FOREIGN KEY (host_id, attribute_id) REFERENCES attribute_t(host_id, attribute_id) ON DELETE CASCADE
 );
 
-CREATE TABLE refresh_token_t (
+
+CREATE TABLE auth_provider_t (
+    host_id                   VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
+    jwk                       VARCHAR(65535) NOT NULL, -- json web key that contains current and previous public keys
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (host_id, provider_id) -- in case the provider id is input from user to backup other cloud oauth2 provider.
+);
+
+CREATE TABLE auth_provider_key_t (
+    host_id                   VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
+    kid                       VARCHAR(22) NOT NULL,
+    public_key                VARCHAR(65535) NOT NULL,
+    private_key               VARCHAR(65535) NOT NULL,
+    key_type                  CHAR(1) NOT NULL, -- L long live C current, P previous
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, provider_id, kid),
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE
+);
+
+CREATE TABLE auth_provider_client_t (
+    host_id                   VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
+    client_id                 VARCHAR(36) NOT NULL,
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, provider_id, client_id),
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(client_id) REFERENCES client_t(client_id) ON DELETE CASCADE
+);
+
+CREATE TABLE auth_code_t (
+    host_id                   VARCHAR(22) NOT NULL,
+    auth_code                 VARCHAR(22) NOT NULL,
+    user_id                   VARCHAR(22) NOT NULL,
+    entity_id                 VARCHAR(50) NOT NULL,
+    user_type                 CHAR(1) NOT NULL,
+    email                     VARCHAR(126) NOT NULL,
+    roles                     VARCHAR(4096),
+    groups                    VARCHAR(4096),
+    positions                 VARCHAR(4096),
+    attributes                VARCHAR(4096),
+    redirect_uri              VARCHAR(2048),
+    scope                     VARCHAR(1024),
+    remember                  CHAR(1),
+    code_challenge            VARCHAR(126),
+    challenge_method          VARCHAR(64),
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (auth_code),
+    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE auth_refresh_token_t (
     refresh_token             VARCHAR(36) NOT NULL,
     host_id                   VARCHAR(22) NOT NULL,
     user_id                   VARCHAR(22) NOT NULL,
+    entity_id                 VARCHAR(50) NOT NULL,
+    user_type                 CHAR(1) NOT NULL,
+    email                     VARCHAR(126) NOT NULL,
+    roles                     VARCHAR(4096),
+    groups                    VARCHAR(4096),
+    positions                 VARCHAR(4096),
+    attributes                VARCHAR(4096),
     client_id                 VARCHAR(36) NOT NULL,
     scope                     VARCHAR(1024),
-    user_type                 CHAR(1),
-    roles                     VARCHAR(1024),
     csrf                      VARCHAR(36),
     custom_claim              VARCHAR(2000),
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (refresh_token),
     FOREIGN KEY (host_id, user_id) REFERENCES user_host_t (host_id, user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE auth_ref_token_t (
+    host_id                   VARCHAR(22) NOT NULL,
+    ref_token                 VARCHAR(40) NOT NULL,
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (ref_token),
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE notification_t (
@@ -2068,6 +2158,212 @@ INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ncL02GjkSySS
 INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('QrchwHxBStyxBzmvUg3rAg', 'en', 'range');
 INSERT INTO ref_host_t(table_id, host_id) values ('ymOpyDEeQ6ud9lPwZnCAPg', 'N2CMw0HGQXeLvC1wBfln2A');
 
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('lEeqoalEQRGPhv5u6jXxyQ', 'country', 'ISO country', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'lEeqoalEQRGPhv5u6jXxyQ', 'CAN', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'lEeqoalEQRGPhv5u6jXxyQ', 'USA', 200, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'en', 'Canada');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'en', 'USA');
+INSERT INTO ref_host_t(table_id, host_id) values ('lEeqoalEQRGPhv5u6jXxyQ', 'N2CMw0HGQXeLvC1wBfln2A');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('IqtHTASySmmzSVQqYYVy3w', 'province', 'Province or State', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('4SySR33wS06JMfIsszcRXw', 'IqtHTASySmmzSVQqYYVy3w', 'ON', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'IqtHTASySmmzSVQqYYVy3w', 'QC', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'IqtHTASySmmzSVQqYYVy3w', 'NS', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'IqtHTASySmmzSVQqYYVy3w', 'NB', 400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'IqtHTASySmmzSVQqYYVy3w', 'MB', 500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'IqtHTASySmmzSVQqYYVy3w', 'BC', 600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('KMV1WtthTuarWAICFGu4VA', 'IqtHTASySmmzSVQqYYVy3w', 'PE', 700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'IqtHTASySmmzSVQqYYVy3w', 'SK', 800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'IqtHTASySmmzSVQqYYVy3w', 'AB', 900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'IqtHTASySmmzSVQqYYVy3w', 'NL', 1000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'IqtHTASySmmzSVQqYYVy3w', 'NT', 1100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'IqtHTASySmmzSVQqYYVy3w', 'YT', 1200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('uCPK09RERTm3ePOs8fggQw', 'IqtHTASySmmzSVQqYYVy3w', 'NU', 1300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'IqtHTASySmmzSVQqYYVy3w', 'AL', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'IqtHTASySmmzSVQqYYVy3w', 'AK', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'IqtHTASySmmzSVQqYYVy3w', 'AZ', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'IqtHTASySmmzSVQqYYVy3w', 'AR', 400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'IqtHTASySmmzSVQqYYVy3w', 'CA', 500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'IqtHTASySmmzSVQqYYVy3w', 'CO', 600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'IqtHTASySmmzSVQqYYVy3w', 'CT', 700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'IqtHTASySmmzSVQqYYVy3w', 'DE', 800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'IqtHTASySmmzSVQqYYVy3w', 'DC', 900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'IqtHTASySmmzSVQqYYVy3w', 'FL', 1000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'IqtHTASySmmzSVQqYYVy3w', 'GA', 1100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'IqtHTASySmmzSVQqYYVy3w', 'HI', 1200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'IqtHTASySmmzSVQqYYVy3w', 'ID', 1300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'IqtHTASySmmzSVQqYYVy3w', 'IL', 1400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'IqtHTASySmmzSVQqYYVy3w', 'IN', 1500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'IqtHTASySmmzSVQqYYVy3w', 'IA', 1600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'IqtHTASySmmzSVQqYYVy3w', 'KS', 1700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'IqtHTASySmmzSVQqYYVy3w', 'KY', 1800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'IqtHTASySmmzSVQqYYVy3w', 'LA', 1900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'IqtHTASySmmzSVQqYYVy3w', 'ME', 2000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('FI9d37HMS524eRphBcZRww', 'IqtHTASySmmzSVQqYYVy3w', 'MD', 2100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'IqtHTASySmmzSVQqYYVy3w', 'MA', 2200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'IqtHTASySmmzSVQqYYVy3w', 'MI', 2300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'IqtHTASySmmzSVQqYYVy3w', 'MN', 2400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'IqtHTASySmmzSVQqYYVy3w', 'MS', 2500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'IqtHTASySmmzSVQqYYVy3w', 'MO', 2600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'IqtHTASySmmzSVQqYYVy3w', 'MT', 2700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'IqtHTASySmmzSVQqYYVy3w', 'NE', 2800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'IqtHTASySmmzSVQqYYVy3w', 'NV', 2900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'IqtHTASySmmzSVQqYYVy3w', 'NH', 3000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('znDF7_FzTialWfTOcgnZqw', 'IqtHTASySmmzSVQqYYVy3w', 'NJ', 3100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'IqtHTASySmmzSVQqYYVy3w', 'NM', 3200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'IqtHTASySmmzSVQqYYVy3w', 'NY', 3300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'IqtHTASySmmzSVQqYYVy3w', 'NC', 3400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'IqtHTASySmmzSVQqYYVy3w', 'ND', 3500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'IqtHTASySmmzSVQqYYVy3w', 'OH', 3600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'IqtHTASySmmzSVQqYYVy3w', 'OK', 3700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'IqtHTASySmmzSVQqYYVy3w', 'OR', 3800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'IqtHTASySmmzSVQqYYVy3w', 'PA', 3900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'IqtHTASySmmzSVQqYYVy3w', 'RI', 4000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'IqtHTASySmmzSVQqYYVy3w', 'SC', 4100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'IqtHTASySmmzSVQqYYVy3w', 'SD', 4200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'IqtHTASySmmzSVQqYYVy3w', 'TN', 4300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'IqtHTASySmmzSVQqYYVy3w', 'TX', 4400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'IqtHTASySmmzSVQqYYVy3w', 'UT', 4500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'IqtHTASySmmzSVQqYYVy3w', 'VT', 4600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'IqtHTASySmmzSVQqYYVy3w', 'VA', 4700, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'IqtHTASySmmzSVQqYYVy3w', 'WA', 4800, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('WCZmuWsiROei0WY5mtEduA', 'IqtHTASySmmzSVQqYYVy3w', 'WV', 4900, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'IqtHTASySmmzSVQqYYVy3w', 'WI', 5000, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'IqtHTASySmmzSVQqYYVy3w', 'WY', 5100, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('4SySR33wS06JMfIsszcRXw', 'en', 'Ontario');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'en', 'Quebec');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'en', 'Nova Scotia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'en', 'New Brunswick');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'en', 'Manitoba');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'en', 'British Columbia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('KMV1WtthTuarWAICFGu4VA', 'en', 'Prince Edward Island');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'en', 'Saskatchewan');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'en', 'Alberta');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'en', 'Newfoundland and Labrador');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'en', 'Northwest Territories');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'en', 'Yukon');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('uCPK09RERTm3ePOs8fggQw', 'en', 'Nunavut');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'en', 'Alabama');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'en', 'Alaska');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'en', 'Arizona');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'en', 'Arkansas');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'en', 'California');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'en', 'Colorado');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'en', 'Connecticut');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'en', 'Delaware');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'en', 'District of Columbia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'en', 'Florida');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'en', 'Georgia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'en', 'Hawaii');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'en', 'Idaho');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'en', 'Illinois');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'en', 'Indiana');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'en', 'Iowa');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'en', 'Kansas');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'en', 'Kentucky');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'en', 'Louisiana');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'en', 'Maine');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('FI9d37HMS524eRphBcZRww', 'en', 'Maryland');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'en', 'Massachusetts');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'en', 'Michigan');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'en', 'Minnesota');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'en', 'Mississippi');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'en', 'Missouri');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'en', 'Montana');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'en', 'Nebraska');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'en', 'Nevada');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'en', 'New Hampshire');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('znDF7_FzTialWfTOcgnZqw', 'en', 'New Jersey');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'en', 'New Mexico');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'en', 'New York');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'en', 'North Carolina');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'en', 'North Dakota');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'en', 'Ohio');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'en', 'Oklahoma');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'en', 'Oregon');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'en', 'Pennsylvania');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'en', 'Rhode Island');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'en', 'South Carolina');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'en', 'South Dakota');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'en', 'Tennessee');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'en', 'Texas');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'en', 'Utah');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'en', 'Vermont');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'en', 'Virginia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'en', 'Washington');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('WCZmuWsiROei0WY5mtEduA', 'en', 'West Virginia');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'en', 'Wisconsin');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'en', 'Wyoming');
+INSERT INTO ref_host_t(table_id, host_id) values ('IqtHTASySmmzSVQqYYVy3w', 'N2CMw0HGQXeLvC1wBfln2A');
+
+-- relation type
+INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'country-province', 'country province dropdown');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', '4SySR33wS06JMfIsszcRXw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'gdcXdRvKTRCTPfXLbwwxAw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'f2nPeF5_QyCYUHLWFX_mTA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'o1lZHlYJTyevnO8hxgJGBQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'I_w5C08tTKOzmjtKuuBQ4g');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'p6kiWsTxRvS1YALKu_Ye9g');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'KMV1WtthTuarWAICFGu4VA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'Ecq4WaVkSxWY7CuAEwJWKA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'pdLlXyJJRkqIEVikfpAhaA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', '9ZrQHay6SWSiQzF_p9VpIw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'Gc1w4UBzQNGe_auPDAXLAQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', '1OZZ_49CSnS_LTFeXZI4FQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'RKuBaSNPRKiAHOrEhe2wsA', 'uCPK09RERTm3ePOs8fggQw');
+
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '9Rn8wW6sQp68nMML3E640Q');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '8eb2qqvyRIWrTloE9P5YWw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '0OWbTB3yQqKEtsGqfTSIAA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'P1hW5PMiS22quKjOw_p1Qw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '9FuoUVnTTEWDAbvsAls_qQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '0HR8TT7FQsOJpBQ3Ts9Q6w');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'axabsLmnRbCpbaVnEm5rpQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'atq5TpwqQ6yMzd7nRP2qsQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '6RicSPdnS6ulOmuBNJSLiQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'QxUzGj8DQaamil5Ixi5Mqg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '4WaXpgMWTWiTgKnBOBw_fA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '6kGKDmreSCepCUZPfrlNXg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'OkWLdgR6TSmaMJ4L6nN1iA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ysAvApSXQbCeXNuLEHO4MA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'KW4bcpSwT965ljf3eQ2JzQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'q1SefWE7R7SydF9am1L0xQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'pnMbZYLNRXCZBNgGQnjXIQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'xOaPdIWlSxysJipep5_8Mw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'PfM2V43qRyWlE22JjN9YYg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '75844bWyTGGcGDGUlxX1Iw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'FI9d37HMS524eRphBcZRww');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ZLRF7XBqQtGn1ocC1fAPBg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ojEJsw8kSayQLw7PnbFvQA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'XFySNM6GQJKs7ipAPvIhnQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'p0vlgugwRu68Hz7v0PE_rQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'Z1ltK9vbSnG0yIZf1Q9Gbg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ufBZNeKGTaKP9JRmncr1Yg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'u13ZAyLMRm6jdtHv8gmouA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'L6BM3GFRQwiTb7TGKB4pUA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'HKC5gT9LSPeCJkQ9aOCPwg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'znDF7_FzTialWfTOcgnZqw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'Gu_yMNh1TLOs3S_8cw_EEw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'xX1ql_tZR6S3Fi60w2f5Nw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'LaWWB1K4QMqu0oxJUWD7TQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'hzcMPMB8QXCo9B50SnAZcw');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'hTpuM1xVTTWdfRUgEkPXzg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'H_QDW2FfSMuVsQkrRORPzg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'MNV6tCAoR6KKl37yVtYfYg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'SGty6qwYRTSW4W6SETXaqQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'dFDbA9l5TZefJBTd15B6Sg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ECnVlHWfRrm52sD9YMbe7Q');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'sHXjPXRdRr2zn4dHYQKiVg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'ox9JxOmpRNGwbBR6sa7vfg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'G81Fak4dTwCdYNKiWYyojg');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'p7rqy1fNTUOKmDrYeYm1og');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'arEz8xOKQMe5f7jqRtrkgA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', '5VBfmpLwToCdHlv8whWwgA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'NAZNdWnQRYyEUoBVS6H8ww');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'WCZmuWsiROei0WY5mtEduA');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'grVp1z6jRzeh2Q_p7WFgIQ');
+INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'GqToK4trSNWjUFQTtBnpLg');
 
 
 INSERT INTO product_version_t (product_id, product_version, product_version_desc, current_flag)
@@ -2148,36 +2444,50 @@ INSERT INTO group_user_t (host_id, group_id, user_id, start_ts) VALUES
 ('N2CMw0HGQXeLvC1wBfln2A', 'update', 'utgdG50vRVOX3mL1Kf83aA', CURRENT_TIMESTAMP),
 ('N2CMw0HGQXeLvC1wBfln2A', 'delete', 'utgdG50vRVOX3mL1Kf83aA', CURRENT_TIMESTAMP);
 
+INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'Admin Client', 'Access the adm endpoints of light-portal services', false, null, null);
 
-INSERT INTO app_t (host_id, app_id, app_name, app_desc, is_kafka_app, client_id, client_type, client_profile,
-client_secret, client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id, operation_owner, delivery_owner, update_user)
-VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'Admin Client', 'Access the adm endpoints of light-portal services', false,  'f7d42348-c647-4efb-a52d-4c5787421e70', 'trusted', 'mobile',
-'1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
-'admin', null, 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null, null, null, 'stevehu@gmail.com');
 
-INSERT INTO app_t (host_id, app_id, app_name, app_desc, is_kafka_app, client_id, client_type, client_profile,
-client_secret, client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id, operation_owner, delivery_owner, update_user)
-VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'PetStore Web Server', 'PetStore Web Server that calls PetStore API', false,  'f7d42348-c647-4efb-a52d-4c5787421e72', 'trusted', 'mobile',
-'1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
-'portal.r portal.w ref.r ref.w', '{"c1": "361", "c2": "67"}', 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null, null, null, 'stevehu@gmail.com');
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+    client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
+VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421e70', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
+'admin', null, 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
 
-INSERT INTO app_t (host_id, app_id, app_name, app_desc, is_kafka_app, client_id, client_type, client_profile,
-client_secret, client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id, operation_owner, delivery_owner, update_user)
-VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false,  'f7d42348-c647-4efb-a52d-4c5787421e73', 'trusted', 'browser',
-'1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
-'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null, null, null, 'stevehu@gmail.com');
+INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'PetStore Web Server', 'PetStore Web Server that calls PetStore API', false, null, null);
 
-INSERT INTO app_t (host_id, app_id, app_name, app_desc, is_kafka_app, client_id, client_type, client_profile,
-client_secret, client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id, operation_owner, delivery_owner, update_user)
-VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false,  'f7d42348-c647-4efb-a52d-4c5787421e75', 'trusted', 'browser',
-'1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
-'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.DefaultAuth', null, null, null, 'stevehu@gmail.com');
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+    client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
+VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421e72', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
+'portal.r portal.w ref.r ref.w', '{"c1": "361", "c2": "67"}', 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
 
-INSERT INTO app_t (host_id, app_id, app_name, app_desc, is_kafka_app, client_id, client_type, client_profile,
-client_secret, client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id, operation_owner, delivery_owner, update_user)
-VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'Petstore Client Application', 'An example application that is used to demo access to openapi-petstore', false,  'f7d42348-c647-4efb-a52d-4c5787421e76', 'trusted', 'browser',
-'1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
-'read:pets write:pets', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null, null, null, 'stevehu@gmail.com');
+
+INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
+
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+    client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
+VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'f7d42348-c647-4efb-a52d-4c5787421e73', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
+'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
+
+
+INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
+
+
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+    client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
+VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'f7d42348-c647-4efb-a52d-4c5787421e75', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
+'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.DefaultAuth', null);
+
+INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'Petstore Client Application', 'An example application that is used to demo access to openapi-petstore', false, null, null);
+
+
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+    client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
+VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'f7d42348-c647-4efb-a52d-4c5787421e76', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
+'read:pets write:pets', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
 
 
 INSERT INTO
