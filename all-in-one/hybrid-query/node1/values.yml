@@ -72,20 +72,12 @@ service.singletons:
     # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
     # User Query Startup Hook
     - net.lightapi.portal.user.query.UserQueryStartup
-    # Covid Query Startup Hook
-    # - net.lightapi.portal.covid.query.CovidQueryStartup
-    # Market Query Startup Hook
-    - net.lightapi.portal.market.query.MarketQueryStartup
     # database startup hook to initialize datasource and cache.
     - com.networknt.db.provider.SqlDbStartupHook
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # User Query Shutdown Hook
     - net.lightapi.portal.user.query.UserQueryShutdown
-    # Covid Query Shutdown Hook
-    # - net.lightapi.portal.covid.query.CovidQueryShutdown
-    # Market Query Shutdown Hook
-    - net.lightapi.portal.market.query.MarketQueryShutdown
   # Schema Registry client implementation
   - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
     - com.networknt.kafka.common.LightSchemaRegistryClient
