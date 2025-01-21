@@ -23,10 +23,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
-      # Replace CLUSTER_ID with a unique base64 UUID using "bin/kafka-storage.sh random-uuid"
-      # See https://docs.confluent.io/kafka/operations-tools/kafka-tools.html#kafka-storage-sh
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-    # network_mode: host
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.8.0
@@ -40,13 +37,11 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    # network_mode: host
 
   init-kafka:
     image: confluentinc/cp-kafka:7.8.0
     depends_on:
       - broker
-    # network_mode: host
     entrypoint: ["/bin/sh", "-c"]
     command: |
       "
@@ -86,25 +81,19 @@ services:
       - 5432:5432
     hostname: postgres
     container_name: postgres
-    # network_mode: host
 
   hybrid-command:
     image: networknt/portal-hybrid-command:2.1.38-slim
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
-      # The following environment varialbe will enable the debug in the container.
-      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     volumes:
       - ./hybrid-command/config:/config
       - ./hybrid-command/service:/service
       - /home/steve/data:/data
     ports:
       - 8439:8439
-      # The debug port
-      # - 5005:5005
     restart: on-failure
     container_name: hybrid-command
-    # network_mode: host
 
   hybrid-query:
     image: networknt/portal-hybrid-query:2.1.38-slim
@@ -116,43 +105,31 @@ services:
       - 8440:8440
     restart: on-failure
     container_name: hybrid-query
-    # network_mode: host
 
   oauth-kafka:
-    # image: networknt/oauth-kafka:2.1.38
     image: networknt/oauth-kafka:2.1.38-slim
     ports:
       - 6881:6881
-      # - 5005:5005
     volumes:
       - ./oauth-kafka/config:/config
     # environment:
-    # The following environment varialbe will enable the debug in the container.
-    # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: oauth-kafka
-    # network_mode: host
 
   # reference API
   reference:
-    # image: networknt/com.networknt.reference:2.1.38
     image: networknt/com.networknt.reference:2.1.38-slim
     ports:
       - 2498:2498
     volumes:
       - ./light-reference/config:/config
-      - /home/steve/data:/data
-    # environment:
-    #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: reference
-    # network_mode: host
 
   light-gateway:
     image: networknt/light-gateway:2.1.38-slim
     ports:
       - 443:8443
-    #   - 5005:5005
     volumes:
       - ./light-gateway/config:/config
       - ./light-gateway/lightapi/dist:/lightapi/dist
@@ -162,7 +139,5 @@ services:
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
       STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
-      # The following environment varialbe will enable the debug in the container.
-      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     container_name: light-gateway
     # network_mode: host
