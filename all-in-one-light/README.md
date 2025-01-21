@@ -1,7 +1,7 @@
 # All-in-one Light
 
 ## Overview
-This doc covers how to use the light version of the all-in-one. It's meant for developers who are working on services. 
+This doc covers how to use the light version of the all-in-one. It's meant for developers who are working on services.
 It removes HA deployments from the configuration, making the resources required to run much lower.
 
 

@@ -323,7 +323,7 @@ return PI/float(NUM_SAMPLES_PER_RING);
 vec2 extrude=vec2(mod(a_pos,2.0)*2.0-1.0);vec2 circle_center=floor(a_pos*0.5);vec4 world_center;mat3 surface_vectors;
 #ifdef PROJECTION_GLOBE_VIEW
 vec3 pos_normal_3=a_pos_normal_3/16384.0;surface_vectors=globe_mercator_surface_vectors(pos_normal_3,u_up_dir,u_zoom_transition);vec3 surface_extrusion=extrude.x*surface_vectors[0]+extrude.y*surface_vectors[1];vec3 globe_elevation=elevationVector(circle_center)*circle_elevation(circle_center);vec3 globe_pos=a_pos_3+surface_extrusion+globe_elevation;vec3 mercator_elevation=u_up_dir*u_tile_up_scale*circle_elevation(circle_center);vec3 merc_pos=mercator_tile_position(u_inv_rot_matrix,circle_center,u_tile_id,u_merc_center)+surface_extrusion+mercator_elevation;vec3 pos=mix_globe_mercator(globe_pos,merc_pos,u_zoom_transition);world_center=vec4(pos,1);
-#else 
+#else
 surface_vectors=mat3(1.0);float height=circle_elevation(circle_center);world_center=vec4(circle_center,height,1);
 #endif
 vec4 projected_center=u_matrix*world_center;float view_scale=0.0;
@@ -911,7 +911,7 @@ gl_Position.z-=(0.0000006*(min(top_height,500.)+2.0*min(base,500.0)+60.0*concave
 v_normal=normal;
 #else
 v_lighting.rgb+=clamp(NdotL*u_lightcolor,mix(vec3(0.0),vec3(0.3),1.0-u_lightcolor),vec3(1.0));v_lighting*=u_opacity;
-#endif 
+#endif
 #ifdef FOG
 v_fog_pos=fog_position(p);
 #endif
@@ -1323,7 +1323,7 @@ v_fog_pos=fog_position((u_normalize_matrix*vec4(a_globe_pos,1.0)).xyz);
 #else
 float w=1.0+dot(a_texture_pos,u_perspective_transform);uv=a_texture_pos/8192.0;
 #ifdef PROJECTION_GLOBE_VIEW
-vec3 decomposed_pos_and_skirt=decomposeToPosAndSkirt(a_pos);vec3 latLng=u_grid_matrix*vec3(decomposed_pos_and_skirt.xy,1.0);vec3 globe_pos=latLngToECEF(latLng.xy);globe_pos+=normalize(globe_pos)*u_raster_elevation*GLOBE_UPSCALE;vec4 globe_world_pos=u_globe_matrix*vec4(globe_pos,1.0);vec4 merc_world_pos=vec4(0.0);float mercatorY=mercatorYfromLat(latLng[0]);float mercatorX=mercatorXfromLng(latLng[1]);    
+vec3 decomposed_pos_and_skirt=decomposeToPosAndSkirt(a_pos);vec3 latLng=u_grid_matrix*vec3(decomposed_pos_and_skirt.xy,1.0);vec3 globe_pos=latLngToECEF(latLng.xy);globe_pos+=normalize(globe_pos)*u_raster_elevation*GLOBE_UPSCALE;vec4 globe_world_pos=u_globe_matrix*vec4(globe_pos,1.0);vec4 merc_world_pos=vec4(0.0);float mercatorY=mercatorYfromLat(latLng[0]);float mercatorX=mercatorXfromLng(latLng[1]);
 v_split_fade=0.0;if (u_zoom_transition > 0.0) {vec2 merc_pos=vec2(mercatorX,mercatorY);merc_world_pos=vec4(merc_pos,u_raster_elevation,1.0);merc_world_pos.xy-=u_merc_center;merc_world_pos.x=wrap(merc_world_pos.x,-0.5,0.5);merc_world_pos=u_merc_matrix*merc_world_pos;float opposite_merc_center=mod(u_merc_center.x+0.5,1.0);float dist_from_poles=(abs(mercatorY-0.5)*2.0);float range=0.1;v_split_fade=abs(opposite_merc_center-mercatorX);v_split_fade=clamp(1.0-v_split_fade,0.0,1.0);v_split_fade=max(smoothstep(1.0-range,1.0,dist_from_poles),max(smoothstep(1.0-range,1.0,v_split_fade),smoothstep(1.0-range,1.0,1.0-v_split_fade)));}float tiles=u_grid_matrix[0][2];if (tiles > 0.0) {float idx=u_grid_matrix[1][2];float idy=u_grid_matrix[2][2];float uvY=mercatorY*tiles-idy;float uvX=mercatorX*tiles-idx;uv=vec2(uvX,uvY);}vec4 interpolated_pos=vec4(mix(globe_world_pos.xyz,merc_world_pos.xyz,u_zoom_transition)*w,w);gl_Position=u_matrix*interpolated_pos;
 #ifdef FOG
 v_fog_pos=fog_position((u_normalize_matrix*vec4(globe_pos,1.0)).xyz);
@@ -1843,7 +1843,7 @@ return n;}struct Material {float perceptualRoughness;float alphaRoughness;float 
 #ifdef HAS_ATTRIBUTE_a_pbr
 mat.perceptualRoughness=v_roughness_metallic_emissive_alpha.x;mat.metallic=v_roughness_metallic_emissive_alpha.y;mat.baseColor.w*=v_roughness_metallic_emissive_alpha.w;
 #endif
-#if defined(HAS_TEXTURE_u_metallicRoughnessTexture) && defined(HAS_ATTRIBUTE_a_uv_2f) 
+#if defined(HAS_TEXTURE_u_metallicRoughnessTexture) && defined(HAS_ATTRIBUTE_a_uv_2f)
 vec4 mrSample=texture(u_metallicRoughnessTexture,uv_2f);mat.perceptualRoughness*=mrSample.g;mat.metallic*=mrSample.b;
 #endif
 const float c_minRoughness=0.04;mat.perceptualRoughness=clamp(mat.perceptualRoughness,c_minRoughness,1.0);mat.metallic=saturate(mat.metallic);mat.alphaRoughness=mat.perceptualRoughness*mat.perceptualRoughness;const vec3 f0=vec3(0.04);mat.diffuseColor=mat.baseColor.rgb*(vec3(1.0)-f0);mat.diffuseColor*=1.0-mat.metallic;mat.specularColor=mix(f0,mat.baseColor.rgb,mat.metallic);highp float reflectance=max(max(mat.specularColor.r,mat.specularColor.g),mat.specularColor.b);highp float reflectance90=saturate(reflectance*25.0);mat.f90=vec3(reflectance90);mat.normal=getNormal();return mat;}float V_GGX(float NdotL,float NdotV,float roughness)
