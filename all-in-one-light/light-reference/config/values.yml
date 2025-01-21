@@ -1,0 +1,48 @@
+# server.yml
+server.httpsPort: 2498
+
+# db-provider.yml
+# For postgres database running in a docker container, you have to use the driverClassName.
+db-provider.driverClassName: org.postgresql.Driver
+db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
+db-provider.username: postgres
+db-provider.password: secret
+db-provider.maximumPoolSize: 3
+
+# service.yml
+service.singletons:
+  - com.networknt.cache.CacheManager:
+      - com.networknt.cache.CaffeineCacheManager
+  - com.networknt.db.provider.DbProvider:
+      - com.networknt.reference.ReferenceDbProviderImpl
+  - com.networknt.server.StartupHookProvider:
+      - com.networknt.db.provider.SqlDbStartupHook
+
+# security.yml
+security.enableVerifyJwt: true
+
+# reference.yml
+reference.dataPath: /data
+
+# metrics.yml
+metrics.enabled: false
+
+# cache.yml
+cache.caches:
+  - cacheName: jwt
+    expiryInMinutes: 15
+    maxSize: 100
+  - cacheName: jwk
+    expiryInMinutes: 129600
+    maxSize: 100
+  - cacheName: ref-data
+    expiryInMinutes: 60
+    maxSize: 1000
+
+# cors.yml
+cors.enabled: false
+
+# client.yml
+client.verifyHostname: false
+client.tokenKeyServerUrl: https://oauth-kafka:6881
+client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys

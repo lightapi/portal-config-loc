@@ -1,0 +1,129 @@
+# server.yml
+server.serviceId: com.networknt.oauth-kafka-1.0.0
+server.httpsPort: 6881
+
+# client.yml
+client.timeout: 3000
+client.verifyHostname: false
+client.tokenServerUrl: https://localhost:6881
+client.tokenCcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
+client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenCcScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+
+# security.yml
+security.enableVerifyJwt: false
+
+# cors.yml
+cors.enabled: true
+cors.allowedOrigins:
+  - https://localhost:3000
+  - https://lightapi.net
+  - https://signin.lightapi.net
+  - https://dev.lightapi.net
+  - https://devsignin.lightapi.net
+  - https://devoauth.lightapi.net
+allowedMethods:
+  - GET
+  - POST
+  - PUT
+  - DELETE
+
+service.singletons:
+  - com.networknt.registry.URL:
+      - com.networknt.registry.URLImpl
+  - com.networknt.registry.Registry:
+      - com.networknt.registry.support.DirectRegistry
+  - com.networknt.balance.LoadBalance:
+      - com.networknt.balance.RoundRobinLoadBalance
+  - com.networknt.cluster.Cluster:
+      - com.networknt.cluster.LightCluster
+  - com.networknt.cache.CacheManager:
+      - com.networknt.cache.CaffeineCacheManager
+  # PortalDbProviderImpl of DbProvider
+  - com.networknt.db.provider.DbProvider:
+      - net.lightapi.portal.db.PortalDbProviderImpl
+  # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
+  - com.networknt.server.StartupHookProvider:
+      # database startup hook to initialize datasource and cache.
+      - com.networknt.db.provider.SqlDbStartupHook
+    # - com.networknt.oauth.cache.CacheStartupHookProvider
+  # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
+  # - com.networknt.server.ShutdownHookProvider:
+  # - com.networknt.oauth.cache.CacheShutdownHookProvider
+  # Authenticator implementation mapping
+  - com.networknt.oauth.auth.Authenticator<com.networknt.oauth.auth.LightPortalAuth>:
+      - com.networknt.oauth.auth.LightPortalAuthenticator
+
+# direct-registry.yml
+direct-registry.directUrls:
+  com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440
+  com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
+
+# oauth.yml
+# oauth.bootstrapToken: eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MTkxMjk0MzAzMiwianRpIjoia3NPRHl0MlFVU25CY0NublpOMmZSZyIsImlhdCI6MTU5NzU4MzAzMiwibmJmIjoxNTk3NTgyOTEyLCJ2ZXJzaW9uIjoiMS4wIiwiY2xpZW50X2lkIjoiZjdkNDIzNDgtYzY0Ny00ZWZiLWE1MmQtNGM1Nzg3NDIxZTczIiwic2NvcGUiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdfQ.uCfoIZMx5xhlHvLAnmgkyuSnTGm0pTEosZOgFdGf946XeAxzULQk6mwHz0wu0oNL_L0hT1uOsgANfNpVmS44nbedkqELgHAnJpHf4IP7EStHk3o99MPZSVLufKvKmbP6-G0Th-1a8wK5XkX1_9WIhHAmxr-D23VQpvJq_XOKH24Ik06qSVUj-B3YAHrqlNIk4b-WqUYhUkluOYvI4mvCwB-xi5-Nioqa6JqpXO9fv7bb9xQzKX_3MsuEYT-LO8vquNtKPJLbz42vP1A5calbyBNZ4pnKgJyjH9_TFMywNZ-C7y2ZlhNR5_F-MKKysVkOC25TJmV49om_kb2lnoEDKg
+
+# handler.yml
+handler.handlers:
+  # Light-framework cross-cutting concerns implemented in the microservice
+  - com.networknt.exception.ExceptionHandler@exception
+  - com.networknt.metrics.MetricsHandler@metrics
+  - com.networknt.correlation.CorrelationHandler@correlation
+  - com.networknt.openapi.OpenApiHandler@specification
+  - com.networknt.openapi.JwtVerifyHandler@security
+  - com.networknt.body.BodyHandler@body
+  - com.networknt.cors.CorsHttpHandler@cors
+  - com.networknt.audit.AuditHandler@audit
+  - com.networknt.sanitizer.SanitizerHandler@sanitizer
+  - com.networknt.openapi.ValidatorHandler@validator
+  # Customer business domain specific cross-cutting concerns handlers
+  # - com.example.validator.CustomizedValidator@custvalidator
+  # Framework endpoint handlers
+  - com.networknt.health.HealthGetHandler@health
+  - com.networknt.info.ServerInfoGetHandler@info
+  - com.networknt.logging.handler.LoggerGetHandler@getLogger
+  - com.networknt.logging.handler.LoggerPostHandler@postLogger
+  - com.networknt.logging.handler.LoggerGetLogContentsHandler@getLogContents
+  - com.networknt.config.reload.handler.ModuleRegistryGetHandler@modules
+  - com.networknt.config.reload.handler.ConfigReloadHandler@configReload
+  - com.networknt.specification.SpecDisplayHandler@spec
+  - com.networknt.specification.SpecSwaggerUIHandler@swaggerui
+  # - com.networknt.metrics.prometheus.PrometheusGetHandler@getprometheus
+  - com.networknt.server.handler.ServerShutdownHandler@shutdown
+  - com.networknt.specification.FaviconHandler@favicon
+
+  # Business Handlers
+  - com.networknt.oauth.handler.HostIdCodeGetHandler@hostCodeGet
+  - com.networknt.oauth.handler.HostIdCodePostHandler@hostCodePost
+  - com.networknt.oauth.handler.HostIdKeysGetHandler@hostKeysGet
+  - com.networknt.oauth.handler.HostIdTokenPostHandler@hostTokenPost
+  - com.networknt.oauth.handler.HostIdDerefTokenGetHandler@hostDerefGet
+  - com.networknt.oauth.handler.HostIdSigningPostHandler@hostSigningPost
+  - com.networknt.oauth.handler.CodeGetHandlerWrapper@codeGet
+  - com.networknt.oauth.handler.CodePostHandlerWrapper@codePost
+
+handler.chains.default:
+  - exception
+  - correlation
+  - specification
+  - body
+  - audit
+  - validator
+
+# db-provider.yml
+# For postgres database running in a docker container, you have to use the driverClassName.
+db-provider.driverClassName: org.postgresql.Driver
+db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
+db-provider.username: postgres
+db-provider.password: secret
+db-provider.maximumPoolSize: 3
+
+# cache.yml
+cache.caches:
+  - cacheName: portal-data
+    expiryInMinutes: 60
+    maxSize: 1000
