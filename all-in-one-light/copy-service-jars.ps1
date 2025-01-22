@@ -78,4 +78,3 @@ foreach ($hybrid_type in $SUFFIX_TYPES.Split(" ")) {
         }
     }
 }
-
