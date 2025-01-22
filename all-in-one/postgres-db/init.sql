@@ -373,7 +373,7 @@ CREATE TABLE app_api_t (
     endpoint                VARCHAR(1024) NOT NULL,
     scope                   VARCHAR(128) NOT NULL,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE app_api_t ADD CONSTRAINT app_api_pk PRIMARY KEY ( host_id, app_id, api_id, api_version, endpoint, scope );
@@ -388,7 +388,7 @@ CREATE TABLE app_t (
     operation_owner         VARCHAR(64),
     delivery_owner          VARCHAR(64),
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE app_t ADD CONSTRAINT app_pk PRIMARY KEY ( host_id, app_id );
@@ -407,7 +407,7 @@ CREATE TABLE client_t (
     authenticate_class      VARCHAR(256),
     deref_client_id         VARCHAR(36), -- only this client calls AS to deref token to JWT for external client type
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (client_id),
     FOREIGN KEY (host_id, app_id) REFERENCES app_t(host_id, app_id) ON DELETE CASCADE
 );
@@ -417,8 +417,8 @@ CREATE TABLE chain_handler_t (
     chain_id          VARCHAR(22) NOT NULL,
     configuration_id  VARCHAR(22) NOT NULL,
     sequence_id       INTEGER NOT NULL,
-    update_user  VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_user       VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE chain_handler_t ADD CONSTRAINT chain_handler_pk PRIMARY KEY ( chain_id,
@@ -636,8 +636,8 @@ CREATE TABLE instance_chain_handler_t (
     configuration_id  VARCHAR(22) NOT NULL,
     sequence_id       INTEGER NOT NULL,
     transaction_id    INTEGER,
-    update_user  VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_user       VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -707,8 +707,8 @@ CREATE TABLE instance_property_t (
     property_value    TEXT,
     property_file     TEXT,
     transaction_id    INTEGER,
-    update_user VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    updated_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_user       VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE instance_property_t
@@ -1439,7 +1439,7 @@ CREATE TABLE auth_refresh_token_t (
     user_id                   VARCHAR(22) NOT NULL,
     entity_id                 VARCHAR(50) NOT NULL,
     user_type                 CHAR(1) NOT NULL,
-    email                     VARCHAR(126) NOT NULL,
+    email                     VARCHAR(126) NOT NULL,    
     roles                     VARCHAR(4096),
     groups                    VARCHAR(4096),
     positions                 VARCHAR(4096),
@@ -2448,7 +2448,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'Admin Client', 'Access the adm endpoints of light-portal services', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421e70', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'admin', null, 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2456,7 +2456,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'PetStore Web Server', 'PetStore Web Server that calls PetStore API', false, null, null);
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421e72', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', '{"c1": "361", "c2": "67"}', 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2465,7 +2465,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'f7d42348-c647-4efb-a52d-4c5787421e73', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2475,7 +2475,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'f7d42348-c647-4efb-a52d-4c5787421e75', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.DefaultAuth', null);
@@ -2484,7 +2484,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'Petstore Client Application', 'An example application that is used to demo access to openapi-petstore', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'f7d42348-c647-4efb-a52d-4c5787421e76', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'read:pets write:pets', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
