@@ -1464,13 +1464,18 @@ CREATE TABLE auth_ref_token_t (
 );
 
 CREATE TABLE notification_t (
+    id                        VARCHAR(22) NOT NULL,
+    host_id                   VARCHAR(22) NOT NULL,
     user_id                   VARCHAR(22) NOT NULL,
     nonce                     INTEGER NOT NULL,
     event_class               VARCHAR(255) NOT NULL,
     event_json                TEXT NOT NULL,
-    process_time              TIMESTAMP NOT NULL,
+    process_ts                TIMESTAMP NOT NULL,
     process_flag              BOOLEAN NOT NULL,
-    error                     VARCHAR(1024) NULL
+    error                     VARCHAR(1024) NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
 );
 
 
