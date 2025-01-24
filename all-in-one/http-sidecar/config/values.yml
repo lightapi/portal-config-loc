@@ -7,7 +7,7 @@ client.verifyHostname: false
 client.tokenServerUrl: https://oauth-kafka:6881
 # JSON Web Key
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
+client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
 
 # proxy yml
 proxy.hosts: https://openapi-petstore:9443
