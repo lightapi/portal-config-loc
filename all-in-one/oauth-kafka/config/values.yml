@@ -6,7 +6,7 @@ server.httpsPort: 6881
 client.timeout: 3000
 client.verifyHostname: false
 client.tokenServerUrl: https://localhost:6881
-client.tokenCcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
+client.tokenCcUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/token
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenCcScope:
@@ -97,12 +97,12 @@ handler.handlers:
   - com.networknt.specification.FaviconHandler@favicon
 
   # Business Handlers
-  - com.networknt.oauth.handler.HostIdCodeGetHandler@hostCodeGet
-  - com.networknt.oauth.handler.HostIdCodePostHandler@hostCodePost
-  - com.networknt.oauth.handler.HostIdKeysGetHandler@hostKeysGet
-  - com.networknt.oauth.handler.HostIdTokenPostHandler@hostTokenPost
-  - com.networknt.oauth.handler.HostIdDerefTokenGetHandler@hostDerefGet
-  - com.networknt.oauth.handler.HostIdSigningPostHandler@hostSigningPost
+  - com.networknt.oauth.handler.ProviderIdCodeGetHandler
+  - com.networknt.oauth.handler.ProviderIdCodePostHandler
+  - com.networknt.oauth.handler.ProviderIdKeysGetHandler@keysGet
+  - com.networknt.oauth.handler.ProviderIdTokenPostHandler@tokenPost
+  - com.networknt.oauth.handler.ProviderIdDerefTokenGetHandler@derefGet
+  - com.networknt.oauth.handler.ProviderIdSigningPostHandler@signingPost
   - com.networknt.oauth.handler.CodeGetHandlerWrapper@codeGet
   - com.networknt.oauth.handler.CodePostHandlerWrapper@codePost
 

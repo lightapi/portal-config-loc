@@ -5,7 +5,7 @@ server.serviceId: com.networknt.scheduler-1.0.0
 # client.yml
 client.verifyHostname: false
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
+client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
 
 # scheduler.yml
 scheduler.inputTopic: light-scheduler
