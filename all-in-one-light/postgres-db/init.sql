@@ -13,9 +13,7 @@ DROP TABLE IF EXISTS api_endpoint_rule_t CASCADE;
 
 DROP TABLE IF EXISTS api_endpoint_t CASCADE;
 
-DROP TABLE IF EXISTS api_platform_instance_t CASCADE;
-
-DROP TABLE IF EXISTS api_platform_product_t CASCADE;
+DROP TABLE IF EXISTS instance_t CASCADE;
 
 DROP TABLE IF EXISTS api_scope_t CASCADE;
 
@@ -73,14 +71,17 @@ DROP TABLE IF EXISTS product_version_property_t CASCADE;
 
 DROP TABLE IF EXISTS product_version_t CASCADE;
 
+DROP TABLE IF EXISTS platform_t CASCADE;
+
+DROP TABLE IF EXISTS deployment_t CASCADE;
 
 DROP TABLE IF EXISTS api_endpoint_scope_t CASCADE;
 
 DROP TABLE IF EXISTS tag_t CASCADE;
 
-DROP TABLE IF EXISTS host_key_t CASCADE;
-
 DROP TABLE IF EXISTS host_t CASCADE;
+
+DROP TABLE IF EXISTS org_t CASCADE;
 
 DROP table IF EXISTS relation_t CASCADE;;
 
@@ -157,6 +158,8 @@ DROP TABLE IF EXISTS auth_code_t CASCADE;
 DROP TABLE IF EXISTS auth_ref_token_t CASCADE;
 
 DROP TABLE IF EXISTS auth_provider_client_t CASCADE;
+
+DROP TABLE IF EXISTS auth_provider_api_t CASCADE;
 
 DROP TABLE IF EXISTS auth_provider_key_t CASCADE;
 
@@ -250,22 +253,23 @@ CREATE TABLE api_endpoint_rule_t (
 ALTER TABLE api_endpoint_rule_t ADD CONSTRAINT api_rule_pk PRIMARY KEY ( host_id, api_id, api_version, endpoint, rule_id );
 
 
-CREATE TABLE api_platform_instance_t (
+CREATE TABLE instance_t (
     host_id              VARCHAR(22) NOT NULL,
     instance_id          VARCHAR(22) NOT NULL,
-    product_id           VARCHAR(22) NOT NULL,
+    instance_name        VARCHAR(126) NOT NULL,
+    product_id           VARCHAR(8) NOT NULL,
+    product_version      VARCHAR(12) NOT NULL,
     service_id           VARCHAR(128) NOT NULL,
-    product_version      VARCHAR(128) NOT NULL,
-    current_flag         BOOLEAN DEFAULT true NOT NULL,
-    environment_id       VARCHAR(16) NOT NULL,
-    tag_id               VARCHAR(22) NOT NULL,
+    platform_id          VARCHAR(22) NOT NULL,
+    service_desc         VARCHAR(1024),
+    instance_desc        VARCHAR(1024),
+    tag_id               VARCHAR(22),
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-
-COMMENT ON COLUMN api_platform_instance_t.service_id IS
+COMMENT ON COLUMN instance_t.service_id IS
 ' Naming Convention: (delimit with dash, use lower case)
   <product>-<region/country>-[lob]-<app/domain>-<resource/host>-<zone>
     - Light Gateway: lg-ca-eadp-sag1-aiz
@@ -277,14 +281,11 @@ COMMENT ON COLUMN api_platform_instance_t.service_id IS
     - Kafka Sidecar: ks-ca-grs-member-corp
 ';
 
-COMMENT ON COLUMN api_platform_instance_t.current_flag IS
-    'Default is false';
 
+ALTER TABLE instance_t ADD CONSTRAINT instance_pk PRIMARY KEY (host_id, instance_id );
 
-ALTER TABLE api_platform_instance_t ADD CONSTRAINT api_platform_instance_pk PRIMARY KEY ( instance_id );
-
-ALTER TABLE api_platform_instance_t
-    ADD CONSTRAINT api_platform_instance_uk UNIQUE ( service_id,
+ALTER TABLE instance_t
+    ADD CONSTRAINT instance_uk UNIQUE ( service_id,
                                                      product_id,
                                                      product_version,
                                                      tag_id );
@@ -385,8 +386,8 @@ CREATE TABLE app_t (
     app_name                VARCHAR(128) NOT NULL,
     app_desc                VARCHAR(2048),
     is_kafka_app            BOOLEAN DEFAULT false,
-    operation_owner         VARCHAR(64),
-    delivery_owner          VARCHAR(64),
+    operation_owner         VARCHAR(22),
+    delivery_owner          VARCHAR(22),
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -430,7 +431,7 @@ CREATE TABLE configuration_property_t (
     property_name             VARCHAR(128) NOT NULL,
     property_type             VARCHAR(32) DEFAULT 'Config' NOT NULL,
     sequence_id               INTEGER,
-    required_flag             BOOLEAN DEFAULT true NOT NULL,
+    is_required               BOOLEAN DEFAULT true NOT NULL,
     property_desc             VARCHAR(1024),
     property_value            TEXT,
     property_value_type       VARCHAR(32),
@@ -543,6 +544,7 @@ ALTER TABLE infrastructure_t ADD CONSTRAINT infrastructure_pk PRIMARY KEY ( infr
 
 
 CREATE TABLE instance_infrastructure_t (
+    host_id           VARCHAR(22) NOT NULL,
     instance_id       VARCHAR(22)
         CONSTRAINT nnc_instance_infrastrucuture_instance_id NOT NULL,
     infrastructure_id INTEGER
@@ -552,7 +554,8 @@ CREATE TABLE instance_infrastructure_t (
     update_ts         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-ALTER TABLE instance_infrastructure_t ADD CONSTRAINT instance_infrastructure_pk PRIMARY KEY ( instance_id,
+ALTER TABLE instance_infrastructure_t ADD CONSTRAINT instance_infrastructure_pk PRIMARY KEY ( host_id, 
+                                                                                              instance_id,
                                                                                               infrastructure_id,
                                                                                               port_number );
 
@@ -632,6 +635,7 @@ ALTER TABLE instance_app_t ADD CONSTRAINT instance_app_uk UNIQUE ( instance_id, 
 
 
 CREATE TABLE instance_chain_handler_t (
+    host_id           VARCHAR(22) NOT NULL,
     chain_id          VARCHAR(22) NOT NULL,
     configuration_id  VARCHAR(22) NOT NULL,
     sequence_id       INTEGER NOT NULL,
@@ -641,13 +645,15 @@ CREATE TABLE instance_chain_handler_t (
 );
 
 
-ALTER TABLE instance_chain_handler_t ADD CONSTRAINT instance_chain_handler_pk PRIMARY KEY ( chain_id,
+ALTER TABLE instance_chain_handler_t ADD CONSTRAINT instance_chain_handler_pk PRIMARY KEY ( host_id, 
+                                                                                            chain_id,
                                                                                             configuration_id );
 
 
 
 
 CREATE TABLE instance_handler_chain_t (
+    host_id           VARCHAR(22) NOT NULL,
     chain_id          VARCHAR(22) NOT NULL,
     instance_id       VARCHAR(22),
     chain_name        VARCHAR(128) NOT NULL,
@@ -657,13 +663,7 @@ CREATE TABLE instance_handler_chain_t (
     update_ts         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-COMMENT ON COLUMN instance_handler_chain_t.chain_id IS
-    'Autogenerated ID as SMALLSERIAL pseudo-type';
-
-COMMENT ON COLUMN instance_handler_chain_t.instance_id IS
-    'Autogenerated ID as SERIAL pseudo-type';
-
-ALTER TABLE instance_handler_chain_t ADD CONSTRAINT instance_handler_chain_pk PRIMARY KEY ( chain_id );
+ALTER TABLE instance_handler_chain_t ADD CONSTRAINT instance_handler_chain_pk PRIMARY KEY (host_id, chain_id );
 
 ALTER TABLE instance_handler_chain_t ADD CONSTRAINT instance_handler_chain_uk UNIQUE ( instance_id,
                                                                                        chain_name );
@@ -672,6 +672,7 @@ ALTER TABLE instance_handler_chain_t ADD CONSTRAINT instance_handler_chain_uk UN
 
 
 CREATE TABLE instance_path_t (
+    host_id          VARCHAR(22) NOT NULL,
     path_id          SMALLSERIAL NOT NULL,
     path_name        VARCHAR(128) NOT NULL,
     path_method      VARCHAR(10),
@@ -683,13 +684,8 @@ CREATE TABLE instance_path_t (
 ALTER TABLE instance_path_t
     ADD CHECK ( path_method IN ( 'DELETE', 'GET', 'PATCH', 'POST', 'PUT' ) );
 
-COMMENT ON COLUMN instance_path_t.path_id IS
-    'Autogenerated ID as SMALLSERIAL pseudo-type';
 
-COMMENT ON COLUMN instance_path_t.chain_id IS
-    'Autogenerated ID as SMALLSERIAL pseudo-type';
-
-ALTER TABLE instance_path_t ADD CONSTRAINT instance_path_pk PRIMARY KEY ( path_id );
+ALTER TABLE instance_path_t ADD CONSTRAINT instance_path_pk PRIMARY KEY (host_id, path_id );
 
 ALTER TABLE instance_path_t
     ADD CONSTRAINT instance_path_uk UNIQUE ( path_name,
@@ -831,13 +827,14 @@ ALTER TABLE product_property_t ADD CONSTRAINT product_property_pk PRIMARY KEY ( 
 
 
 CREATE TABLE product_version_property_t (
-    product_id       VARCHAR(22) NOT NULL,
-    product_version  VARCHAR(128) NOT NULL,
+    host_id          VARCHAR(22) NOT NULL,
+    product_id       VARCHAR(8) NOT NULL,
+    product_version  VARCHAR(12) NOT NULL,
     property_id      VARCHAR(22) NOT NULL,
     property_type    VARCHAR(32) DEFAULT 'Config' NOT NULL,
     property_value   TEXT,
     property_file    TEXT,
-    update_user VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_user      VARCHAR (126) DEFAULT SESSION_USER NOT NULL,
     update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -845,7 +842,8 @@ ALTER TABLE product_version_property_t
     ADD CHECK ( property_type IN ( 'Cert', 'Config', 'File' ) );
 
 ALTER TABLE product_version_property_t
-    ADD CONSTRAINT product_version_property_pk PRIMARY KEY ( product_id,
+    ADD CONSTRAINT product_version_property_pk PRIMARY KEY ( host_id, 
+                                                             product_id,
                                                              product_version,
                                                              property_id );
 
@@ -853,24 +851,56 @@ ALTER TABLE product_version_property_t
 
 
 CREATE TABLE product_version_t (
-    product_id                  VARCHAR(22) NOT NULL,
-    product_version             VARCHAR(128) NOT NULL,
-    product_version_desc        VARCHAR(1024),
-    current_flag                BOOLEAN DEFAULT false,
+    host_id                     VARCHAR(22) NOT NULL,
+    product_id                  VARCHAR(8) NOT NULL,
+    product_version             VARCHAR(12) NOT NULL, -- internal product version 
+    light4j_version             VARCHAR(12) NOT NULL, -- open source release version
+    break_code                  BOOLEAN DEFAULT false, -- breaking code change to upgrade to this version.
+    break_config                BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version. 
+    upgrade_guide               TEXT,
+    version_desc                VARCHAR(1024),
+    current                     BOOLEAN DEFAULT false,
+    version_status              VARCHAR(16) NOT NULL, 
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, product_id, product_version)
 );
 
-COMMENT ON COLUMN product_version_t.product_id IS
-    '1 - Light Gateway
-2 - Light Proxy Server
-3 - Light Proxy Client
-4 - Light Proxy Sidecar
-5 - Light Proxy Lambda
-6 - Kafka Sidecar';
+CREATE TABLE platform_t (
+    host_id                     VARCHAR(22) NOT NULL,
+    platform_id                 VARCHAR(22) NOT NULL,
+    platform_name               VARCHAR(126) NOT NULL,
+    platform_version            VARCHAR(8) NOT NULL,
+    client_type                 VARCHAR(10)NOT NULL,
+    client_url                  VARCHAR(255) NOT NULL,
+    credentials                 VARCHAR(255) NOT NULL,
+    proxy_url                   VARCHAR(255),
+    proxy_port                  INTEGER,
+    environment                 VARCHAR(16),
+    system_env                  VARCHAR(16),
+    runtime_env                 VARCHAR(16),
+    zone                        VARCHAR(16),
+    region                      VARCHAR(16),
+    lob                         VARCHAR(16),
+    update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, platform_id)
+);
 
 
-ALTER TABLE product_version_t ADD CONSTRAINT product_version_pk PRIMARY KEY ( product_id, product_version );
+CREATE TABLE deployment_t (
+    host_id                     VARCHAR(22) NOT NULL,
+    deployment_id               VARCHAR(22) NOT NULL,
+    instance_id                 VARCHAR(22) NOT NULL,
+    deployment_status           VARCHAR(16) NOT NULL,
+    deployment_type             VARCHAR(16) NOT NULL,
+    pipeline_id                 VARCHAR(22) NOT NULL,
+    schedule_ts                 TIMESTAMPTZ NOT NULL    DEFAULT NOW(),
+    update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, deployment_id)
+);
+
 
 
 -- tag is per host and the id is UUID.
@@ -889,22 +919,31 @@ ALTER TABLE tag_t ADD CONSTRAINT tag_uk UNIQUE ( tag_name );
 
 ALTER TABLE tag_t ADD CHECK ( tag_type IN ( 'System', 'User' ) );
 
-
-CREATE TABLE host_t (
-    host_id                   VARCHAR(32) NOT NULL, -- a generated unique identifier.
-    host_domain               VARCHAR(64) NOT NULL,
+CREATE TABLE org_t (
+    domain                    VARCHAR(64) NOT NULL,  -- networknt.com lightapi.net
     org_name                  VARCHAR(128) NOT NULL,
-    org_desc                  VARCHAR(255) NOT NULL,
-    org_owner                 VARCHAR(64) NOT NULL,
-    jwk                       VARCHAR(65535) NOT NULL, -- json web key that contains current and previous public keys
+    org_desc                  VARCHAR(4096) NOT NULL,
+    org_owner                 VARCHAR(22),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(domain)
 );
 
 
-ALTER TABLE host_t ADD CONSTRAINT host_pk PRIMARY KEY ( host_id );
+CREATE TABLE host_t (
+    host_id                   VARCHAR(22) NOT NULL, -- a generated unique identifier.
+    domain                    VARCHAR(64) NOT NULL,
+    sub_domain                VARCHAR(64) NOT NULL, -- dev, sit, stg, prd, pre-sit, sit-green, sit-ca, sit-us etc.
+    host_desc                 VARCHAR(4096),
+    host_owner                VARCHAR(22),
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id),
+    FOREIGN KEY(domain) REFERENCES org_t(domain) ON DELETE CASCADE
+);
 
-ALTER TABLE host_t ADD CONSTRAINT host_domain_uk UNIQUE ( host_domain );
+
+ALTER TABLE host_t ADD CONSTRAINT domain_uk UNIQUE ( domain, sub_domain );
 
 
 
@@ -969,17 +1008,6 @@ CREATE TABLE relation_t (
   FOREIGN KEY (value_id_to) REFERENCES ref_value_t (value_id) ON DELETE CASCADE
 );
 
-CREATE TABLE host_key_t (
-    host_id                   VARCHAR(32) NOT NULL,
-    kid                       VARCHAR(32) NOT NULL,
-    public_key                VARCHAR(65535) NOT NULL,
-    private_key               VARCHAR(65535) NOT NULL,
-    key_type                  CHAR(1) NOT NULL, -- L long live C current, P previous
-    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-ALTER TABLE host_key_t ADD CONSTRAINT host_key_pk PRIMARY KEY ( host_id, kid );
 
 CREATE TABLE user_t (
     user_id                   VARCHAR(22) NOT NULL,
@@ -1013,6 +1041,8 @@ CREATE TABLE user_host_t (
     host_id                   VARCHAR(22) NOT NULL,
     user_id                   VARCHAR(22) NOT NULL,
     -- other relationship-specific attributes (e.g., roles within the host)
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, user_id),
     FOREIGN KEY (user_id) REFERENCES user_t (user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t (host_id) ON DELETE CASCADE
@@ -1037,7 +1067,8 @@ CREATE TABLE customer_t (
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, customer_id),
-    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE,
+    -- make sure that the user_host_t host_id update is cascaded
+    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (host_id, referral_id) REFERENCES customer_t(host_id, customer_id) ON DELETE CASCADE
 );
 
@@ -1051,7 +1082,8 @@ CREATE TABLE employee_t (
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, employee_id),
-    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE,
+    -- make sure that the user_host_t host_id update is cascaded
+    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (host_id, manager_id) REFERENCES employee_t(host_id, employee_id) ON DELETE CASCADE
 );
 
@@ -1128,7 +1160,8 @@ CREATE TABLE role_t (
     role_desc                 VARCHAR(1024),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (host_id, role_id)
+    PRIMARY KEY (host_id, role_id),
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE role_permission_t (
@@ -1379,41 +1412,58 @@ CREATE TABLE attribute_col_filter_t (
 
 
 CREATE TABLE auth_provider_t (
-    host_id                   VARCHAR(22) NOT NULL,
     provider_id               VARCHAR(22) NOT NULL,
+    host_id                   VARCHAR(22) NOT NULL,  -- host that the provider belong to.
+    provider_name             VARCHAR(126) NOT NULL,
+    provider_desc             VARCHAR(4096),
+    operation_owner           VARCHAR(22),
+    delivery_owner            VARCHAR(22),
     jwk                       VARCHAR(65535) NOT NULL, -- json web key that contains current and previous public keys
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (host_id, provider_id) -- in case the provider id is input from user to backup other cloud oauth2 provider.
+    PRIMARY KEY (provider_id),
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
+
 CREATE TABLE auth_provider_key_t (
-    host_id                   VARCHAR(22) NOT NULL,
     provider_id               VARCHAR(22) NOT NULL,
     kid                       VARCHAR(22) NOT NULL,
     public_key                VARCHAR(65535) NOT NULL,
     private_key               VARCHAR(65535) NOT NULL,
-    key_type                  CHAR(1) NOT NULL, -- L long live C current, P previous
+    key_type                  CHAR(2) NOT NULL, -- LC long live current LP long live previous TC token current, TP token previous
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(host_id, provider_id, kid),
-    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE
+    PRIMARY KEY(provider_id, kid),
+    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
+);
+
+-- multiple apis can share the same auth provider. 
+CREATE TABLE auth_provider_api_t(
+    host_id                   VARCHAR(22) NOT NULL,
+    api_id                    VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
+    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, api_id, provider_id),
+    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, api_id) REFERENCES api_t(host_id, api_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_provider_client_t (
-    host_id                   VARCHAR(22) NOT NULL,
-    provider_id               VARCHAR(22) NOT NULL,
     client_id                 VARCHAR(36) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(host_id, provider_id, client_id),
-    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
+    PRIMARY KEY(client_id, provider_id),
+    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
     FOREIGN KEY(client_id) REFERENCES client_t(client_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_code_t (
-    host_id                   VARCHAR(22) NOT NULL,
     auth_code                 VARCHAR(22) NOT NULL,
+    host_id                   VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
     user_id                   VARCHAR(22) NOT NULL,
     entity_id                 VARCHAR(50) NOT NULL,
     user_type                 CHAR(1) NOT NULL,
@@ -1430,16 +1480,19 @@ CREATE TABLE auth_code_t (
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (auth_code),
-    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES auth_provider_t(provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_refresh_token_t (
     refresh_token             VARCHAR(36) NOT NULL,
     host_id                   VARCHAR(22) NOT NULL,
+    provider_id               VARCHAR(22) NOT NULL,
     user_id                   VARCHAR(22) NOT NULL,
     entity_id                 VARCHAR(50) NOT NULL,
     user_type                 CHAR(1) NOT NULL,
-    email                     VARCHAR(126) NOT NULL,
+    email                     VARCHAR(126) NOT NULL,    
     roles                     VARCHAR(4096),
     groups                    VARCHAR(4096),
     positions                 VARCHAR(4096),
@@ -1451,7 +1504,8 @@ CREATE TABLE auth_refresh_token_t (
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (refresh_token),
-    FOREIGN KEY (host_id, user_id) REFERENCES user_host_t (host_id, user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_ref_token_t (
@@ -1471,7 +1525,7 @@ CREATE TABLE notification_t (
     event_class               VARCHAR(255) NOT NULL,
     event_json                TEXT NOT NULL,
     process_ts                TIMESTAMP NOT NULL,
-    process_flag              BOOLEAN NOT NULL,
+    is_processed              BOOLEAN NOT NULL,
     error                     VARCHAR(1024) NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
@@ -1590,6 +1644,9 @@ CREATE TABLE service_cert_t (
   PRIMARY KEY(sid, filename)
 );
 
+
+
+
 ALTER TABLE service_cert_t ADD FOREIGN KEY(sid) REFERENCES service_t(sid);
 
 
@@ -1602,6 +1659,11 @@ ALTER TABLE rule_group_host_t
 ALTER TABLE rule_group_host_t
     ADD CONSTRAINT host_id_fk FOREIGN KEY ( host_id )
         REFERENCES host_t ( host_id )
+            ON DELETE CASCADE;
+
+ALTER TABLE product_version_t
+    ADD CONSTRAINT host_id_fk FOREIGN KEY (host_id)
+        REFERENCES host_t (host_id)
             ON DELETE CASCADE;
 
 ALTER TABLE rule_host_t
@@ -1636,23 +1698,23 @@ ALTER TABLE api_version_t
             ON DELETE CASCADE;
 
 ALTER TABLE instance_api_t
-    ADD CONSTRAINT api_platform_instance_fk FOREIGN KEY ( instance_id )
-        REFERENCES api_platform_instance_t ( instance_id )
+    ADD CONSTRAINT instance_fk FOREIGN KEY ( host_id, instance_id )
+        REFERENCES instance_t (host_id, instance_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_app_t
-    ADD CONSTRAINT api_platform_instance_fkv1 FOREIGN KEY ( instance_id )
-        REFERENCES api_platform_instance_t ( instance_id )
+    ADD CONSTRAINT instance_fkv1 FOREIGN KEY (host_id, instance_id )
+        REFERENCES instance_t (host_id, instance_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_property_t
-    ADD CONSTRAINT api_platform_instance_fkv2 FOREIGN KEY ( instance_id )
-        REFERENCES api_platform_instance_t ( instance_id )
+    ADD CONSTRAINT instance_fkv2 FOREIGN KEY (host_id, instance_id )
+        REFERENCES instance_t (host_id, instance_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_handler_chain_t
-    ADD CONSTRAINT api_platform_instance_fkv3 FOREIGN KEY ( instance_id )
-        REFERENCES api_platform_instance_t ( instance_id )
+    ADD CONSTRAINT instance_fkv3 FOREIGN KEY (host_id, instance_id )
+        REFERENCES instance_t (host_id, instance_id )
             ON DELETE CASCADE;
 
 
@@ -1737,14 +1799,14 @@ ALTER TABLE instance_app_property_t
         REFERENCES configuration_property_t ( property_id )
             ON DELETE CASCADE;
 
-ALTER TABLE api_platform_instance_t
+ALTER TABLE instance_t
     ADD CONSTRAINT tag_fk FOREIGN KEY ( host_id, tag_id )
         REFERENCES tag_t ( host_id, tag_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_infrastructure_t
-    ADD CONSTRAINT instance_infrastructure_instance_fk FOREIGN KEY ( instance_id )
-        REFERENCES api_platform_instance_t ( instance_id )
+    ADD CONSTRAINT infrastructure_instance_fk FOREIGN KEY ( host_id, instance_id )
+        REFERENCES instance_t (host_id, instance_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_infrastructure_t
@@ -1758,13 +1820,13 @@ ALTER TABLE instance_app_property_t
             ON DELETE CASCADE;
 
 ALTER TABLE instance_chain_handler_t
-    ADD CONSTRAINT instance_handler_chain_fk FOREIGN KEY ( chain_id )
-        REFERENCES instance_handler_chain_t ( chain_id )
+    ADD CONSTRAINT instance_handler_chain_fk FOREIGN KEY (host_id, chain_id )
+        REFERENCES instance_handler_chain_t (host_id, chain_id )
             ON DELETE CASCADE;
 
 ALTER TABLE instance_path_t
-    ADD CONSTRAINT instance_handler_chain_fkv2 FOREIGN KEY ( chain_id )
-        REFERENCES instance_handler_chain_t ( chain_id )
+    ADD CONSTRAINT instance_handler_chain_fkv2 FOREIGN KEY (host_id, chain_id )
+        REFERENCES instance_handler_chain_t (host_id, chain_id )
             ON DELETE CASCADE;
 
 ALTER TABLE infrastructure_t
@@ -1782,61 +1844,52 @@ ALTER TABLE platform_path_t
         REFERENCES platform_handler_chain_t ( chain_id )
             ON DELETE CASCADE;
 
-ALTER TABLE api_platform_instance_t
-    ADD CONSTRAINT product_version_fk FOREIGN KEY ( product_id,
+ALTER TABLE instance_t
+    ADD CONSTRAINT product_version_fk FOREIGN KEY (host_id, product_id,
                                                     product_version )
-        REFERENCES product_version_t ( product_id,
+        REFERENCES product_version_t (host_id, product_id,
                                        product_version )
             ON DELETE CASCADE;
 
 ALTER TABLE product_version_property_t
-    ADD CONSTRAINT product_version_fkv1 FOREIGN KEY ( product_id,
+    ADD CONSTRAINT product_version_fkv1 FOREIGN KEY (host_id, product_id,
                                                       product_version )
-        REFERENCES product_version_t ( product_id,
+        REFERENCES product_version_t (host_id, product_id,
                                        product_version )
             ON DELETE CASCADE;
 
 
--- Extend platform instance with region, network zone, line of business, server description, business description, topic classification
--- region, network zone and line of business tables already exist, adding others as varchar
-
-ALTER TABLE api_platform_instance_t
-  ADD COLUMN zone_id INTEGER,
-  ADD COLUMN region_id INTEGER,
-  ADD COLUMN lob_id INTEGER,
-  ADD COLUMN server_desc VARCHAR(128),
-  ADD COLUMN instance_desc VARCHAR(128),
-  ADD COLUMN topic_classification VARCHAR(128);
 
 
-ALTER TABLE api_platform_instance_t
-    ADD CONSTRAINT zone_fk_v1 FOREIGN KEY ( zone_id )
-        REFERENCES network_zone_t ( zone_id )
-            ON DELETE CASCADE;
+INSERT INTO org_t (domain, org_name, org_desc) VALUES ('lightapi.net', 'Light API Portal', 'Light API Portal');
+
+-- insert the dev.lightapi.net as the default host. 
+INSERT INTO host_t (host_id, domain, sub_domain) VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'lightapi.net', 'dev');
 
 
+INSERT INTO auth_provider_t (host_id, provider_id, provider_name, provider_desc, jwk) VALUES (
+'N2CMw0HGQXeLvC1wBfln2A', 'EF3wqhfWQti2DUVrvYNM7g', 'A generic auth provider for lightapi.net dev', 'This is the single provider for the lightapi.net dev environment',
+'{"keys":[{"kty":"RSA","kid":"7pGHLozGRXqv2g47T1HQag","n":"h25ydNVptrcDlUiixNtcdsjDUyTT2ZlarxIyRpsOZNWpQ_kXjn723j9YnyePeQkC88K-MPWYhRHKp9w_HwZvWvGgQNk5wlGW3PbOAldbW_5-j5gizPDM8d5mTAThbjsve5wVWwN51utQoqFNdkCQ8sJ5mHbaiSTTUHIDhbKriIlFhsNdLZEHj0yO3awnH8KYxzvbrGzqKse4bDNu7a-dYcjmEbmZ0qGuLYbNeHN4vc-1QukFlnnLD9XNmbh9Gurv52box-Sx2VcU1EY_PaFae2p2BgVBbqLJhcv176vIpKAnIFnyb1aNtP19wOB3JbZDhXhXdG9QhEjUYzLOiV5HnQ","e":"AQAB"},{"kty":"RSA","kid":"Tj_l_tIBTginOtQbL0Pv5w","n":"0YRbWAb1FGDpPUUcrIpJC6BwlswlKMS-z2wMAobdo0BNxNa7hG_gIHVPkXu14Jfo1JhUhS4wES3DdY3a6olqPcRN1TCCUVHd-1TLd1BBS-yq9tdJ6HCewhe5fXonaRRKwutvoH7i_eR4m3fQ1GoVzVAA3IngpTr4ptnM3Ef3fj-5wZYmitzrRUyQtfARTl3qGaXP_g8pHFAP0zrNVvOnV-jcNMKm8YZNcgcs1SuLSFtUDXpf7Nr2_xOhiNM-biES6Dza1sMLrlxULFuctudO9lykB7yFh3LHMxtIZyIUHuy0RbjuOGC5PmDowLttZpPI_j4ynJHAaAWr8Ddz764WdQ","e":"AQAB"}]}'
+);
 
--- insert the lightapi.net as the default host. All users created will be associated to this host by default.
-INSERT INTO host_t (host_id, host_domain, org_name, org_desc, org_owner, jwk)
-VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'lightapi.net', 'Light API Organization', 'Default Orgnaization populated with db script when database is created.', 'stevehu@gmail.com', '{"keys":[{"kty":"RSA","kid":"7pGHLozGRXqv2g47T1HQag","n":"h25ydNVptrcDlUiixNtcdsjDUyTT2ZlarxIyRpsOZNWpQ_kXjn723j9YnyePeQkC88K-MPWYhRHKp9w_HwZvWvGgQNk5wlGW3PbOAldbW_5-j5gizPDM8d5mTAThbjsve5wVWwN51utQoqFNdkCQ8sJ5mHbaiSTTUHIDhbKriIlFhsNdLZEHj0yO3awnH8KYxzvbrGzqKse4bDNu7a-dYcjmEbmZ0qGuLYbNeHN4vc-1QukFlnnLD9XNmbh9Gurv52box-Sx2VcU1EY_PaFae2p2BgVBbqLJhcv176vIpKAnIFnyb1aNtP19wOB3JbZDhXhXdG9QhEjUYzLOiV5HnQ","e":"AQAB"},{"kty":"RSA","kid":"Tj_l_tIBTginOtQbL0Pv5w","n":"0YRbWAb1FGDpPUUcrIpJC6BwlswlKMS-z2wMAobdo0BNxNa7hG_gIHVPkXu14Jfo1JhUhS4wES3DdY3a6olqPcRN1TCCUVHd-1TLd1BBS-yq9tdJ6HCewhe5fXonaRRKwutvoH7i_eR4m3fQ1GoVzVAA3IngpTr4ptnM3Ef3fj-5wZYmitzrRUyQtfARTl3qGaXP_g8pHFAP0zrNVvOnV-jcNMKm8YZNcgcs1SuLSFtUDXpf7Nr2_xOhiNM-biES6Dza1sMLrlxULFuctudO9lykB7yFh3LHMxtIZyIUHuy0RbjuOGC5PmDowLttZpPI_j4ynJHAaAWr8Ddz764WdQ","e":"AQAB"}]}');
-
-INSERT INTO host_key_t(host_id, kid, public_key, private_key, key_type) VALUES
-(
-'N2CMw0HGQXeLvC1wBfln2A',
+INSERT INTO auth_provider_key_t (provider_id, kid, public_key, private_key, key_type) VALUES (
+'EF3wqhfWQti2DUVrvYNM7g',
 '7pGHLozGRXqv2g47T1HQag',
 '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',
-'L'
+'LC'
 );
 
-INSERT INTO host_key_t(host_id, kid, public_key, private_key, key_type) VALUES
+
+INSERT INTO auth_provider_key_t (provider_id, kid, public_key, private_key, key_type) VALUES
 (
-'N2CMw0HGQXeLvC1wBfln2A',
+'EF3wqhfWQti2DUVrvYNM7g',
 'Tj_l_tIBTginOtQbL0Pv5w',
 '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',
-'C'
+'TC'
 );
+
 
 INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('z-Xv-uQfTXu_KRf7uP_n1g', 'user_type', 'User Type', 'N');
 INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('iK1f9oYIT8m2Ew4m_W7z8w', 'z-Xv-uQfTXu_KRf7uP_n1g', 'E', 100, 'Y');
@@ -1880,6 +1933,17 @@ INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('oqbeOE0SSjCl
 INSERT INTO ref_host_t(table_id, host_id) values ('xMdMXLh8TgmjLScSH49q_Q', 'N2CMw0HGQXeLvC1wBfln2A');
 
 
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('FuPRs3DUStaROblPpO5XRw', 'light4j_version', 'Light-4j Version', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ugGbnVDGQG27kDogOoieiw', 'FuPRs3DUStaROblPpO5XRw', '2.1.37', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'FuPRs3DUStaROblPpO5XRw', '2.1.38', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'FuPRs3DUStaROblPpO5XRw', '2.2.0', 300, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ugGbnVDGQG27kDogOoieiw', 'en', '2.1.37');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'en', '2.1.38');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'en', '2.2.0');
+INSERT INTO ref_host_t(table_id, host_id) values ('FuPRs3DUStaROblPpO5XRw', 'N2CMw0HGQXeLvC1wBfln2A');
+
+
+
 INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('Erd8-pD3TBG7-vwPtgsWFg', 'platform_product', 'Platform Product', 'Y');
 INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Pbwy3xh2Sz2WfAbW9JcJ8Q', 'Erd8-pD3TBG7-vwPtgsWFg', 'lg', 100, 'Y');
 INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('XB4iKkb4QUqwgAZsDh83DA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lps', 200, 'Y');
@@ -1901,7 +1965,83 @@ INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('CndphT7PSwep
 INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HxEbiZ-ASNOqGjzI1X_3-Q', 'en', 'Light BFF');
 INSERT INTO ref_host_t(table_id, host_id) values ('Erd8-pD3TBG7-vwPtgsWFg', 'N2CMw0HGQXeLvC1wBfln2A');
 
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('2A3um2OJSiK4bZ4h10jOww', 'product_version_status', 'Product Version Status', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('RbkF7LnvStqGqeRHC004GA', '2A3um2OJSiK4bZ4h10jOww', 'Supported', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('SV8tVtegSt6balvd3uolog', '2A3um2OJSiK4bZ4h10jOww', 'Outdated', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('lRtAcENcTLWzLaSaNxuTPA', '2A3um2OJSiK4bZ4h10jOww', 'Deprecated', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HeT7oBcTSmOXJesV0tQWwA', '2A3um2OJSiK4bZ4h10jOww', 'Removed', 400, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('RbkF7LnvStqGqeRHC004GA', 'en', 'Supported');  -- there might be serveral supported versions
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('SV8tVtegSt6balvd3uolog', 'en', 'Outdated'); -- not supported but still usable, allow to deploy with warnning.
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('lRtAcENcTLWzLaSaNxuTPA', 'en', 'Deprecated'); -- not supported and use at your risk, don't allow to deploy
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HeT7oBcTSmOXJesV0tQWwA', 'en', 'Removed'); -- borken version, please don't use, soft delete. 
+INSERT INTO ref_host_t(table_id, host_id) values ('2A3um2OJSiK4bZ4h10jOww', 'N2CMw0HGQXeLvC1wBfln2A');
 
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('HKyo60IcSF2o1UwwfvNUAw', 'deployment_status', 'Deployment Status', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'HKyo60IcSF2o1UwwfvNUAw', 'Scheduled', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'HKyo60IcSF2o1UwwfvNUAw', 'InProgress', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'HKyo60IcSF2o1UwwfvNUAw', 'Completed', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'HKyo60IcSF2o1UwwfvNUAw', 'Failed', 400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'HKyo60IcSF2o1UwwfvNUAw', 'Timeout', 500, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'en', 'Scheduled');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'en', 'InProgress');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'en', 'Completed');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'en', 'Failed');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'en', 'Timeout');
+INSERT INTO ref_host_t(table_id, host_id) values ('HKyo60IcSF2o1UwwfvNUAw', 'N2CMw0HGQXeLvC1wBfln2A');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('4ZFXtWBMQwOISJUkXFbOWQ', 'instance_status', 'Instance Status', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Created', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deploying', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deployed', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('oTePZ34bRieBIGtrKKvL8g', '4ZFXtWBMQwOISJUkXFbOWQ', 'Running', 400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('aaAzQq9WSQey0JF76FhC5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Shutdown', 500, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Undeployed', 600, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sCxrboQESyuoS_CWfiSbzw', '4ZFXtWBMQwOISJUkXFbOWQ', 'Decomissioned', 700, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', 'en', 'Created');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', 'en', 'Deploying');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', 'en', 'Deployed');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('oTePZ34bRieBIGtrKKvL8g', 'en', 'Running');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('aaAzQq9WSQey0JF76FhC5w', 'en', 'Shutdown');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', 'en', 'Undeployed');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sCxrboQESyuoS_CWfiSbzw', 'en', 'Decomissioned');
+INSERT INTO ref_host_t(table_id, host_id) values ('4ZFXtWBMQwOISJUkXFbOWQ', 'N2CMw0HGQXeLvC1wBfln2A');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('9IF1kYNDQOanvnNojIBMLA', 'deployment_type', 'Deployment Type', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', '9IF1kYNDQOanvnNojIBMLA', 'First', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('msx7fa4SScaV4Gmy9B4XHA', '9IF1kYNDQOanvnNojIBMLA', 'Update', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('no1d49VCQy2Adfs9qKuOfQ', '9IF1kYNDQOanvnNojIBMLA', 'Rollback', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('X0RSjZMYQk2ApWn1dabW0g', '9IF1kYNDQOanvnNojIBMLA', 'Remove', 400, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', 'en', 'First');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('msx7fa4SScaV4Gmy9B4XHA', 'en', 'Update');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('no1d49VCQy2Adfs9qKuOfQ', 'en', 'Rollback');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('X0RSjZMYQk2ApWn1dabW0g', 'en', 'Remove');
+INSERT INTO ref_host_t(table_id, host_id) values ('9IF1kYNDQOanvnNojIBMLA', 'N2CMw0HGQXeLvC1wBfln2A');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('LADMEBrNSMGNVP4ezLdSEQ', 'system_env', 'System Environment', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Windows 2019', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 24.04', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 22.04', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 20.04', 400, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'en', 'VM Windows 2019');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'en', 'VM Ubuntu 24.04');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'en', 'VM Ubuntu 22.04');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'en', 'VM Ubuntu 20.04');
+INSERT INTO ref_host_t(table_id, host_id) values ('LADMEBrNSMGNVP4ezLdSEQ', 'N2CMw0HGQXeLvC1wBfln2A');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('EJg629SCT1OQpqZwoTghoA', 'runtime_env', 'Runtime Environment', 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 11', 100, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 17', 200, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 21', 300, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 17', 400, 'Y');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 21', 500, 'Y');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'en', 'OpenJDK 11');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'en', 'OpenJDK 17');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'en', 'OpenJDK 21');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'en', 'GraalVM 17');
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'en', 'GraalVM 21');
+INSERT INTO ref_host_t(table_id, host_id) values ('EJg629SCT1OQpqZwoTghoA', 'N2CMw0HGQXeLvC1wBfln2A');
 
 
 INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('LrXDFX8zRCa69fcth_oyZA', 'api_type', 'API Type', 'Y');
@@ -2371,8 +2511,8 @@ INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLiv
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'mI3Uw8gISvGe9DXpQemJ5g', 'GqToK4trSNWjUFQTtBnpLg');
 
 
-INSERT INTO product_version_t (product_id, product_version, product_version_desc, current_flag)
-VALUES ('lg', '1.4.5', 'This is incremental release to first major release of light gateway', true);
+INSERT INTO product_version_t (host_id, product_id, product_version, light4j_version, version_desc, current, version_status)
+VALUES ('N2CMw0HGQXeLvC1wBfln2A','lg', '1.4.5', '2.1.38','This is incremental release to first major release of light gateway', true, 'Supported');
 
 
 INSERT INTO user_t (user_id, language, first_name, last_name, email, user_type, verified, password)
@@ -2453,7 +2593,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'Admin Client', 'Access the adm endpoints of light-portal services', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421e70', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'admin', null, 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2461,7 +2601,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'PetStore Web Server', 'PetStore Web Server that calls PetStore API', false, null, null);
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421e72', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', '{"c1": "361", "c2": "67"}', 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2470,7 +2610,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'f7d42348-c647-4efb-a52d-4c5787421e73', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2480,7 +2620,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'f7d42348-c647-4efb-a52d-4c5787421e75', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.DefaultAuth', null);
@@ -2489,11 +2629,16 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'Petstore Client Application', 'An example application that is used to demo access to openapi-petstore', false, null, null);
 
 
-INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret,
+INSERT INTO client_t (host_id, app_id, client_id, client_type, client_profile, client_secret, 
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'f7d42348-c647-4efb-a52d-4c5787421e76', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'read:pets write:pets', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
 
+INSERT INTO auth_provider_client_t (provider_id, client_id) VALUES ('EF3wqhfWQti2DUVrvYNM7g', 'f7d42348-c647-4efb-a52d-4c5787421e70');
+INSERT INTO auth_provider_client_t (provider_id, client_id) VALUES ('EF3wqhfWQti2DUVrvYNM7g', 'f7d42348-c647-4efb-a52d-4c5787421e72');
+INSERT INTO auth_provider_client_t (provider_id, client_id) VALUES ('EF3wqhfWQti2DUVrvYNM7g', 'f7d42348-c647-4efb-a52d-4c5787421e73');
+INSERT INTO auth_provider_client_t (provider_id, client_id) VALUES ('EF3wqhfWQti2DUVrvYNM7g', 'f7d42348-c647-4efb-a52d-4c5787421e75');
+INSERT INTO auth_provider_client_t (provider_id, client_id) VALUES ('EF3wqhfWQti2DUVrvYNM7g', 'f7d42348-c647-4efb-a52d-4c5787421e76');
 
 INSERT INTO
     api_t (
