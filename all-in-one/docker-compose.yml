@@ -196,6 +196,20 @@ services:
     container_name: oauth-kafka
     # network_mode: host
 
+  config-server:
+    # image: networknt/config-server:2.1.38
+    image: networknt/config-server:2.1.38-slim
+    ports:
+      - 8435:8435
+      # - 5005:5005
+    volumes:
+      - ./config-server/config:/config
+    # environment:
+    # The following environment varialbe will enable the debug in the container.
+    # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    restart: on-failure
+    container_name: config-server
+
   # reference API
   reference:
     # image: networknt/com.networknt.reference:2.1.38
