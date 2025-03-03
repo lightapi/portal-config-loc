@@ -39,7 +39,8 @@ service.singletons:
       - com.networknt.cache.CaffeineCacheManager
   # PortalDbProviderImpl of DbProvider
   - com.networknt.db.provider.DbProvider:
-      - net.lightapi.portal.db.PortalDbProviderImpl
+      - com.networknt.configserver.ConfigDbProviderImpl
+
   # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.StartupHookProvider:
       # database startup hook to initialize datasource and cache.
