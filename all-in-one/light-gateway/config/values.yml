@@ -71,8 +71,8 @@ direct-registry.directUrls:
   com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
   com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
   com.networknt.reference-1.0.0: https://reference:2498
-  # com.networknt.config-server-1.0.0: https://localhost:8435
-  # com.networknt.controller-1.0.0: https://localhost:8438,https://localhost:8437,https://localhost:8436
+  com.networknt.config-server-1.0.0: https://config-server:8435
+  com.networknt.controller-1.0.0: https://controller-node1:8438,https://controller-node2:8437,https://controller-node3:8436
   com.networknt.scheduler-1.0.0: https://scheduler-node1:8401,https://scheduler-node2:8402,https://scheduler-node3:8403
 
 
