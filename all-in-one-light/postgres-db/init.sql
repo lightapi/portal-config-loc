@@ -1247,7 +1247,7 @@ CREATE TABLE auth_provider_client_t (
     update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, client_id, provider_id),
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
-    FOREIGN KEY(host_id, client_id) REFERENCES client_t(host_id, client_id) ON DELETE CASCADE
+    FOREIGN KEY(host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_code_t (
