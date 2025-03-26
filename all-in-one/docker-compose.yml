@@ -1,7 +1,7 @@
 ---
 services:
   broker:
-    image: confluentinc/cp-kafka:7.8.0
+    image: confluentinc/cp-kafka:7.9.0
     hostname: broker
     container_name: broker
     ports:
@@ -29,7 +29,7 @@ services:
     # network_mode: host
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.8.0
+    image: confluentinc/cp-schema-registry:7.9.0
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
@@ -43,7 +43,7 @@ services:
     # network_mode: host
 
   init-kafka:
-    image: confluentinc/cp-kafka:7.8.0
+    image: confluentinc/cp-kafka:7.9.0
     depends_on:
       - broker
     # network_mode: host
@@ -89,7 +89,7 @@ services:
     # network_mode: host
 
   scheduler-node1:
-    image: networknt/light-scheduler:2.1.37
+    image: networknt/light-scheduler:2.2.1
     depends_on:
       - postgres
     volumes:
@@ -102,7 +102,7 @@ services:
     # network_mode: host
 
   scheduler-node2:
-    image: networknt/light-scheduler:2.1.37
+    image: networknt/light-scheduler:2.2.1
     depends_on:
       - postgres
     volumes:
@@ -115,7 +115,7 @@ services:
     # network_mode: host
 
   scheduler-node3:
-    image: networknt/light-scheduler:2.1.37
+    image: networknt/light-scheduler:2.2.1
     depends_on:
       - postgres
     volumes:
@@ -128,7 +128,7 @@ services:
     # network_mode: host
 
   hybrid-command:
-    image: networknt/portal-hybrid-command:2.1.38-slim
+    image: networknt/portal-hybrid-command:2.2.1-slim
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
       # The following environment varialbe will enable the debug in the container.
@@ -146,7 +146,7 @@ services:
     # network_mode: host
 
   hybrid-query1:
-    image: networknt/portal-hybrid-query:2.1.38-slim
+    image: networknt/portal-hybrid-query:2.2.1-slim
     volumes:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service
@@ -158,7 +158,7 @@ services:
     # network_mode: host
 
   hybrid-query2:
-    image: networknt/portal-hybrid-query:2.1.38-slim
+    image: networknt/portal-hybrid-query:2.2.1-slim
     volumes:
       - ./hybrid-query/node2:/config
       - ./hybrid-query/service:/service
@@ -170,7 +170,7 @@ services:
     # network_mode: host
 
   hybrid-query3:
-    image: networknt/portal-hybrid-query:2.1.38-slim
+    image: networknt/portal-hybrid-query:2.2.1-slim
     volumes:
       - ./hybrid-query/node3:/config
       - ./hybrid-query/service:/service
@@ -183,7 +183,7 @@ services:
 
   oauth-kafka:
     # image: networknt/oauth-kafka:2.1.38
-    image: networknt/oauth-kafka:2.1.38-slim
+    image: networknt/oauth-kafka:2.2.1-slim
     ports:
       - 6881:6881
       # - 5005:5005
@@ -198,7 +198,7 @@ services:
 
   config-server:
     # image: networknt/config-server:2.1.38
-    image: networknt/config-server:2.1.38-slim
+    image: networknt/config-server:2.2.1-slim
     ports:
       - 8435:8435
       # - 5005:5005
@@ -213,7 +213,7 @@ services:
   # reference API
   reference:
     # image: networknt/com.networknt.reference:2.1.38
-    image: networknt/com.networknt.reference:2.1.38-slim
+    image: networknt/com.networknt.reference:2.2.1-slim
     ports:
       - 2498:2498
     volumes:
@@ -226,7 +226,7 @@ services:
     # network_mode: host
 
   light-gateway:
-    image: networknt/light-gateway:2.1.38-slim
+    image: networknt/light-gateway:2.2.1-slim
     ports:
       - 443:8443
     #   - 5005:5005
@@ -245,7 +245,7 @@ services:
     # network_mode: host
 
   openapi-petstore:
-    image: networknt/openapi-petstore:2.1.38
+    image: networknt/openapi-petstore:2.2.1
     depends_on:
       - light-gateway
     ports:
@@ -255,7 +255,7 @@ services:
     container_name: openapi-petstore
 
   http-sidecar:
-    image: networknt/http-sidecar:2.1.38-slim
+    image: networknt/http-sidecar:2.2.1-slim
     # environment:
     #   JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
     depends_on:
