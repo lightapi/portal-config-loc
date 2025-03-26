@@ -7,6 +7,8 @@ services:
     ports:
       - "9092:9092"
       - "9101:9101"
+    volumes:
+      - ./kafka-data/data:/var/lib/kafka/data
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
@@ -22,11 +24,9 @@ services:
       KAFKA_LISTENERS: "PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       # Replace CLUSTER_ID with a unique base64 UUID using "bin/kafka-storage.sh random-uuid"
       # See https://docs.confluent.io/kafka/operations-tools/kafka-tools.html#kafka-storage-sh
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-    # network_mode: host
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.9.0
@@ -40,13 +40,11 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    # network_mode: host
 
   init-kafka:
     image: confluentinc/cp-kafka:7.9.0
     depends_on:
       - broker
-    # network_mode: host
     entrypoint: ["/bin/sh", "-c"]
     command: |
       "
@@ -86,7 +84,6 @@ services:
       - 5432:5432
     hostname: postgres
     container_name: postgres
-    # network_mode: host
 
   scheduler-node1:
     image: networknt/light-scheduler:2.2.1
@@ -143,7 +140,6 @@ services:
       # - 5005:5005
     restart: on-failure
     container_name: hybrid-command
-    # network_mode: host
 
   hybrid-query1:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -155,7 +151,6 @@ services:
       - 8440:8440
     restart: on-failure
     container_name: hybrid-query1
-    # network_mode: host
 
   hybrid-query2:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -167,7 +162,6 @@ services:
       - 8441:8441
     restart: on-failure
     container_name: hybrid-query2
-    # network_mode: host
 
   hybrid-query3:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -179,7 +173,6 @@ services:
       - 8442:8442
     restart: on-failure
     container_name: hybrid-query3
-    # network_mode: host
 
   oauth-kafka:
     # image: networknt/oauth-kafka:2.1.38
@@ -194,7 +187,6 @@ services:
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: oauth-kafka
-    # network_mode: host
 
   config-server:
     # image: networknt/config-server:2.1.38
@@ -223,7 +215,6 @@ services:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: reference
-    # network_mode: host
 
   light-gateway:
     image: networknt/light-gateway:2.2.1-slim

@@ -24,4 +24,6 @@
 hs_err_pid*
 all-in-one/http-sidecar/config/rules.yml
 all-in-one/postgres-db/data
+all-in-one/kafka-data/data
 all-in-one-light/postgres-db/data/
+all-in-one-light/kafka-data/data/
