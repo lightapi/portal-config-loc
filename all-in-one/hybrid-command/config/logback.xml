@@ -31,9 +31,11 @@
     <root level="error">
         <appender-ref ref="stdout"/>
     </root>
+    <!--
     <logger name="com.networknt" level="trace" additivity="false">
         <appender-ref ref="stdout"/>
     </logger>
+    -->
     <logger name="net.lightapi" level="trace" additivity="false">
         <appender-ref ref="stdout"/>
     </logger>

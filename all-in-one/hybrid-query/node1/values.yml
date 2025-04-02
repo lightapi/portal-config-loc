@@ -11,7 +11,7 @@ client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
 
 # kafka-streams.yml
 kafka-streams.bootstrap.servers: broker:29092
-kafka-streams.schema.registry.url: http://schema-registry:8081
+# kafka-streams.schema.registry.url: http://schema-registry:8081
 kafka-streams.application.id: hybrid-query
 # kafka-streams.cleanUp: true
 
@@ -79,8 +79,8 @@ service.singletons:
     # User Query Shutdown Hook
     - net.lightapi.portal.user.query.UserQueryShutdown
   # Schema Registry client implementation
-  - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
-    - com.networknt.kafka.common.LightSchemaRegistryClient
+  # - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
+  #   - com.networknt.kafka.common.LightSchemaRegistryClient
 
 # security.yml
 security.enableVerifyJwt: true
