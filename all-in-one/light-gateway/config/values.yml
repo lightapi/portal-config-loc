@@ -11,7 +11,7 @@ client.tokenServerUrl: https://oauth-kafka:6881
 client.tokenAcUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/token
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenAcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
-client.tokenAcRedirectUri: https://localhost:3000/authorization
+client.tokenAcRedirectUri: https://dev.lightapi.net/authorization
 client.tokenAcScope:
   - portal.r
   - portal.w
