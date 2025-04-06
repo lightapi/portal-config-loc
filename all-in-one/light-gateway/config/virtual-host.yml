@@ -1,5 +1,5 @@
 hosts:
-  - domain: local.lightapi.net
+  - domain: dev.lightapi.net
     path: /
     #base: /home/steve/light-chain/light-config-test/light-router/local-direct/lightapi/build
     base: /lightapi/dist
