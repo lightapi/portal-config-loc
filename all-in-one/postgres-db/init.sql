@@ -1,6 +1,16 @@
 CREATE DATABASE configserver;
 \c configserver;
 
+DROP TABLE IF EXISTS tag_t CASCADE;
+
+DROP TABLE IF EXISTS entity_tag_t CASCADE;
+
+DROP TABLE IF EXISTS category_t CASCADE;
+
+DROP TABLE IF EXISTS entity_category_t CASCADE;
+
+DROP TABLE IF EXISTS schema_t CASCADE;
+
 DROP TABLE IF EXISTS rule_host_t CASCADE;
 
 DROP TABLE IF EXISTS rule_group_host_t CASCADE;
@@ -22,7 +32,6 @@ DROP TABLE IF EXISTS api_t CASCADE;
 DROP TABLE IF EXISTS api_version_t CASCADE;
 
 DROP TABLE IF EXISTS app_api_t CASCADE;
-
 
 DROP TABLE IF EXISTS app_t CASCADE;
 
@@ -65,23 +74,19 @@ DROP TABLE IF EXISTS runtime_instance_t CASCADE;
 
 DROP TABLE IF EXISTS api_endpoint_scope_t CASCADE;
 
-DROP TABLE IF EXISTS tag_t CASCADE;
-
 DROP TABLE IF EXISTS host_t CASCADE;
 
 DROP TABLE IF EXISTS org_t CASCADE;
 
 DROP table IF EXISTS relation_t CASCADE;;
 
-DROP table IF EXISTS relation_type_t CASCADE;;
+DROP table IF EXISTS relation_type_t CASCADE;
 
-DROP table IF EXISTS value_locale_t CASCADE;;
+DROP table IF EXISTS value_locale_t CASCADE;
 
-DROP table IF EXISTS ref_value_t CASCADE;;
+DROP table IF EXISTS ref_value_t CASCADE;
 
-DROP table IF EXISTS ref_host_t CASCADE;;
-
-DROP table IF EXISTS ref_table_t CASCADE;;
+DROP table IF EXISTS ref_table_t CASCADE;
 
 DROP table IF EXISTS attribute_permission_t CASCADE;
 
@@ -168,6 +173,145 @@ DROP TABLE IF EXISTS process_info_t CASCADE;
 DROP TABLE IF EXISTS worklist_column_t CASCADE;
 DROP TABLE IF EXISTS worklist_t CASCADE;
 
+CREATE TABLE tag_t (
+    tag_id               VARCHAR(22) NOT NULL,   -- unique id to identify the category
+    host_id              VARCHAR(22),            -- null mean global category
+    entity_type          VARCHAR(50) NOT NULL,   -- entity type
+    tag_name             VARCHAR(126) NOT NULL CHECK (
+        tag_name = LOWER(tag_name) AND
+        tag_name ~ '^[a-z0-9_-]+$'
+    ),  -- tag name must be lower case and url friendly.
+    tag_desc             VARCHAR(1024),          -- decription
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (tag_id)
+);
+
+-- 1. Unique index for GLOBAL tags (where host_id IS NULL)
+-- Ensures uniqueness of (entity_type, tag_name) ONLY when host_id is NULL
+CREATE UNIQUE INDEX idx_tag_unique_global
+ON tag_t (entity_type, tag_name)
+WHERE host_id IS NULL;
+
+-- 2. Unique index for TENANT-SPECIFIC tags (where host_id IS NOT NULL)
+-- Ensures uniqueness of (host_id, entity_type, tag_name)
+-- for rows that belong to a specific host.
+CREATE UNIQUE INDEX idx_tag_unique_tenant
+ON tag_t (host_id, entity_type, tag_name)
+WHERE host_id IS NOT NULL;
+
+
+CREATE INDEX idx_tag_entity_type ON tag_t (entity_type);
+CREATE INDEX idx_tag_name ON tag_t (tag_name);
+CREATE INDEX idx_tag_host_id ON tag_t (host_id);
+
+CREATE TABLE entity_tag_t (
+    entity_id             VARCHAR(22) NOT NULL,
+    entity_type           VARCHAR(50) NOT NULL,
+    tag_id                VARCHAR(22) NOT NULL REFERENCES tag_t(tag_id) ON DELETE CASCADE,
+    update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (entity_id, entity_type, tag_id)
+);
+
+CREATE INDEX idx_entity_tag_id ON entity_tag_t (tag_id);
+CREATE INDEX idx_entity_tag_entity ON entity_tag_t (entity_id, entity_type);
+
+
+CREATE TABLE category_t (
+    category_id          VARCHAR(22) NOT NULL,   -- unique id to identify the category
+    host_id              VARCHAR(22),            -- null mean global category
+    entity_type          VARCHAR(50) NOT NULL,   -- the entity type
+    category_name        VARCHAR(126) NOT NULL CHECK (
+        category_name = LOWER(category_name) AND
+        category_name ~ '^[a-z0-9_-]+$'
+    ),  -- category name, must be lower case and url friendly.
+    category_desc        VARCHAR(1024),          -- decription
+    parent_category_id   VARCHAR(22) REFERENCES category_t(category_id) ON DELETE SET NULL, -- parent category id, null if there is no parent.
+    sort_order           INT DEFAULT 0,          -- sort order on the UI
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (category_id)
+);
+
+-- 1. Unique index for GLOBAL categories (where host_id IS NULL)
+-- Ensures uniqueness of (entity_type, category_name, parent_category_id) ONLY when host_id is NULL
+CREATE UNIQUE INDEX idx_category_unique_global
+ON category_t (entity_type, category_name, parent_category_id)
+NULLS NOT DISTINCT -- Handles NULLs in parent_category_id correctly
+WHERE host_id IS NULL;
+
+-- 2. Unique index for TENANT-SPECIFIC categories (where host_id IS NOT NULL)
+-- Ensures uniqueness of (host_id, entity_type, category_name, parent_category_id)
+-- for rows that belong to a specific host.
+CREATE UNIQUE INDEX idx_category_unique_tenant
+ON category_t (host_id, entity_type, category_name, parent_category_id)
+NULLS NOT DISTINCT -- Handles NULLs in parent_category_id correctly
+WHERE host_id IS NOT NULL;
+
+
+CREATE INDEX idx_category_entity_type ON category_t (entity_type);
+CREATE INDEX idx_category_parent ON category_t (parent_category_id);
+CREATE INDEX idx_category_name ON category_t (category_name);
+CREATE INDEX idx_category_host_id ON category_t (host_id);
+
+CREATE TABLE entity_category_t (
+    entity_id             VARCHAR(22) NOT NULL,
+    entity_type           VARCHAR(50) NOT NULL,
+    category_id           VARCHAR(22) NOT NULL REFERENCES category_t(category_id) ON DELETE CASCADE,
+    update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (entity_id, entity_type, category_id)
+);
+
+CREATE INDEX idx_entity_category_id ON entity_category_t (category_id);
+CREATE INDEX idx_entity_category_entity ON entity_category_t (entity_id, entity_type);
+
+CREATE TABLE schema_t (
+    schema_id            VARCHAR(126) NOT NULL CHECK (
+        schema_id = LOWER(schema_id) AND
+        schema_id ~ '^[a-z0-9_-]+$'
+    ),  -- schema id, must be lower case and url friendly and uniquely identify a schema
+    host_id              VARCHAR(22),            -- null means global schema
+    schema_version       VARCHAR(12) NOT NULL,   -- the version of the schema
+    schema_type          VARCHAR(16) NOT NULL,   -- schema type
+    spec_version         VARCHAR(12) NOT NULL,   -- schema specification version
+    schema_source        VARCHAR(126) NOT NULL,  -- which api or app owns the schema
+    schema_name          VARCHAR(126) NOT NULL,  -- schema name
+    schema_desc          VARCHAR(1024),          -- description of the schema
+    schema_body          VARCHAR(65535) NOT NULL,-- schema body 
+    schema_owner         VARCHAR(126) NOT NULL,  -- schema owner
+    schema_status        CHAR(1) DEFAULT 'P' NOT NULL,  -- D draft P published R retired
+    example              VARCHAR(65535),         -- json example
+    comment_status       CHAR(1) DEFAULT 'O' NOT NULL, -- comment open or closed. O open C close
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (schema_id)
+);
+
+ALTER TABLE schema_t
+    ADD CHECK ( schema_status IN ('D', 'P', 'R'));
+
+-- Ensures uniqueness of (schema_id, schema_version) ONLY when host_id is NULL
+CREATE UNIQUE INDEX idx_schema_unique_global
+ON schema_t (schema_id, schema_version)
+WHERE host_id IS NULL;
+
+-- 2. Unique index for TENANT-SPECIFIC schemas (where host_id IS NOT NULL)
+-- Ensures uniqueness of (host_id, schema_id, schema_version)
+-- for rows that belong to a specific host.
+CREATE UNIQUE INDEX idx_schema_unique_tenant
+ON schema_t (host_id, schema_id, schema_version)
+WHERE host_id IS NOT NULL;
+
+
+-- Add index on host_id for efficient tenant-specific lookups
+CREATE INDEX idx_schema_host_id ON schema_t (host_id);
+-- Add index on schema_name for lookups by name
+CREATE INDEX idx_schema_schema_name ON schema_t (schema_name);
+-- Add index on schema_type for filtering by schema type
+CREATE INDEX idx_schema_schema_type ON schema_t (schema_type);
+
 -- all entities that can potentially share between hosts will not have host_id column.
 
 -- rule_t doesn't have host_id so that it can be duplicated for all nodes for share across hosts.
@@ -182,7 +326,7 @@ CREATE TABLE rule_t (
     rule_owner           VARCHAR(64) NOT NULL,
     common               CHAR(1) NOT NULL,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (rule_id)
 );
 
@@ -196,7 +340,7 @@ CREATE TABLE rule_host_t (
     host_id               VARCHAR(22) NOT NULL,
     rule_id               VARCHAR(255) NOT NULL,
     update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts             TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, rule_id)
 );
 
@@ -208,7 +352,7 @@ CREATE TABLE rule_group_t (
     execute_sequence     INT NOT NULL,         -- execute sequence for the rule_id in the group.
     group_desc           VARCHAR(4000),
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(group_id, rule_id)
 );
 
@@ -227,7 +371,7 @@ CREATE TABLE api_endpoint_rule_t (
     endpoint             VARCHAR(1024) NOT NULL,
     rule_id              VARCHAR(255) NOT NULL,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 
 );
 ALTER TABLE api_endpoint_rule_t ADD CONSTRAINT api_rule_pk PRIMARY KEY ( host_id, api_id, api_version, endpoint, rule_id );
@@ -249,7 +393,7 @@ CREATE TABLE api_t (
     api_tags                VARCHAR(1024),          -- single word separated with comma.
     api_status              VARCHAR(32) NOT NULL,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -267,7 +411,7 @@ CREATE TABLE api_version_t (
     spec_link               VARCHAR(1024),
     spec                    TEXT,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -284,7 +428,7 @@ CREATE TABLE api_endpoint_t (
     endpoint_name        VARCHAR(128) NOT NULL,
     endpoint_desc        VARCHAR(1024),
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE api_endpoint_t
@@ -301,7 +445,7 @@ CREATE TABLE api_endpoint_scope_t (
     scope                   VARCHAR(128) NOT NULL,
     scope_desc              VARCHAR(1024),
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE api_endpoint_scope_t ADD CONSTRAINT api_endpoint_scope_pk PRIMARY KEY (host_id, api_id, api_version, endpoint, scope );
@@ -316,7 +460,7 @@ CREATE TABLE app_api_t (
     endpoint                VARCHAR(1024) NOT NULL,
     scope                   VARCHAR(128) NOT NULL,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE app_api_t ADD CONSTRAINT app_api_pk PRIMARY KEY ( host_id, app_id, api_id, api_version, endpoint, scope );
@@ -331,7 +475,7 @@ CREATE TABLE app_t (
     operation_owner         VARCHAR(22),
     delivery_owner          VARCHAR(22),
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE app_t ADD CONSTRAINT app_pk PRIMARY KEY ( host_id, app_id);
@@ -344,7 +488,7 @@ CREATE TABLE chain_handler_t (
     configuration_id  VARCHAR(22) NOT NULL,
     sequence_id       INTEGER NOT NULL,
     update_user       VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE chain_handler_t ADD CONSTRAINT chain_handler_pk PRIMARY KEY ( chain_id,
@@ -362,7 +506,7 @@ CREATE TABLE config_t (
     class_path                VARCHAR(1024),
     config_desc               VARCHAR(4096),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE config_t
@@ -387,7 +531,7 @@ CREATE TABLE config_property_t (
     property_file             TEXT,
     resource_type             VARCHAR(30) DEFAULT 'none',
     update_user               VARCHAR(255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE config_property_t
@@ -415,7 +559,7 @@ CREATE TABLE environment_property_t (
     property_value   TEXT,
     property_file    TEXT,
     update_user      VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE environment_property_t ADD CONSTRAINT environment_property_pk PRIMARY KEY ( environment,
@@ -441,7 +585,7 @@ CREATE TABLE platform_t (
     region                      VARCHAR(16),
     lob                         VARCHAR(16),
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, platform_id)
 );
 
@@ -454,7 +598,7 @@ CREATE TABLE pipeline_t (
     request_schema              TEXT NOT NULL,
     response_schema             TEXT NOT NULL,
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, pipeline_id),
     FOREIGN KEY(host_id, platform_id) REFERENCES platform_t(host_id, platform_id) ON DELETE CASCADE
 );
@@ -475,7 +619,7 @@ CREATE TABLE instance_t (
     instance_desc        VARCHAR(1024),
     tag_id               VARCHAR(22),
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, instance_id),
     FOREIGN KEY(host_id, pipeline_id) REFERENCES pipeline_t(host_id, pipeline_id) ON DELETE CASCADE
 );
@@ -509,7 +653,7 @@ CREATE TABLE instance_api_t (
     api_version      VARCHAR(22) NOT NULL,
     active           BOOLEAN DEFAULT true,
     update_user      VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE instance_api_t ADD CONSTRAINT instance_api_pk PRIMARY KEY ( host_id, instance_id, api_id, api_version );
@@ -526,7 +670,7 @@ CREATE TABLE instance_api_property_t (
     property_value   TEXT,
     property_file    TEXT,
     update_user      VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE instance_api_property_t ADD CONSTRAINT instance_api_property_pk
@@ -543,7 +687,7 @@ CREATE TABLE instance_app_t (
     app_version             VARCHAR(16) NOT NULL,
     active                  BOOLEAN DEFAULT true,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE instance_app_t ADD CONSTRAINT instance_app_pk PRIMARY KEY ( host_id, instance_id, app_id, app_version);
@@ -560,7 +704,7 @@ CREATE TABLE instance_app_property_t (
     property_value          TEXT,
     property_file           TEXT,
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -577,7 +721,7 @@ CREATE TABLE instance_property_t (
     property_value    TEXT,
     property_file     TEXT,
     update_user       VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE instance_property_t ADD CONSTRAINT instance_property_pk PRIMARY KEY ( host_id, instance_id,
@@ -594,7 +738,7 @@ CREATE TABLE product_property_t (
     property_value   TEXT,
     property_file    TEXT,
     update_user      VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE product_property_t ADD CONSTRAINT product_property_pk PRIMARY KEY ( product_id,
@@ -614,7 +758,7 @@ CREATE TABLE product_version_t (
     current                     BOOLEAN DEFAULT false,
     version_status              VARCHAR(16) NOT NULL, 
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_id, product_version)
 );
 
@@ -629,7 +773,7 @@ CREATE TABLE product_version_property_t (
     property_value   TEXT,
     property_file    TEXT,
     update_user      VARCHAR (126) DEFAULT SESSION_USER NOT NULL,
-    update_ts        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE product_version_property_t
@@ -647,10 +791,10 @@ CREATE TABLE deployment_t (
     instance_id                 VARCHAR(22) NOT NULL,
     deployment_status           VARCHAR(16) NOT NULL,
     deployment_type             VARCHAR(16) NOT NULL,
-    schedule_ts                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    schedule_ts                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     platform_job_id             VARCHAR(126),           -- update by the executor once it is started
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, deployment_id),
     FOREIGN KEY(host_id, instance_id) REFERENCES instance_t(host_id, instance_id) ON DELETE CASCADE
 );
@@ -663,28 +807,12 @@ CREATE TABLE runtime_instance_t (
     instance_id                 VARCHAR(126) NOT NULL, -- which logical instance in instance_t
     instance_status             VARCHAR(16) NOT NULL,  -- deployed, running, shutdown, starting 
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, runtime_instance_id),
     FOREIGN KEY(host_id, deployment_id) REFERENCES deployment_t(host_id, deployment_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, instance_id) REFERENCES instance_t(host_id, instance_id) ON DELETE CASCADE
 );
 
-
--- tag is per host and the id is UUID.
-CREATE TABLE tag_t (
-    host_id                   VARCHAR(22) NOT NULL,
-    tag_id                    VARCHAR(22) NOT NULL,
-    tag_name                  VARCHAR(128) NOT NULL,
-    tag_type                  VARCHAR(30) NOT NULL DEFAULT 'User',
-    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-ALTER TABLE tag_t ADD CONSTRAINT tag_pk PRIMARY KEY ( host_id, tag_id );
-
-ALTER TABLE tag_t ADD CONSTRAINT tag_uk UNIQUE ( tag_name );
-
-ALTER TABLE tag_t ADD CHECK ( tag_type IN ( 'System', 'User' ) );
 
 CREATE TABLE org_t (
     domain                    VARCHAR(64) NOT NULL,  -- networknt.com lightapi.net
@@ -692,7 +820,7 @@ CREATE TABLE org_t (
     org_desc                  VARCHAR(4096) NOT NULL,
     org_owner                 VARCHAR(22),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(domain)
 );
 
@@ -704,7 +832,7 @@ CREATE TABLE host_t (
     host_desc                 VARCHAR(4096),
     host_owner                VARCHAR(22),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id),
     FOREIGN KEY(domain) REFERENCES org_t(domain) ON DELETE CASCADE
 );
@@ -713,52 +841,63 @@ CREATE TABLE host_t (
 ALTER TABLE host_t ADD CONSTRAINT domain_uk UNIQUE ( domain, sub_domain );
 
 
-
+-- Table for defining reference types (e.g., 'Countries', 'OrderStatus')
 CREATE TABLE ref_table_t (
   table_id             VARCHAR(22) NOT NULL, -- UUID genereated by Util
+  host_id              VARCHAR(22),          -- NULL for global/shared tables
   table_name           VARCHAR(80) NOT NULL, -- Name of the ref table for lookup.
-  table_desc           VARCHAR(1024) NULL,
-  active               CHAR(1) NOT NULL DEFAULT 'Y', -- Only active table returns values
-  editable             CHAR(1) NOT NULL DEFAULT 'Y', -- Table value and locale can be updated via ref admin
-  common               CHAR(1) NOT NULL DEFAULT 'Y', -- The drop down shared across hosts
+  table_desc           TEXT NULL,
+  active               BOOLEAN NOT NULL DEFAULT TRUE, -- Only active table returns values
+  editable             BOOLEAN NOT NULL DEFAULT TRUE, -- Table value and locale can be updated via ref admin
+  update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+  update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
   PRIMARY KEY(table_id)
 );
 
-CREATE TABLE ref_host_t (
-  table_id             VARCHAR(22) NOT NULL,
-  host_id              VARCHAR(22) NOT NULL,
-  PRIMARY KEY (table_id, host_id),
-  FOREIGN KEY (table_id) REFERENCES ref_table_t (table_id) ON DELETE CASCADE,
-  FOREIGN KEY (host_id) REFERENCES host_t (host_id) ON DELETE CASCADE
-);
+-- Partial unique indexes for table_name scope
+CREATE UNIQUE INDEX idx_ref_table_unique_global ON ref_table_t (table_name) WHERE host_id IS NULL;
+CREATE UNIQUE INDEX idx_ref_table_unique_tenant ON ref_table_t (host_id, table_name) WHERE host_id IS NOT NULL;
+CREATE INDEX idx_ref_table_host_id ON ref_table_t(host_id); -- Index for host lookup
 
+-- Table for individual values within a reference table
 CREATE TABLE ref_value_t (
   value_id              VARCHAR(22) NOT NULL,
   table_id              VARCHAR(22) NOT NULL,
   value_code            VARCHAR(80) NOT NULL, -- The dropdown value
-  start_time            TIMESTAMP NULL,
-  end_time              TIMESTAMP NULL,
-  display_order         INT,                  -- for editor and dropdown list.
-  active                VARCHAR(1) NOT NULL DEFAULT 'Y',
+  value_desc            TEXT NULL,            -- Optional detailed description  
+  start_ts              TIMESTAMP WITH TIME ZONE NULL,
+  end_ts                TIMESTAMP WITH TIME ZONE NULL,
+  display_order         INT DEFAULT 0,        -- for editor and dropdown list.
+  active                BOOLEAN NOT NULL DEFAULT TRUE,
+  update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+  update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
   PRIMARY KEY(value_id),
-  FOREIGN KEY (table_id) REFERENCES ref_table_t (table_id) ON DELETE CASCADE
+  FOREIGN KEY (table_id) REFERENCES ref_table_t (table_id) ON DELETE CASCADE,
+  CONSTRAINT unique_ref_value_code_in_table UNIQUE (table_id, value_code) -- Enforce unique codes within a table
 );
+
+CREATE INDEX idx_ref_value_table_id ON ref_value_t(table_id); -- Index for finding values by table
 
 
 CREATE TABLE value_locale_t (
   value_id              VARCHAR(22) NOT NULL,
   language              VARCHAR(2) NOT NULL,
-  value_desc            VARCHAR(256) NULL, -- The drop label in language.
+  value_label           VARCHAR(255) NOT NULL, -- The drop label in language.
+  update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+  update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
   PRIMARY KEY(value_id,language),
   FOREIGN KEY (value_id) REFERENCES ref_value_t (value_id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_value_locale_lang ON value_locale_t(language);
 
 
 CREATE TABLE relation_type_t (
   relation_id           VARCHAR(22) NOT NULL,
   relation_name         VARCHAR(32) NOT NULL, -- The lookup keyword for the relation.
-  relation_desc         VARCHAR(1024) NOT NULL,
+  relation_desc         TEXT NOT NULL,
+  update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+  update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
   PRIMARY KEY(relation_id)
 );
 
@@ -768,12 +907,17 @@ CREATE TABLE relation_t (
   relation_id           VARCHAR(22) NOT NULL,
   value_id_from         VARCHAR(22) NOT NULL,
   value_id_to           VARCHAR(22) NOT NULL,
-  active                VARCHAR(1) NOT NULL DEFAULT 'Y',
+  active                BOOLEAN NOT NULL DEFAULT TRUE,
+  update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+  update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
   PRIMARY KEY (relation_id, value_id_from, value_id_to),
   FOREIGN KEY (relation_id) REFERENCES relation_type_t (relation_id) ON DELETE CASCADE,
   FOREIGN KEY (value_id_from) REFERENCES ref_value_t (value_id) ON DELETE CASCADE,
   FOREIGN KEY (value_id_to) REFERENCES ref_value_t (value_id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_relation_from ON relation_t(value_id_from);
+CREATE INDEX idx_relation_to ON relation_t(value_id_to);
 
 
 CREATE TABLE user_t (
@@ -797,7 +941,7 @@ CREATE TABLE user_t (
     locked                    BOOLEAN NOT NULL DEFAULT false,
     nonce                     BIGINT NOT NULL DEFAULT 0,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 ALTER TABLE user_t ADD CONSTRAINT user_pk PRIMARY KEY ( user_id );
@@ -809,7 +953,7 @@ CREATE TABLE user_host_t (
     user_id                   VARCHAR(22) NOT NULL,
     -- other relationship-specific attributes (e.g., roles within the host)
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, user_id),
     FOREIGN KEY (user_id) REFERENCES user_t (user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t (host_id) ON DELETE CASCADE
@@ -820,7 +964,7 @@ CREATE TABLE user_crypto_wallet_t (
     crypto_type               VARCHAR(32) NOT NULL,
     crypto_address            VARCHAR(128) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (user_id, crypto_type, crypto_address),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
 );
@@ -832,7 +976,7 @@ CREATE TABLE customer_t (
     -- Other customer-specific attributes
     referral_id               VARCHAR(22), -- the customer_id who refers this customer.
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, customer_id),
     -- make sure that the user_host_t host_id update is cascaded
     FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -847,7 +991,7 @@ CREATE TABLE employee_t (
     manager_id                VARCHAR(50), -- manager's employee_id if there is one.
     hire_date                 DATE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, employee_id),
     -- make sure that the user_host_t host_id update is cascaded
     FOREIGN KEY (host_id, user_id) REFERENCES user_host_t(host_id, user_id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -861,7 +1005,7 @@ CREATE TABLE position_t (
     inherit_to_ancestor       CHAR(1) DEFAULT 'N',
     inherit_to_sibling        CHAR(1) DEFAULT 'N',
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, position_id)
 );
 
@@ -873,7 +1017,7 @@ CREATE TABLE employee_position_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, employee_id, position_id),
     FOREIGN KEY (host_id, position_id) REFERENCES position_t(host_id, position_id) ON DELETE CASCADE
 );
@@ -885,7 +1029,7 @@ CREATE TABLE position_permission_t (
     api_version               VARCHAR(16) NOT NULL,
     endpoint                  VARCHAR(128) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, position_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, position_id) REFERENCES position_t(host_id, position_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -901,7 +1045,7 @@ CREATE TABLE position_row_filter_t (
     operator                  VARCHAR(32) NOT NULL,
     col_value                 VARCHAR(1024) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, position_id, api_id, api_version, endpoint, col_name),
     FOREIGN KEY (host_id, position_id) REFERENCES position_t(host_id, position_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -915,7 +1059,7 @@ CREATE TABLE position_col_filter_t (
     endpoint                  VARCHAR(128) NOT NULL,
     columns                   VARCHAR(1024) NOT NULL, -- list of columns to keep for the position in json string array format.
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, position_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, position_id) REFERENCES position_t(host_id, position_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -926,7 +1070,7 @@ CREATE TABLE role_t (
     role_id                   VARCHAR(128) NOT NULL,
     role_desc                 VARCHAR(1024),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, role_id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
@@ -938,7 +1082,7 @@ CREATE TABLE role_permission_t (
     api_version               VARCHAR(16) NOT NULL,
     endpoint                  VARCHAR(128) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, role_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, role_id) REFERENCES role_t(host_id, role_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -954,7 +1098,7 @@ CREATE TABLE role_row_filter_t (
     operator                  VARCHAR(32) NOT NULL,
     col_value                 VARCHAR(1024) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, role_id, api_id, api_version, endpoint, col_name),
     FOREIGN KEY (host_id, role_id) REFERENCES role_t(host_id, role_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -968,7 +1112,7 @@ CREATE TABLE role_col_filter_t (
     endpoint                  VARCHAR(128) NOT NULL,
     columns                   VARCHAR(1024) NOT NULL, -- list of columns to keep for the role in json string array format.
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, role_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, role_id) REFERENCES role_t(host_id, role_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -982,7 +1126,7 @@ CREATE TABLE role_user_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, role_id, user_id),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, role_id) REFERENCES role_t(host_id, role_id) ON DELETE CASCADE
@@ -997,7 +1141,7 @@ CREATE TABLE user_permission_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (user_id, host_id, api_id, api_version, endpoint),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1016,7 +1160,7 @@ CREATE TABLE user_row_filter_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (user_id, host_id, api_id, api_version, endpoint, col_name),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1032,7 +1176,7 @@ CREATE TABLE user_col_filter_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (user_id, host_id, api_id, api_version, endpoint),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1044,7 +1188,7 @@ CREATE TABLE group_t (
     group_id                  VARCHAR(128) NOT NULL,
     group_desc                VARCHAR(2048),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, group_id)
 );
 
@@ -1055,7 +1199,7 @@ CREATE TABLE group_permission_t (
     api_version               VARCHAR(16) NOT NULL,
     endpoint                  VARCHAR(128) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, group_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, group_id) REFERENCES group_t(host_id, group_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1071,7 +1215,7 @@ CREATE TABLE group_row_filter_t (
     operator                  VARCHAR(32) NOT NULL,
     col_value                 VARCHAR(1024) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, group_id, api_id, api_version, endpoint, col_name),
     FOREIGN KEY (host_id, group_id) REFERENCES group_t(host_id, group_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1085,7 +1229,7 @@ CREATE TABLE group_col_filter_t (
     endpoint                  VARCHAR(128) NOT NULL,
     columns                   VARCHAR(1024) NOT NULL, -- list of columns to keep for the group in json string array format.
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, group_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, group_id) REFERENCES group_t(host_id, group_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE
@@ -1099,7 +1243,7 @@ CREATE TABLE group_user_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, group_id, user_id),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, group_id) REFERENCES group_t(host_id, group_id) ON DELETE CASCADE
@@ -1112,7 +1256,7 @@ CREATE TABLE attribute_t (
     attribute_type            VARCHAR(50) CHECK (attribute_type IN ('string', 'integer', 'boolean', 'date', 'float', 'list')), -- Define allowed data types
     attribute_desc            VARCHAR(2048),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, attribute_id)
 );
 
@@ -1124,7 +1268,7 @@ CREATE TABLE attribute_user_t (
     start_ts                  TIMESTAMP WITH TIME ZONE,
     end_ts                    TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, attribute_id, user_id),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, attribute_id) REFERENCES attribute_t(host_id, attribute_id) ON DELETE CASCADE
@@ -1139,7 +1283,7 @@ CREATE TABLE attribute_permission_t (
     endpoint                  VARCHAR(128) NOT NULL,
     attribute_value           VARCHAR(1024) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, attribute_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE,
     FOREIGN KEY (host_id, attribute_id) REFERENCES attribute_t(host_id, attribute_id) ON DELETE CASCADE
@@ -1156,7 +1300,7 @@ CREATE TABLE attribute_row_filter_t (
     operator                  VARCHAR(32) NOT NULL,
     col_value                 VARCHAR(1024) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, attribute_id, api_id, api_version, endpoint, col_name),
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE,
     FOREIGN KEY (host_id, attribute_id) REFERENCES attribute_t(host_id, attribute_id) ON DELETE CASCADE
@@ -1171,7 +1315,7 @@ CREATE TABLE attribute_col_filter_t (
     attribute_value           VARCHAR(1024) NOT NULL,
     columns                   VARCHAR(1024) NOT NULL, -- list of columns to keep for the attribute in json string array format.
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, attribute_id, api_id, api_version, endpoint),
     FOREIGN KEY (host_id, api_id, api_version, endpoint) REFERENCES api_endpoint_t(host_id, api_id, api_version, endpoint) ON DELETE CASCADE,
     FOREIGN KEY (host_id, attribute_id) REFERENCES attribute_t(host_id, attribute_id) ON DELETE CASCADE
@@ -1187,7 +1331,7 @@ CREATE TABLE auth_provider_t (
     delivery_owner            VARCHAR(22),
     jwk                       VARCHAR(65535) NOT NULL, -- json web key that contains current and previous public keys
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (provider_id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
@@ -1200,7 +1344,7 @@ CREATE TABLE auth_provider_key_t (
     private_key               VARCHAR(65535) NOT NULL,
     key_type                  CHAR(2) NOT NULL, -- LC long live current LP long live previous TC token current, TP token previous
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(provider_id, kid),
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
 );
@@ -1211,7 +1355,7 @@ CREATE TABLE auth_provider_api_t(
     api_id                    VARCHAR(22) NOT NULL,
     provider_id               VARCHAR(22) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, api_id, provider_id),
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, api_id) REFERENCES api_t(host_id, api_id) ON DELETE CASCADE
@@ -1234,7 +1378,7 @@ CREATE TABLE auth_client_t (
     authenticate_class      VARCHAR(256),
     deref_client_id         VARCHAR(36), -- only this client calls AS to deref token to JWT for external client type
     update_user             VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts              TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, client_id)
 );
 
@@ -1244,7 +1388,7 @@ CREATE TABLE auth_provider_client_t (
     client_id                 VARCHAR(36) NOT NULL,
     provider_id               VARCHAR(22) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, client_id, provider_id),
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
@@ -1268,7 +1412,7 @@ CREATE TABLE auth_code_t (
     code_challenge            VARCHAR(126),
     challenge_method          VARCHAR(64),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (provider_id) REFERENCES auth_provider_t(provider_id) ON DELETE CASCADE,
@@ -1292,7 +1436,7 @@ CREATE TABLE auth_refresh_token_t (
     csrf                      VARCHAR(36),
     custom_claim              VARCHAR(2000),
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
@@ -1302,7 +1446,7 @@ CREATE TABLE auth_ref_token_t (
     host_id                   VARCHAR(22) NOT NULL,
     ref_token                 VARCHAR(40) NOT NULL,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (ref_token),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
@@ -1314,7 +1458,7 @@ CREATE TABLE notification_t (
     nonce                     INTEGER NOT NULL,
     event_class               VARCHAR(255) NOT NULL,
     event_json                TEXT NOT NULL,
-    process_ts                TIMESTAMP NOT NULL,
+    process_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
     is_processed              BOOLEAN NOT NULL,
     error                     VARCHAR(1024) NULL,
     PRIMARY KEY (id),
@@ -1329,7 +1473,7 @@ CREATE TABLE message_t (
     to_email   VARCHAR(64) NOT NULL,
     subject    VARCHAR(256) NOT NULL,
     content    VARCHAR(65536) NOT NULL,
-    send_time  TIMESTAMP NOT NULL
+    send_time  TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY ( from_id, nonce );
@@ -1343,7 +1487,7 @@ CREATE TABLE worklist_t (
   status_code           VARCHAR(10) DEFAULT 'Active' NOT NULL,
   app_id                VARCHAR(126) DEFAULT 'global' NOT NULL,
   update_user           VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-  update_ts             TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  update_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
   PRIMARY KEY(assignee_id, category_id)
 );
 
@@ -1362,10 +1506,10 @@ CREATE TABLE process_info_t (
   app_id                     VARCHAR(22)       NOT NULL, -- application id
   process_type               VARCHAR(126)      NOT NULL,
   status_code                CHAR(1)            NOT NULL, -- process status code 'A', 'C'
-  started_ts                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-  ex_trigger_ts              TIMESTAMP          NOT NULL,
+  started_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  ex_trigger_ts              TIMESTAMP WITH TIME ZONE          NOT NULL,
   custom_status_code         VARCHAR(126),
-  completed_ts               TIMESTAMP,
+  completed_ts               TIMESTAMP WITH TIME ZONE,
   result_code                VARCHAR(126),
   source_id                  VARCHAR(126),
   branch_code                VARCHAR(126),
@@ -1381,9 +1525,9 @@ CREATE TABLE process_info_t (
   product_type               VARCHAR(126),
   group_name                 VARCHAR(126),
   subgroup_name              VARCHAR(126),
-  event_start_ts             TIMESTAMP,
-  event_end_ts               TIMESTAMP,
-  event_other_ts             TIMESTAMP,
+  event_start_ts             TIMESTAMP WITH TIME ZONE,
+  event_end_ts               TIMESTAMP WITH TIME ZONE,
+  event_other_ts             TIMESTAMP WITH TIME ZONE,
   event_other                VARCHAR(126),
   risk                       NUMERIC,
   risk_scale                 INTEGER,
@@ -1395,7 +1539,7 @@ CREATE TABLE process_info_t (
   ex_ref_code                VARCHAR(126),
   product_qy_scale           INTEGER,
   parent_process_id          VARCHAR(22),
-  deadline_ts                TIMESTAMP,
+  deadline_ts                TIMESTAMP WITH TIME ZONE,
   parent_group_id            NUMERIC,
   process_subtype_code       VARCHAR(126),
   owning_group_name          VARCHAR(126), -- Name of the group that owns the process
@@ -1410,15 +1554,15 @@ CREATE TABLE task_info_t
     wf_instance_id      VARCHAR(126) NOT NULL,
     wf_task_id          VARCHAR(126) NOT NULL,
     status_code         CHAR(1)       NOT NULL, -- U, A, C 
-    started_ts          TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    started_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     locked              CHAR(1)       NOT NULL,
     priority            INTEGER        NOT NULL,
-    completed_ts        TIMESTAMP      NULL,
+    completed_ts        TIMESTAMP WITH TIME ZONE      NULL,
     completed_user      VARCHAR(126)     NULL,
     result_code         VARCHAR(126)     NULL,
     locking_user        VARCHAR(126)     NULL,
     locking_role        VARCHAR(126)     NULL,
-    deadline_ts         TIMESTAMP      NULL,
+    deadline_ts         TIMESTAMP WITH TIME ZONE      NULL,
     lock_group          VARCHAR(126)     NULL,
     PRIMARY KEY(task_id),
     FOREIGN KEY (process_id) REFERENCES process_info_t(process_id) ON DELETE CASCADE
@@ -1428,11 +1572,11 @@ CREATE TABLE task_asst_t
 (
     task_asst_id         VARCHAR(22)   NOT NULL,
     task_id              VARCHAR(22)   NOT NULL,
-    assigned_ts          TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    assigned_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     assignee_id          VARCHAR(126) NOT NULL,
     reason_code          VARCHAR(126) NOT NULL,
     ACTIVE               CHAR(1)      DEFAULT 'Y' NOT NULL,
-    unassigned_ts        TIMESTAMP      NULL,
+    unassigned_ts        TIMESTAMP WITH TIME ZONE      NULL,
     unassigned_reason    VARCHAR(126)     NULL,
     category_code        VARCHAR(126)     NULL,
     PRIMARY KEY(task_asst_id),
@@ -1445,7 +1589,7 @@ CREATE TABLE audit_log_t
     source_type_id       VARCHAR(126)      NULL,
     correlation_id       VARCHAR(126)      NULL,
     user_id              VARCHAR(126)     NULL,
-    event_ts             TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    event_ts             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     success              CHAR(1)           NULL,
     message0             VARCHAR(126)     NULL,
     message1             VARCHAR(126)     NULL,
@@ -1594,8 +1738,8 @@ ALTER TABLE instance_app_property_t
             ON DELETE CASCADE;
 
 ALTER TABLE instance_t
-    ADD CONSTRAINT tag_fk FOREIGN KEY ( host_id, tag_id )
-        REFERENCES tag_t ( host_id, tag_id )
+    ADD CONSTRAINT tag_fk FOREIGN KEY (tag_id )
+        REFERENCES tag_t (tag_id )
             ON DELETE CASCADE;
 
 
@@ -1652,263 +1796,249 @@ INSERT INTO auth_provider_key_t (provider_id, kid, public_key, private_key, key_
 );
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('z-Xv-uQfTXu_KRf7uP_n1g', 'user_type', 'User Type', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('iK1f9oYIT8m2Ew4m_W7z8w', 'z-Xv-uQfTXu_KRf7uP_n1g', 'E', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('tQ8tT1fWS0-j6x0kR-91BA', 'z-Xv-uQfTXu_KRf7uP_n1g', 'C', 200, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('iK1f9oYIT8m2Ew4m_W7z8w', 'en', 'Employee');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('tQ8tT1fWS0-j6x0kR-91BA', 'en', 'Customer');
-INSERT INTO ref_host_t(table_id, host_id) values ('z-Xv-uQfTXu_KRf7uP_n1g', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('z-Xv-uQfTXu_KRf7uP_n1g', 'user_type', 'User Type', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('iK1f9oYIT8m2Ew4m_W7z8w', 'z-Xv-uQfTXu_KRf7uP_n1g', 'E', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('tQ8tT1fWS0-j6x0kR-91BA', 'z-Xv-uQfTXu_KRf7uP_n1g', 'C', 200);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('iK1f9oYIT8m2Ew4m_W7z8w', 'en', 'Employee');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('tQ8tT1fWS0-j6x0kR-91BA', 'en', 'Customer');
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('dFGZj8DKQr6Ll6q4H-mB3w', 'language', 'Language', 'N');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('dFGZj8DKQr6Ll6q4H-mB3w', 'language', 'Language', 'N2CMw0HGQXeLvC1wBfln2A');
 -- Add language values
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('VQzuTjCpTI-elK-DlpaB3Q', 'dFGZj8DKQr6Ll6q4H-mB3w', 'en', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('um3QAmbcTRqLw68ua2Iwug', 'dFGZj8DKQr6Ll6q4H-mB3w', 'fr', 101, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('zh', 'language', 'zh', 102, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('es', 'language', 'es', 103, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('ja', 'language', 'ja', 104, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('ko', 'language', 'ko', 105, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('pt', 'language', 'pt', 106, 'Y');
--- INSERT INTO ref_value(value_id, table_id, value_code, display_order, active) VALUES ('ru', 'language', 'ru', 107, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('VQzuTjCpTI-elK-DlpaB3Q', 'en', 'English');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('um3QAmbcTRqLw68ua2Iwug', 'en', 'French');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('zh', 'en', 'Chinese');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('es', 'en', 'Spanish');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('ja', 'en', 'Japanese');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('ko', 'en', 'Korean');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('pt', 'en', 'Portuguese');
--- INSERT INTO value_locale(value_id, language, value_desc) VALUES ('ru', 'en', 'Russian');
-INSERT INTO ref_host_t(table_id, host_id) values ('dFGZj8DKQr6Ll6q4H-mB3w', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('VQzuTjCpTI-elK-DlpaB3Q', 'dFGZj8DKQr6Ll6q4H-mB3w', 'en', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('um3QAmbcTRqLw68ua2Iwug', 'dFGZj8DKQr6Ll6q4H-mB3w', 'fr', 101);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('zh', 'language', 'zh', 102);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('es', 'language', 'es', 103);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('ja', 'language', 'ja', 104);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('ko', 'language', 'ko', 105);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('pt', 'language', 'pt', 106);
+-- INSERT INTO ref_value(value_id, table_id, value_code, display_order) VALUES ('ru', 'language', 'ru', 107);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('VQzuTjCpTI-elK-DlpaB3Q', 'en', 'English');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('um3QAmbcTRqLw68ua2Iwug', 'en', 'French');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('zh', 'en', 'Chinese');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('es', 'en', 'Spanish');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('ja', 'en', 'Japanese');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('ko', 'en', 'Korean');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('pt', 'en', 'Portuguese');
+-- INSERT INTO value_locale(value_id, language, value_label) VALUES ('ru', 'en', 'Russian');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('xMdMXLh8TgmjLScSH49q_Q', 'environment', 'Environment', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('UcPJHc_VT-a90F-rQZd9Yg', 'xMdMXLh8TgmjLScSH49q_Q', 'DEV', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('TK_KMCsjT_2frEnVHgpoYw', 'xMdMXLh8TgmjLScSH49q_Q', 'SIT', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8tgHiB3TRW6VhRnmT4x7Tw', 'xMdMXLh8TgmjLScSH49q_Q', 'UAT', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Bx0GoUhvTgSaoJfQn95vhw', 'xMdMXLh8TgmjLScSH49q_Q', 'STG', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('oqbeOE0SSjClTN3P6mP_MA', 'xMdMXLh8TgmjLScSH49q_Q', 'RPD', 500, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('UcPJHc_VT-a90F-rQZd9Yg', 'en', 'DEV');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('TK_KMCsjT_2frEnVHgpoYw', 'en', 'SIT');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8tgHiB3TRW6VhRnmT4x7Tw', 'en', 'UAT');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Bx0GoUhvTgSaoJfQn95vhw', 'en', 'STAGING');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('oqbeOE0SSjClTN3P6mP_MA', 'en', 'PRODUCTION');
-INSERT INTO ref_host_t(table_id, host_id) values ('xMdMXLh8TgmjLScSH49q_Q', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('xMdMXLh8TgmjLScSH49q_Q', 'environment', 'Environment', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('UcPJHc_VT-a90F-rQZd9Yg', 'xMdMXLh8TgmjLScSH49q_Q', 'DEV', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('TK_KMCsjT_2frEnVHgpoYw', 'xMdMXLh8TgmjLScSH49q_Q', 'SIT', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('8tgHiB3TRW6VhRnmT4x7Tw', 'xMdMXLh8TgmjLScSH49q_Q', 'UAT', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Bx0GoUhvTgSaoJfQn95vhw', 'xMdMXLh8TgmjLScSH49q_Q', 'STG', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('oqbeOE0SSjClTN3P6mP_MA', 'xMdMXLh8TgmjLScSH49q_Q', 'RPD', 500);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('UcPJHc_VT-a90F-rQZd9Yg', 'en', 'DEV');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('TK_KMCsjT_2frEnVHgpoYw', 'en', 'SIT');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('8tgHiB3TRW6VhRnmT4x7Tw', 'en', 'UAT');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Bx0GoUhvTgSaoJfQn95vhw', 'en', 'STAGING');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('oqbeOE0SSjClTN3P6mP_MA', 'en', 'PRODUCTION');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('FuPRs3DUStaROblPpO5XRw', 'light4j_version', 'Light-4j Version', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ugGbnVDGQG27kDogOoieiw', 'FuPRs3DUStaROblPpO5XRw', '2.1.37', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'FuPRs3DUStaROblPpO5XRw', '2.1.38', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'FuPRs3DUStaROblPpO5XRw', '2.2.0', 300, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ugGbnVDGQG27kDogOoieiw', 'en', '2.1.37');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'en', '2.1.38');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'en', '2.2.0');
-INSERT INTO ref_host_t(table_id, host_id) values ('FuPRs3DUStaROblPpO5XRw', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('FuPRs3DUStaROblPpO5XRw', 'light4j_version', 'Light-4j Version', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ugGbnVDGQG27kDogOoieiw', 'FuPRs3DUStaROblPpO5XRw', '2.1.37', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'FuPRs3DUStaROblPpO5XRw', '2.1.38', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'FuPRs3DUStaROblPpO5XRw', '2.2.0', 300);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ugGbnVDGQG27kDogOoieiw', 'en', '2.1.37');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('WwsR5Ki1R4OaampHzqWgvw', 'en', '2.1.38');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('H4DcO139SaWsK1ZqrqJUQg', 'en', '2.2.0');
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('Erd8-pD3TBG7-vwPtgsWFg', 'platform_product', 'Platform Product', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Pbwy3xh2Sz2WfAbW9JcJ8Q', 'Erd8-pD3TBG7-vwPtgsWFg', 'lg', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('XB4iKkb4QUqwgAZsDh83DA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lps', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('UicQpEFZQYGk4rc6ky-LMQ', 'Erd8-pD3TBG7-vwPtgsWFg', 'lpc', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('EMINj3sSSr6e19_zt14CjA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lp', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('_NR9tmVPQ1OWib2Dz6j3Qw', 'Erd8-pD3TBG7-vwPtgsWFg', 'lpl', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Tld_5HmWQI67jK1MNIO9HA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lks', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('yyLPTpsJTXStY5DSuQTzFg', 'Erd8-pD3TBG7-vwPtgsWFg', 'lb', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('CndphT7PSweprG9uHC-kmQ', 'Erd8-pD3TBG7-vwPtgsWFg', 'lnl', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HxEbiZ-ASNOqGjzI1X_3-Q', 'Erd8-pD3TBG7-vwPtgsWFg', 'bff', 900, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Pbwy3xh2Sz2WfAbW9JcJ8Q', 'en', 'Light Gateway');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('XB4iKkb4QUqwgAZsDh83DA', 'en', 'Light Proxy Server');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('UicQpEFZQYGk4rc6ky-LMQ', 'en', 'Light Proxy Client');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('EMINj3sSSr6e19_zt14CjA', 'en', 'Light Proxy Sidecar');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('_NR9tmVPQ1OWib2Dz6j3Qw', 'en', 'Light Proxy Lambda');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Tld_5HmWQI67jK1MNIO9HA', 'en', 'Light Kafka Sidecar');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('yyLPTpsJTXStY5DSuQTzFg', 'en', 'Light Balancer');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('CndphT7PSweprG9uHC-kmQ', 'en', 'Light Native Lambda');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HxEbiZ-ASNOqGjzI1X_3-Q', 'en', 'Light BFF');
-INSERT INTO ref_host_t(table_id, host_id) values ('Erd8-pD3TBG7-vwPtgsWFg', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('2A3um2OJSiK4bZ4h10jOww', 'product_version_status', 'Product Version Status', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('RbkF7LnvStqGqeRHC004GA', '2A3um2OJSiK4bZ4h10jOww', 'Supported', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('SV8tVtegSt6balvd3uolog', '2A3um2OJSiK4bZ4h10jOww', 'Outdated', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('lRtAcENcTLWzLaSaNxuTPA', '2A3um2OJSiK4bZ4h10jOww', 'Deprecated', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HeT7oBcTSmOXJesV0tQWwA', '2A3um2OJSiK4bZ4h10jOww', 'Removed', 400, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('RbkF7LnvStqGqeRHC004GA', 'en', 'Supported');  -- there might be serveral supported versions
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('SV8tVtegSt6balvd3uolog', 'en', 'Outdated'); -- not supported but still usable, allow to deploy with warnning.
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('lRtAcENcTLWzLaSaNxuTPA', 'en', 'Deprecated'); -- not supported and use at your risk, don't allow to deploy
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HeT7oBcTSmOXJesV0tQWwA', 'en', 'Removed'); -- borken version, please don't use, soft delete. 
-INSERT INTO ref_host_t(table_id, host_id) values ('2A3um2OJSiK4bZ4h10jOww', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('Erd8-pD3TBG7-vwPtgsWFg', 'platform_product', 'Platform Product', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Pbwy3xh2Sz2WfAbW9JcJ8Q', 'Erd8-pD3TBG7-vwPtgsWFg', 'lg', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('XB4iKkb4QUqwgAZsDh83DA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lps', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('UicQpEFZQYGk4rc6ky-LMQ', 'Erd8-pD3TBG7-vwPtgsWFg', 'lpc', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('EMINj3sSSr6e19_zt14CjA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lp', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('_NR9tmVPQ1OWib2Dz6j3Qw', 'Erd8-pD3TBG7-vwPtgsWFg', 'lpl', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Tld_5HmWQI67jK1MNIO9HA', 'Erd8-pD3TBG7-vwPtgsWFg', 'lks', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('yyLPTpsJTXStY5DSuQTzFg', 'Erd8-pD3TBG7-vwPtgsWFg', 'lb', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('CndphT7PSweprG9uHC-kmQ', 'Erd8-pD3TBG7-vwPtgsWFg', 'lnl', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('HxEbiZ-ASNOqGjzI1X_3-Q', 'Erd8-pD3TBG7-vwPtgsWFg', 'bff', 900);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Pbwy3xh2Sz2WfAbW9JcJ8Q', 'en', 'Light Gateway');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('XB4iKkb4QUqwgAZsDh83DA', 'en', 'Light Proxy Server');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('UicQpEFZQYGk4rc6ky-LMQ', 'en', 'Light Proxy Client');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('EMINj3sSSr6e19_zt14CjA', 'en', 'Light Proxy Sidecar');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('_NR9tmVPQ1OWib2Dz6j3Qw', 'en', 'Light Proxy Lambda');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Tld_5HmWQI67jK1MNIO9HA', 'en', 'Light Kafka Sidecar');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('yyLPTpsJTXStY5DSuQTzFg', 'en', 'Light Balancer');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('CndphT7PSweprG9uHC-kmQ', 'en', 'Light Native Lambda');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('HxEbiZ-ASNOqGjzI1X_3-Q', 'en', 'Light BFF');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('HKyo60IcSF2o1UwwfvNUAw', 'deployment_status', 'Deployment Status', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'HKyo60IcSF2o1UwwfvNUAw', 'Scheduled', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'HKyo60IcSF2o1UwwfvNUAw', 'InProgress', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'HKyo60IcSF2o1UwwfvNUAw', 'Completed', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'HKyo60IcSF2o1UwwfvNUAw', 'Failed', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'HKyo60IcSF2o1UwwfvNUAw', 'Timeout', 500, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'en', 'Scheduled');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'en', 'InProgress');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'en', 'Completed');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'en', 'Failed');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'en', 'Timeout');
-INSERT INTO ref_host_t(table_id, host_id) values ('HKyo60IcSF2o1UwwfvNUAw', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('4ZFXtWBMQwOISJUkXFbOWQ', 'instance_status', 'Instance Status', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Created', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deploying', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deployed', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('oTePZ34bRieBIGtrKKvL8g', '4ZFXtWBMQwOISJUkXFbOWQ', 'Running', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('aaAzQq9WSQey0JF76FhC5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Shutdown', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Undeployed', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sCxrboQESyuoS_CWfiSbzw', '4ZFXtWBMQwOISJUkXFbOWQ', 'Decomissioned', 700, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', 'en', 'Created');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', 'en', 'Deploying');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', 'en', 'Deployed');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('oTePZ34bRieBIGtrKKvL8g', 'en', 'Running');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('aaAzQq9WSQey0JF76FhC5w', 'en', 'Shutdown');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', 'en', 'Undeployed');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sCxrboQESyuoS_CWfiSbzw', 'en', 'Decomissioned');
-INSERT INTO ref_host_t(table_id, host_id) values ('4ZFXtWBMQwOISJUkXFbOWQ', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('9IF1kYNDQOanvnNojIBMLA', 'deployment_type', 'Deployment Type', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', '9IF1kYNDQOanvnNojIBMLA', 'First', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('msx7fa4SScaV4Gmy9B4XHA', '9IF1kYNDQOanvnNojIBMLA', 'Update', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('no1d49VCQy2Adfs9qKuOfQ', '9IF1kYNDQOanvnNojIBMLA', 'Rollback', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('X0RSjZMYQk2ApWn1dabW0g', '9IF1kYNDQOanvnNojIBMLA', 'Remove', 400, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', 'en', 'First');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('msx7fa4SScaV4Gmy9B4XHA', 'en', 'Update');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('no1d49VCQy2Adfs9qKuOfQ', 'en', 'Rollback');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('X0RSjZMYQk2ApWn1dabW0g', 'en', 'Remove');
-INSERT INTO ref_host_t(table_id, host_id) values ('9IF1kYNDQOanvnNojIBMLA', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('VNyDLBfkQjGfNHjgh5WPdg', 'deploy_client_type', 'Deploy Client Type', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('BEj4HlHoTAKZd3ATIczrBA', 'VNyDLBfkQjGfNHjgh5WPdg', 'http', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('BkrjzNMQR6CS3FZCMKEy_w', 'VNyDLBfkQjGfNHjgh5WPdg', 'aws', 200, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('BEj4HlHoTAKZd3ATIczrBA', 'en', 'http');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('BkrjzNMQR6CS3FZCMKEy_w', 'en', 'aws');
-INSERT INTO ref_host_t(table_id, host_id) values ('VNyDLBfkQjGfNHjgh5WPdg', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('LADMEBrNSMGNVP4ezLdSEQ', 'system_env', 'System Environment', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Windows 2019', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 24.04', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 22.04', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 20.04', 400, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'en', 'VM Windows 2019');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'en', 'VM Ubuntu 24.04');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'en', 'VM Ubuntu 22.04');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'en', 'VM Ubuntu 20.04');
-INSERT INTO ref_host_t(table_id, host_id) values ('LADMEBrNSMGNVP4ezLdSEQ', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('EJg629SCT1OQpqZwoTghoA', 'runtime_env', 'Runtime Environment', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 11', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 17', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 21', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 17', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 21', 500, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'en', 'OpenJDK 11');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'en', 'OpenJDK 17');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'en', 'OpenJDK 21');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'en', 'GraalVM 17');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'en', 'GraalVM 21');
-INSERT INTO ref_host_t(table_id, host_id) values ('EJg629SCT1OQpqZwoTghoA', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('2A3um2OJSiK4bZ4h10jOww', 'product_version_status', 'Product Version Status', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('RbkF7LnvStqGqeRHC004GA', '2A3um2OJSiK4bZ4h10jOww', 'Supported', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('SV8tVtegSt6balvd3uolog', '2A3um2OJSiK4bZ4h10jOww', 'Outdated', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('lRtAcENcTLWzLaSaNxuTPA', '2A3um2OJSiK4bZ4h10jOww', 'Deprecated', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('HeT7oBcTSmOXJesV0tQWwA', '2A3um2OJSiK4bZ4h10jOww', 'Removed', 400);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('RbkF7LnvStqGqeRHC004GA', 'en', 'Supported');  -- there might be serveral supported versions
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('SV8tVtegSt6balvd3uolog', 'en', 'Outdated'); -- not supported but still usable, allow to deploy with warnning.
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('lRtAcENcTLWzLaSaNxuTPA', 'en', 'Deprecated'); -- not supported and use at your risk, don't allow to deploy
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('HeT7oBcTSmOXJesV0tQWwA', 'en', 'Removed'); -- borken version, please don't use, soft delete. 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('LrXDFX8zRCa69fcth_oyZA', 'api_type', 'API Type', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('wXlCi_bnQTi0j2Q0LcIxDA', 'LrXDFX8zRCa69fcth_oyZA', 'openapi', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sBxy6InFTVO5BeDpvEuBOA', 'LrXDFX8zRCa69fcth_oyZA', 'graphql', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('J40TUdG4Q7WZ4jH44ONjNg', 'LrXDFX8zRCa69fcth_oyZA', 'hybrid', 300, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('wXlCi_bnQTi0j2Q0LcIxDA', 'en', 'OpenAPI');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sBxy6InFTVO5BeDpvEuBOA', 'en', 'GraphQL');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('J40TUdG4Q7WZ4jH44ONjNg', 'en', 'Hybrid');
-INSERT INTO ref_host_t(table_id, host_id) values ('LrXDFX8zRCa69fcth_oyZA', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('HKyo60IcSF2o1UwwfvNUAw', 'deployment_status', 'Deployment Status', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'HKyo60IcSF2o1UwwfvNUAw', 'Scheduled', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'HKyo60IcSF2o1UwwfvNUAw', 'InProgress', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'HKyo60IcSF2o1UwwfvNUAw', 'Completed', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'HKyo60IcSF2o1UwwfvNUAw', 'Failed', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'HKyo60IcSF2o1UwwfvNUAw', 'Timeout', 500);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Bi7sT6SIRGGF_5km4kqRWA', 'en', 'Scheduled');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('rRySKKIcTjaBH9w9OYXT0A', 'en', 'InProgress');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('bcMA9qwRQcG4l1jXFRtFug', 'en', 'Completed');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('6g8nx1uqQ3qZUVlCjADhtw', 'en', 'Failed');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('vSd2Mji_SWCKn0cfE9XYKg', 'en', 'Timeout');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('4ZFXtWBMQwOISJUkXFbOWQ', 'instance_status', 'Instance Status', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Created', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deploying', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', '4ZFXtWBMQwOISJUkXFbOWQ', 'Deployed', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('oTePZ34bRieBIGtrKKvL8g', '4ZFXtWBMQwOISJUkXFbOWQ', 'Running', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('aaAzQq9WSQey0JF76FhC5w', '4ZFXtWBMQwOISJUkXFbOWQ', 'Shutdown', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', '4ZFXtWBMQwOISJUkXFbOWQ', 'Undeployed', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('sCxrboQESyuoS_CWfiSbzw', '4ZFXtWBMQwOISJUkXFbOWQ', 'Decomissioned', 700);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('PaAlX0XfQH6FiVaAhgeH5w', 'en', 'Created');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('2NgkC8NLSia_l0pV2mP8Eg', 'en', 'Deploying');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('JX2MfDS9TzOvqDI6GLnTgQ', 'en', 'Deployed');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('oTePZ34bRieBIGtrKKvL8g', 'en', 'Running');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('aaAzQq9WSQey0JF76FhC5w', 'en', 'Shutdown');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('vJEgLQX8RCiaC7nL2bsYbg', 'en', 'Undeployed');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('sCxrboQESyuoS_CWfiSbzw', 'en', 'Decomissioned');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('9IF1kYNDQOanvnNojIBMLA', 'deployment_type', 'Deployment Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', '9IF1kYNDQOanvnNojIBMLA', 'First', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('msx7fa4SScaV4Gmy9B4XHA', '9IF1kYNDQOanvnNojIBMLA', 'Update', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('no1d49VCQy2Adfs9qKuOfQ', '9IF1kYNDQOanvnNojIBMLA', 'Rollback', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('X0RSjZMYQk2ApWn1dabW0g', '9IF1kYNDQOanvnNojIBMLA', 'Remove', 400);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('HWJoOtkYT_ijL4zSIAEMKg', 'en', 'First');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('msx7fa4SScaV4Gmy9B4XHA', 'en', 'Update');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('no1d49VCQy2Adfs9qKuOfQ', 'en', 'Rollback');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('X0RSjZMYQk2ApWn1dabW0g', 'en', 'Remove');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('VNyDLBfkQjGfNHjgh5WPdg', 'deploy_client_type', 'Deploy Client Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('BEj4HlHoTAKZd3ATIczrBA', 'VNyDLBfkQjGfNHjgh5WPdg', 'http', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('BkrjzNMQR6CS3FZCMKEy_w', 'VNyDLBfkQjGfNHjgh5WPdg', 'aws', 200);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('BEj4HlHoTAKZd3ATIczrBA', 'en', 'http');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('BkrjzNMQR6CS3FZCMKEy_w', 'en', 'aws');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('LADMEBrNSMGNVP4ezLdSEQ', 'system_env', 'System Environment', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Windows 2019', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 24.04', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 22.04', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'LADMEBrNSMGNVP4ezLdSEQ', 'VM Ubuntu 20.04', 400);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('CA8bwCiASRWG6gyXeLqxhg', 'en', 'VM Windows 2019');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('X816H3TSQVOk3ub0Pkq6WQ', 'en', 'VM Ubuntu 24.04');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('DjsMrxh3Q869U2udMd7rMQ', 'en', 'VM Ubuntu 22.04');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('h5f8lKfqQv2b_kVyOa25SA', 'en', 'VM Ubuntu 20.04');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('EJg629SCT1OQpqZwoTghoA', 'runtime_env', 'Runtime Environment', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 11', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 17', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'EJg629SCT1OQpqZwoTghoA', 'OpenJDK 21', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 17', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'EJg629SCT1OQpqZwoTghoA', 'GraalVM 21', 500);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Qbt5W3iPQSmDjBbq58BoYg', 'en', 'OpenJDK 11');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('dzLZv25uRrm4Jrilqylaxg', 'en', 'OpenJDK 17');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('cC9KXTcnSqCBibfMxNMU9w', 'en', 'OpenJDK 21');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('9N8smvo4R8qOsvZpbIiobg', 'en', 'GraalVM 17');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('vCnnnYLVQamBfwHCxg9B5A', 'en', 'GraalVM 21');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('xACNHRyOTmuJAjrEaTKUCw', 'api_status', 'API Status', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('qdUehMN8TlCPfPGPTkQyrA', 'xACNHRyOTmuJAjrEaTKUCw', 'onboarded', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('wWsHmB3MTd2M3Cn27fMRGw', 'xACNHRyOTmuJAjrEaTKUCw', 'published', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('NKr6uYb2Tqa2uR2PrStpAw', 'xACNHRyOTmuJAjrEaTKUCw', 'implemented', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('QOvTlKDJQYWXyet8MDy2lQ', 'xACNHRyOTmuJAjrEaTKUCw', 'deployed', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('88MrqFb7TfylpAE0sIDYQQ', 'xACNHRyOTmuJAjrEaTKUCw', 'decommissioned', 500, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('qdUehMN8TlCPfPGPTkQyrA', 'en', 'Onboarded');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('wWsHmB3MTd2M3Cn27fMRGw', 'en', 'Published');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('NKr6uYb2Tqa2uR2PrStpAw', 'en', 'Implemented');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('QOvTlKDJQYWXyet8MDy2lQ', 'en', 'Deployed');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('88MrqFb7TfylpAE0sIDYQQ', 'en', 'Decommissioned');
-INSERT INTO ref_host_t(table_id, host_id) values ('xACNHRyOTmuJAjrEaTKUCw', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('LrXDFX8zRCa69fcth_oyZA', 'api_type', 'API Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('wXlCi_bnQTi0j2Q0LcIxDA', 'LrXDFX8zRCa69fcth_oyZA', 'openapi', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('sBxy6InFTVO5BeDpvEuBOA', 'LrXDFX8zRCa69fcth_oyZA', 'graphql', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('J40TUdG4Q7WZ4jH44ONjNg', 'LrXDFX8zRCa69fcth_oyZA', 'hybrid', 300);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('wXlCi_bnQTi0j2Q0LcIxDA', 'en', 'OpenAPI');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('sBxy6InFTVO5BeDpvEuBOA', 'en', 'GraphQL');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('J40TUdG4Q7WZ4jH44ONjNg', 'en', 'Hybrid');
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('Zp1Vd8dpTAK33ZzQyq4CRQ', 'region', 'Region', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HnYlmIyHTHO3rfZOQRczXw', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'CA', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6EDMRBWDT2efA3omlz5Nug', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'US', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('isf3UhdxSqeoBMI64mdltQ', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'HK', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hLo4AAGIQamSSgj7j9x3Cg', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'ID', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('2iXBeuGpRlGsjhrT6T2G1Q', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'MY', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('umk9ETMnTaS_yJuELopC1g', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'PH', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('i8t8BXyDQrWvGp9CdAbNuA', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'VN', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('JiHCHAeoQAuI1SDDO1ZK9Q', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'EN', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('zAOdjCwoSwCwswsEIH7OVw', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'AS', 900, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HnYlmIyHTHO3rfZOQRczXw', 'en', 'Canada');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6EDMRBWDT2efA3omlz5Nug', 'en', 'United States');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('isf3UhdxSqeoBMI64mdltQ', 'en', 'Hong Kong');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hLo4AAGIQamSSgj7j9x3Cg', 'en', 'Indonesia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('2iXBeuGpRlGsjhrT6T2G1Q', 'en', 'Malaysia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('umk9ETMnTaS_yJuELopC1g', 'en', 'Philippines');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('i8t8BXyDQrWvGp9CdAbNuA', 'en', 'Vietnam');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('JiHCHAeoQAuI1SDDO1ZK9Q', 'en', 'Enterprise');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('zAOdjCwoSwCwswsEIH7OVw', 'en', 'Asia');
-INSERT INTO ref_host_t(table_id, host_id) values ('Zp1Vd8dpTAK33ZzQyq4CRQ', 'N2CMw0HGQXeLvC1wBfln2A');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('xACNHRyOTmuJAjrEaTKUCw', 'api_status', 'API Status', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('qdUehMN8TlCPfPGPTkQyrA', 'xACNHRyOTmuJAjrEaTKUCw', 'onboarded', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('wWsHmB3MTd2M3Cn27fMRGw', 'xACNHRyOTmuJAjrEaTKUCw', 'published', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('NKr6uYb2Tqa2uR2PrStpAw', 'xACNHRyOTmuJAjrEaTKUCw', 'implemented', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('QOvTlKDJQYWXyet8MDy2lQ', 'xACNHRyOTmuJAjrEaTKUCw', 'deployed', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('88MrqFb7TfylpAE0sIDYQQ', 'xACNHRyOTmuJAjrEaTKUCw', 'decommissioned', 500);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('qdUehMN8TlCPfPGPTkQyrA', 'en', 'Onboarded');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('wWsHmB3MTd2M3Cn27fMRGw', 'en', 'Published');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('NKr6uYb2Tqa2uR2PrStpAw', 'en', 'Implemented');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('QOvTlKDJQYWXyet8MDy2lQ', 'en', 'Deployed');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('88MrqFb7TfylpAE0sIDYQQ', 'en', 'Decommissioned');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('Zp1Vd8dpTAK33ZzQyq4CRQ', 'region', 'Region', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('HnYlmIyHTHO3rfZOQRczXw', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'CA', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('6EDMRBWDT2efA3omlz5Nug', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'US', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('isf3UhdxSqeoBMI64mdltQ', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'HK', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('hLo4AAGIQamSSgj7j9x3Cg', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'ID', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('2iXBeuGpRlGsjhrT6T2G1Q', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'MY', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('umk9ETMnTaS_yJuELopC1g', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'PH', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('i8t8BXyDQrWvGp9CdAbNuA', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'VN', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('JiHCHAeoQAuI1SDDO1ZK9Q', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'EN', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('zAOdjCwoSwCwswsEIH7OVw', 'Zp1Vd8dpTAK33ZzQyq4CRQ', 'AS', 900);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('HnYlmIyHTHO3rfZOQRczXw', 'en', 'Canada');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('6EDMRBWDT2efA3omlz5Nug', 'en', 'United States');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('isf3UhdxSqeoBMI64mdltQ', 'en', 'Hong Kong');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('hLo4AAGIQamSSgj7j9x3Cg', 'en', 'Indonesia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('2iXBeuGpRlGsjhrT6T2G1Q', 'en', 'Malaysia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('umk9ETMnTaS_yJuELopC1g', 'en', 'Philippines');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('i8t8BXyDQrWvGp9CdAbNuA', 'en', 'Vietnam');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('JiHCHAeoQAuI1SDDO1ZK9Q', 'en', 'Enterprise');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('zAOdjCwoSwCwswsEIH7OVw', 'en', 'Asia');
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('TsuustoPSyuHvah1gdImxA', 'business_group', 'Business Group', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('b3Ycy2nIQZiIw7giSukUmw', 'TsuustoPSyuHvah1gdImxA', 'Corp', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8930ix4WRFC7DFmkxS5AzA', 'TsuustoPSyuHvah1gdImxA', 'CA', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('DviWnbp9QLWJWsP53BnLTQ', 'TsuustoPSyuHvah1gdImxA', 'DBTS', 200, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('b3Ycy2nIQZiIw7giSukUmw', 'en', 'Corporate');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8930ix4WRFC7DFmkxS5AzA', 'en', 'Canada');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('DviWnbp9QLWJWsP53BnLTQ', 'en', 'Digital Business and Technology Solutions');
-INSERT INTO ref_host_t(table_id, host_id) values ('TsuustoPSyuHvah1gdImxA', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('TsuustoPSyuHvah1gdImxA', 'business_group', 'Business Group', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('b3Ycy2nIQZiIw7giSukUmw', 'TsuustoPSyuHvah1gdImxA', 'Corp', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('8930ix4WRFC7DFmkxS5AzA', 'TsuustoPSyuHvah1gdImxA', 'CA', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('DviWnbp9QLWJWsP53BnLTQ', 'TsuustoPSyuHvah1gdImxA', 'DBTS', 200);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('b3Ycy2nIQZiIw7giSukUmw', 'en', 'Corporate');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('8930ix4WRFC7DFmkxS5AzA', 'en', 'Canada');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('DviWnbp9QLWJWsP53BnLTQ', 'en', 'Digital Business and Technology Solutions');
 
 
 -- relationship between region and business_group
-INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('FuwDobt6TraMxSIgSmLrqA', 'region-bgrp', 'business group dropdown filtered by region');
+INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('FuwDobt6TraMxSIgSmLrqA', 'region_bgrp', 'business group dropdown filtered by region');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('FuwDobt6TraMxSIgSmLrqA', 'HnYlmIyHTHO3rfZOQRczXw', '8930ix4WRFC7DFmkxS5AzA');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('FuwDobt6TraMxSIgSmLrqA', 'JiHCHAeoQAuI1SDDO1ZK9Q', 'b3Ycy2nIQZiIw7giSukUmw');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('FuwDobt6TraMxSIgSmLrqA', 'JiHCHAeoQAuI1SDDO1ZK9Q', 'DviWnbp9QLWJWsP53BnLTQ');
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('X7G8q4KyRXeyd4nTUlcM9A', 'lob', 'Line of Business', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Oaf4RXjsRnuDsMwZAVGYXw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Ops', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Xx0aBMEmQMWrpEEHHh4zuA', 'X7G8q4KyRXeyd4nTUlcM9A', 'CXO', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('GPE28Q0WTN69vpOlzHCiRw', 'X7G8q4KyRXeyd4nTUlcM9A', 'GB', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Ll6zys0kRleqJfJbel3qpg', 'X7G8q4KyRXeyd4nTUlcM9A', 'GRS', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('z2kfddsQQdCRrt8AazpjWg', 'X7G8q4KyRXeyd4nTUlcM9A', 'Insurance', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Rb9u3bbvQnaAXZS0G42U5g', 'X7G8q4KyRXeyd4nTUlcM9A', 'Lumino', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sKLc3RLmQOCCt0Nn7Hr6ew', 'X7G8q4KyRXeyd4nTUlcM9A', 'FD', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('VIq9jzscQeCOrCfQkP6HsQ', 'X7G8q4KyRXeyd4nTUlcM9A', 'GI', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('3nL26qLwS8qZJB1MxWt_Sw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Tax', 900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('rRntRNrcRzKz1mBZCsttsw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Risk', 1000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Ic6EhqUFQoSjIac_Rszpmw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Audit', 1100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('2V27Fd1SQsqRwfUwRGI6Cg', 'X7G8q4KyRXeyd4nTUlcM9A', 'Legal', 1200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Ep32sEmNRimXwYJbbr62Bg', 'X7G8q4KyRXeyd4nTUlcM9A', 'CoreIT', 1300, 'Y');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('X7G8q4KyRXeyd4nTUlcM9A', 'lob', 'Line of Business', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Oaf4RXjsRnuDsMwZAVGYXw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Ops', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Xx0aBMEmQMWrpEEHHh4zuA', 'X7G8q4KyRXeyd4nTUlcM9A', 'CXO', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('GPE28Q0WTN69vpOlzHCiRw', 'X7G8q4KyRXeyd4nTUlcM9A', 'GB', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Ll6zys0kRleqJfJbel3qpg', 'X7G8q4KyRXeyd4nTUlcM9A', 'GRS', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('z2kfddsQQdCRrt8AazpjWg', 'X7G8q4KyRXeyd4nTUlcM9A', 'Insurance', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Rb9u3bbvQnaAXZS0G42U5g', 'X7G8q4KyRXeyd4nTUlcM9A', 'Lumino', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('sKLc3RLmQOCCt0Nn7Hr6ew', 'X7G8q4KyRXeyd4nTUlcM9A', 'FD', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('VIq9jzscQeCOrCfQkP6HsQ', 'X7G8q4KyRXeyd4nTUlcM9A', 'GI', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('3nL26qLwS8qZJB1MxWt_Sw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Tax', 900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('rRntRNrcRzKz1mBZCsttsw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Risk', 1000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Ic6EhqUFQoSjIac_Rszpmw', 'X7G8q4KyRXeyd4nTUlcM9A', 'Audit', 1100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('2V27Fd1SQsqRwfUwRGI6Cg', 'X7G8q4KyRXeyd4nTUlcM9A', 'Legal', 1200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Ep32sEmNRimXwYJbbr62Bg', 'X7G8q4KyRXeyd4nTUlcM9A', 'CoreIT', 1300);
 
 
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Oaf4RXjsRnuDsMwZAVGYXw', 'en', 'Canadian Operations');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Xx0aBMEmQMWrpEEHHh4zuA', 'en', 'Client Experience Office');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('GPE28Q0WTN69vpOlzHCiRw', 'en', 'Group Benefits');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Ll6zys0kRleqJfJbel3qpg', 'en', 'Group Retirement Services');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('z2kfddsQQdCRrt8AazpjWg', 'en', 'Insurance Solutions');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Rb9u3bbvQnaAXZS0G42U5g', 'en', 'Health Solutions');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sKLc3RLmQOCCt0Nn7Hr6ew', 'en', 'Financial Distribution');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('VIq9jzscQeCOrCfQkP6HsQ', 'en', 'Global Investments');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('3nL26qLwS8qZJB1MxWt_Sw', 'en', 'Tax');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('rRntRNrcRzKz1mBZCsttsw', 'en', 'Risk');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Ic6EhqUFQoSjIac_Rszpmw', 'en', 'Audit');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('2V27Fd1SQsqRwfUwRGI6Cg', 'en', 'Legal');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Ep32sEmNRimXwYJbbr62Bg', 'en', 'Core IT Platforms');
-INSERT INTO ref_host_t(table_id, host_id) values ('X7G8q4KyRXeyd4nTUlcM9A', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Oaf4RXjsRnuDsMwZAVGYXw', 'en', 'Canadian Operations');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Xx0aBMEmQMWrpEEHHh4zuA', 'en', 'Client Experience Office');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('GPE28Q0WTN69vpOlzHCiRw', 'en', 'Group Benefits');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Ll6zys0kRleqJfJbel3qpg', 'en', 'Group Retirement Services');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('z2kfddsQQdCRrt8AazpjWg', 'en', 'Insurance Solutions');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Rb9u3bbvQnaAXZS0G42U5g', 'en', 'Health Solutions');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('sKLc3RLmQOCCt0Nn7Hr6ew', 'en', 'Financial Distribution');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('VIq9jzscQeCOrCfQkP6HsQ', 'en', 'Global Investments');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('3nL26qLwS8qZJB1MxWt_Sw', 'en', 'Tax');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('rRntRNrcRzKz1mBZCsttsw', 'en', 'Risk');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Ic6EhqUFQoSjIac_Rszpmw', 'en', 'Audit');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('2V27Fd1SQsqRwfUwRGI6Cg', 'en', 'Legal');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Ep32sEmNRimXwYJbbr62Bg', 'en', 'Core IT Platforms');
 
 
 -- relationship between business_group and lob
-INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('MHIyE2lyR5GfWSO3xYINsA', 'bgrp-lob', 'lob dropdown filtered by buisiness group');
+INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('MHIyE2lyR5GfWSO3xYINsA', 'bgrp_lob', 'lob dropdown filtered by buisiness group');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('MHIyE2lyR5GfWSO3xYINsA', 'b3Ycy2nIQZiIw7giSukUmw', '3nL26qLwS8qZJB1MxWt_Sw');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('MHIyE2lyR5GfWSO3xYINsA', 'b3Ycy2nIQZiIw7giSukUmw', 'rRntRNrcRzKz1mBZCsttsw');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('MHIyE2lyR5GfWSO3xYINsA', 'b3Ycy2nIQZiIw7giSukUmw', 'Ic6EhqUFQoSjIac_Rszpmw');
@@ -1926,30 +2056,28 @@ INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('MHIyE2l
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('0Me3LTosT4aZjjZhY_1IGw', 'platform_journer', 'Platform Journey', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hWJlP0g6QNyKv6t93V6vEA', '0Me3LTosT4aZjjZhY_1IGw', 'API Platform', 100, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hWJlP0g6QNyKv6t93V6vEA', 'en', 'API Platform');
-INSERT INTO ref_host_t(table_id, host_id) values ('0Me3LTosT4aZjjZhY_1IGw', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('0Me3LTosT4aZjjZhY_1IGw', 'platform_journer', 'Platform Journey', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('hWJlP0g6QNyKv6t93V6vEA', '0Me3LTosT4aZjjZhY_1IGw', 'API Platform', 100);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('hWJlP0g6QNyKv6t93V6vEA', 'en', 'API Platform');
 
 
-INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('8pJZIyKTRiC5Ez90VRQDXA', 'lob-platform', 'platform dropdown filtered by lob');
+INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('8pJZIyKTRiC5Ez90VRQDXA', 'lob_platform', 'platform dropdown filtered by lob');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('8pJZIyKTRiC5Ez90VRQDXA', 'Ep32sEmNRimXwYJbbr62Bg', 'hWJlP0g6QNyKv6t93V6vEA');
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('7tXfGxC5Q2CgwA41B1u9Mw', 'capability', 'Capability', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0soMPJ72QvGlHAvWDj5IyQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Awareness', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('cJzekpbUS0GPnVHQ1eQEKQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Onboarding', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('nSutiP3UTkS6Z7PqwtOZRQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Usage', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('AOxvpSr1STSR9pf1pZTjgg', '7tXfGxC5Q2CgwA41B1u9Mw', 'Maintenance', 400, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0soMPJ72QvGlHAvWDj5IyQ', 'en', 'Awareness');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('cJzekpbUS0GPnVHQ1eQEKQ', 'en', 'Onboarding');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('nSutiP3UTkS6Z7PqwtOZRQ', 'en', 'Usage');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('AOxvpSr1STSR9pf1pZTjgg', 'en', 'Maintenance');
-INSERT INTO ref_host_t(table_id, host_id) values ('7tXfGxC5Q2CgwA41B1u9Mw', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('7tXfGxC5Q2CgwA41B1u9Mw', 'capability', 'Capability', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('0soMPJ72QvGlHAvWDj5IyQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Awareness', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('cJzekpbUS0GPnVHQ1eQEKQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Onboarding', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('nSutiP3UTkS6Z7PqwtOZRQ', '7tXfGxC5Q2CgwA41B1u9Mw', 'Usage', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('AOxvpSr1STSR9pf1pZTjgg', '7tXfGxC5Q2CgwA41B1u9Mw', 'Maintenance', 400);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('0soMPJ72QvGlHAvWDj5IyQ', 'en', 'Awareness');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('cJzekpbUS0GPnVHQ1eQEKQ', 'en', 'Onboarding');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('nSutiP3UTkS6Z7PqwtOZRQ', 'en', 'Usage');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('AOxvpSr1STSR9pf1pZTjgg', 'en', 'Maintenance');
 
 
-INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('7M4lC6YiTf67H3K97QOkgA', 'platform-capability', 'capability dropdown filtered by platform');
+INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('7M4lC6YiTf67H3K97QOkgA', 'platform_capability', 'capability dropdown filtered by platform');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('7M4lC6YiTf67H3K97QOkgA', 'hWJlP0g6QNyKv6t93V6vEA', '0soMPJ72QvGlHAvWDj5IyQ');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('7M4lC6YiTf67H3K97QOkgA', 'hWJlP0g6QNyKv6t93V6vEA', 'cJzekpbUS0GPnVHQ1eQEKQ');
 INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('7M4lC6YiTf67H3K97QOkgA', 'hWJlP0g6QNyKv6t93V6vEA', 'nSutiP3UTkS6Z7PqwtOZRQ');
@@ -1957,257 +2085,280 @@ INSERT INTO relation_t(relation_id, value_id_from, value_id_to) VALUES ('7M4lC6Y
 
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('xq5ACm57TwKdLzWdpzT9kQ', 'marketplace_team', 'Marketplace Team', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('oLsy42DXSLataEp0Lacimw', 'xq5ACm57TwKdLzWdpzT9kQ', 'API Platform', 100, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('oLsy42DXSLataEp0Lacimw', 'en', 'API Platform');
-INSERT INTO ref_host_t(table_id, host_id) values ('xq5ACm57TwKdLzWdpzT9kQ', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('xq5ACm57TwKdLzWdpzT9kQ', 'marketplace_team', 'Marketplace Team', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('oLsy42DXSLataEp0Lacimw', 'xq5ACm57TwKdLzWdpzT9kQ', 'API Platform', 100);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('oLsy42DXSLataEp0Lacimw', 'en', 'API Platform');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('Tml7tZktQiy_KWP5c9iwzQ', 'network_zone', 'Network Zone', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('yEqFvPF5SmSDB1nOHCs6mg', 'Tml7tZktQiy_KWP5c9iwzQ', 'AIZ', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('D0Kf6_DHQTOAgeAXcCauhw', 'Tml7tZktQiy_KWP5c9iwzQ', 'Corp', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8TjiaGCNTJi_uxaofxCn1A', 'Tml7tZktQiy_KWP5c9iwzQ', 'DMZ', 300, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('yEqFvPF5SmSDB1nOHCs6mg', 'en', 'Application Isolation Zone');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('D0Kf6_DHQTOAgeAXcCauhw', 'en', 'Corporate Zone');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8TjiaGCNTJi_uxaofxCn1A', 'en', 'Demilitarized zone');
-INSERT INTO ref_host_t(table_id, host_id) values ('Tml7tZktQiy_KWP5c9iwzQ', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('Tml7tZktQiy_KWP5c9iwzQ', 'network_zone', 'Network Zone', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('yEqFvPF5SmSDB1nOHCs6mg', 'Tml7tZktQiy_KWP5c9iwzQ', 'AIZ', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('D0Kf6_DHQTOAgeAXcCauhw', 'Tml7tZktQiy_KWP5c9iwzQ', 'Corp', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('8TjiaGCNTJi_uxaofxCn1A', 'Tml7tZktQiy_KWP5c9iwzQ', 'DMZ', 300);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('yEqFvPF5SmSDB1nOHCs6mg', 'en', 'Application Isolation Zone');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('D0Kf6_DHQTOAgeAXcCauhw', 'en', 'Corporate Zone');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('8TjiaGCNTJi_uxaofxCn1A', 'en', 'Demilitarized zone');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('DBetTyPQQOqtlefWrVDk9w', 'infrastructure_type', 'Infrastructure Type', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('O8NFnUFvT7SNDtk26LmfYw', 'DBetTyPQQOqtlefWrVDk9w', 'Generic', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('L1gD5USHQ1W74Bfe-YP6NA', 'DBetTyPQQOqtlefWrVDk9w', 'Linux', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('vl18FrEzQ5-fmlYkWBdk-w', 'DBetTyPQQOqtlefWrVDk9w', 'Windows', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('tg5sInwbRRyoPcr5eGlKPg', 'DBetTyPQQOqtlefWrVDk9w', 'Kubernetes', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ZhpAb072QWqraJFDn1fKlg', 'DBetTyPQQOqtlefWrVDk9w', 'OpenShift', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('dsQs9-dgSWmpQVTWaayj5A', 'DBetTyPQQOqtlefWrVDk9w', 'AWS', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('o8Co_5JAQkiDIo8Njr3HmA', 'DBetTyPQQOqtlefWrVDk9w', 'Azure', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('_zCCGPAlSMCevhublBzswQ', 'DBetTyPQQOqtlefWrVDk9w', 'GCP', 800, 'Y');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('DBetTyPQQOqtlefWrVDk9w', 'infrastructure_type', 'Infrastructure Type', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('O8NFnUFvT7SNDtk26LmfYw', 'DBetTyPQQOqtlefWrVDk9w', 'Generic', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('L1gD5USHQ1W74Bfe-YP6NA', 'DBetTyPQQOqtlefWrVDk9w', 'Linux', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('vl18FrEzQ5-fmlYkWBdk-w', 'DBetTyPQQOqtlefWrVDk9w', 'Windows', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('tg5sInwbRRyoPcr5eGlKPg', 'DBetTyPQQOqtlefWrVDk9w', 'Kubernetes', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ZhpAb072QWqraJFDn1fKlg', 'DBetTyPQQOqtlefWrVDk9w', 'OpenShift', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('dsQs9-dgSWmpQVTWaayj5A', 'DBetTyPQQOqtlefWrVDk9w', 'AWS', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('o8Co_5JAQkiDIo8Njr3HmA', 'DBetTyPQQOqtlefWrVDk9w', 'Azure', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('_zCCGPAlSMCevhublBzswQ', 'DBetTyPQQOqtlefWrVDk9w', 'GCP', 800);
 
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('O8NFnUFvT7SNDtk26LmfYw', 'en', 'Generic');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('L1gD5USHQ1W74Bfe-YP6NA', 'en', 'Linux');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('vl18FrEzQ5-fmlYkWBdk-w', 'en', 'Windows');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('tg5sInwbRRyoPcr5eGlKPg', 'en', 'Kubernetes');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ZhpAb072QWqraJFDn1fKlg', 'en', 'OpenShift');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('dsQs9-dgSWmpQVTWaayj5A', 'en', 'AWS');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('o8Co_5JAQkiDIo8Njr3HmA', 'en', 'Azure');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('_zCCGPAlSMCevhublBzswQ', 'en', 'GCP');
-INSERT INTO ref_host_t(table_id, host_id) values ('DBetTyPQQOqtlefWrVDk9w', 'N2CMw0HGQXeLvC1wBfln2A');
-
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('Z0_qeZzCQiOhGawpSZgRFw', 'api_tag', 'API Tag', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('IT1CpXtHQ2ODanl4jURFIA', 'Z0_qeZzCQiOhGawpSZgRFw', 'experience', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9FT7NC0cQJaQhqP5ek5F7Q', 'Z0_qeZzCQiOhGawpSZgRFw', 'process', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('cV9bZszAQzqLGD8GhmOL9g', 'Z0_qeZzCQiOhGawpSZgRFw', 'system', 300, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('IT1CpXtHQ2ODanl4jURFIA', 'en', 'experience');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9FT7NC0cQJaQhqP5ek5F7Q', 'en', 'process');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('cV9bZszAQzqLGD8GhmOL9g', 'en', 'system');
-INSERT INTO ref_host_t(table_id, host_id) values ('Z0_qeZzCQiOhGawpSZgRFw', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('O8NFnUFvT7SNDtk26LmfYw', 'en', 'Generic');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('L1gD5USHQ1W74Bfe-YP6NA', 'en', 'Linux');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('vl18FrEzQ5-fmlYkWBdk-w', 'en', 'Windows');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('tg5sInwbRRyoPcr5eGlKPg', 'en', 'Kubernetes');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ZhpAb072QWqraJFDn1fKlg', 'en', 'OpenShift');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('dsQs9-dgSWmpQVTWaayj5A', 'en', 'AWS');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('o8Co_5JAQkiDIo8Njr3HmA', 'en', 'Azure');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('_zCCGPAlSMCevhublBzswQ', 'en', 'GCP');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('abdaJhLYREKDdRm_KvkfFQ', 'instance_tag', 'Instance Tag', 'N');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('bzKMKUpwSpeCRZIjBZyWCQ', 'abdaJhLYREKDdRm_KvkfFQ', 'blue', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('DVbvuJKvQg2ZDpLgXxYaIw', 'abdaJhLYREKDdRm_KvkfFQ', 'green', 200, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('bzKMKUpwSpeCRZIjBZyWCQ', 'en', 'Blue');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('DVbvuJKvQg2ZDpLgXxYaIw', 'en', 'Green');
-INSERT INTO ref_host_t(table_id, host_id) values ('abdaJhLYREKDdRm_KvkfFQ', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('hcvu8qScQo2OfowMN5ugtg', 'rule_type', 'Rule Type', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('t0wTzmbLRtqPNdP28BqQcA', 'hcvu8qScQo2OfowMN5ugtg', 'generic', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8_RJ8uyeSXma7KdlhnwRzQ', 'hcvu8qScQo2OfowMN5ugtg', 'req-acc', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('GE9KgK9HSByrybH1sPR7hA', 'hcvu8qScQo2OfowMN5ugtg', 'res-fil', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('76if75FLQCGTMiml5tfwEw', 'hcvu8qScQo2OfowMN5ugtg', 'req-tra', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('O3ocrQ4mTCiG4DIOneFMTg', 'hcvu8qScQo2OfowMN5ugtg', 'res-tra', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('UkC5OiDbS9iNRvanNqwFvQ', 'hcvu8qScQo2OfowMN5ugtg', 'req-val', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('GfDXhwj9RyqqpZi62O0usw', 'hcvu8qScQo2OfowMN5ugtg', 'res-val', 700, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('t0wTzmbLRtqPNdP28BqQcA', 'en', 'Generic');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8_RJ8uyeSXma7KdlhnwRzQ', 'en', 'Request Access');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('GE9KgK9HSByrybH1sPR7hA', 'en', 'Response Filter');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('76if75FLQCGTMiml5tfwEw', 'en', 'Request Tranform');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('O3ocrQ4mTCiG4DIOneFMTg', 'en', 'Response Transform');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('UkC5OiDbS9iNRvanNqwFvQ', 'en', 'Request Validation');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('GfDXhwj9RyqqpZi62O0usw', 'en', 'Response Validation');
-INSERT INTO ref_host_t(table_id, host_id) values ('hcvu8qScQo2OfowMN5ugtg', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('Z0_qeZzCQiOhGawpSZgRFw', 'api_tag', 'API Tag', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('IT1CpXtHQ2ODanl4jURFIA', 'Z0_qeZzCQiOhGawpSZgRFw', 'experience', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('9FT7NC0cQJaQhqP5ek5F7Q', 'Z0_qeZzCQiOhGawpSZgRFw', 'process', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('cV9bZszAQzqLGD8GhmOL9g', 'Z0_qeZzCQiOhGawpSZgRFw', 'system', 300);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('IT1CpXtHQ2ODanl4jURFIA', 'en', 'experience');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('9FT7NC0cQJaQhqP5ek5F7Q', 'en', 'process');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('cV9bZszAQzqLGD8GhmOL9g', 'en', 'system');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('PuGG7Le9QRmWdT8eIuNbEA', 'attribute_type', 'Attribute Type', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('icLGGVxPQTK9vKtG7y7XVw', 'PuGG7Le9QRmWdT8eIuNbEA', 'string', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('izWRPxBgQK6V2I8eLM2vwQ', 'PuGG7Le9QRmWdT8eIuNbEA', 'integer', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ZLb4OODcTT6D62yc4fNzqw', 'PuGG7Le9QRmWdT8eIuNbEA', 'boolean', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0lTzqXrLQaKV8wry5WEg5A', 'PuGG7Le9QRmWdT8eIuNbEA', 'date', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ihdx0HDnQomjKrqhTIwDRw', 'PuGG7Le9QRmWdT8eIuNbEA', 'time', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('z5OcUYfOROWwoYjloC1isA', 'PuGG7Le9QRmWdT8eIuNbEA', 'timestamp', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('7oZ0aMkxSmOYRdNuWkdqRw', 'PuGG7Le9QRmWdT8eIuNbEA', 'float', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hrMKcaOxTXWeA4wwwhllPA', 'PuGG7Le9QRmWdT8eIuNbEA', 'list', 800, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('icLGGVxPQTK9vKtG7y7XVw', 'en', 'string');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('izWRPxBgQK6V2I8eLM2vwQ', 'en', 'integer');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ZLb4OODcTT6D62yc4fNzqw', 'en', 'boolean');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0lTzqXrLQaKV8wry5WEg5A', 'en', 'date');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ihdx0HDnQomjKrqhTIwDRw', 'en', 'time');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('z5OcUYfOROWwoYjloC1isA', 'en', 'timestamp');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('7oZ0aMkxSmOYRdNuWkdqRw', 'en', 'float');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hrMKcaOxTXWeA4wwwhllPA', 'en', 'list');
-INSERT INTO ref_host_t(table_id, host_id) values ('PuGG7Le9QRmWdT8eIuNbEA', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('abdaJhLYREKDdRm_KvkfFQ', 'instance_tag', 'Instance Tag', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('bzKMKUpwSpeCRZIjBZyWCQ', 'abdaJhLYREKDdRm_KvkfFQ', 'blue', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('DVbvuJKvQg2ZDpLgXxYaIw', 'abdaJhLYREKDdRm_KvkfFQ', 'green', 200);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('bzKMKUpwSpeCRZIjBZyWCQ', 'en', 'Blue');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('DVbvuJKvQg2ZDpLgXxYaIw', 'en', 'Green');
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('hcvu8qScQo2OfowMN5ugtg', 'rule_type', 'Rule Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('t0wTzmbLRtqPNdP28BqQcA', 'hcvu8qScQo2OfowMN5ugtg', 'generic', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('8_RJ8uyeSXma7KdlhnwRzQ', 'hcvu8qScQo2OfowMN5ugtg', 'req-acc', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('GE9KgK9HSByrybH1sPR7hA', 'hcvu8qScQo2OfowMN5ugtg', 'res-fil', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('76if75FLQCGTMiml5tfwEw', 'hcvu8qScQo2OfowMN5ugtg', 'req-tra', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('O3ocrQ4mTCiG4DIOneFMTg', 'hcvu8qScQo2OfowMN5ugtg', 'res-tra', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('UkC5OiDbS9iNRvanNqwFvQ', 'hcvu8qScQo2OfowMN5ugtg', 'req-val', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('GfDXhwj9RyqqpZi62O0usw', 'hcvu8qScQo2OfowMN5ugtg', 'res-val', 700);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('t0wTzmbLRtqPNdP28BqQcA', 'en', 'Generic');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('8_RJ8uyeSXma7KdlhnwRzQ', 'en', 'Request Access');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('GE9KgK9HSByrybH1sPR7hA', 'en', 'Response Filter');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('76if75FLQCGTMiml5tfwEw', 'en', 'Request Tranform');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('O3ocrQ4mTCiG4DIOneFMTg', 'en', 'Response Transform');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('UkC5OiDbS9iNRvanNqwFvQ', 'en', 'Request Validation');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('GfDXhwj9RyqqpZi62O0usw', 'en', 'Response Validation');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('ymOpyDEeQ6ud9lPwZnCAPg', 'filter_operator', 'Filter Operator', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('UfYCIyShS1eaZoYpq5BkwQ', 'ymOpyDEeQ6ud9lPwZnCAPg', '=', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('XYrazGqmT8KVjsAI6uG59A', 'ymOpyDEeQ6ud9lPwZnCAPg', '!=', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('mGBB8xEIQJSc8ymmKyqKHg', 'ymOpyDEeQ6ud9lPwZnCAPg', '<', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('xcohSmkWQbeL192E1tcSWg', 'ymOpyDEeQ6ud9lPwZnCAPg', '>', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('3Yh_Xz7cR7qZ4l7kldKLQQ', 'ymOpyDEeQ6ud9lPwZnCAPg', '<=', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('pEnjY5YvRde8FhM7jarlgA', 'ymOpyDEeQ6ud9lPwZnCAPg', '>=', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('NvZZSIIVQ868pCWjxdqU3g', 'ymOpyDEeQ6ud9lPwZnCAPg', 'in', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ncL02GjkSySSF85auAQ2yw', 'ymOpyDEeQ6ud9lPwZnCAPg', 'not in', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('QrchwHxBStyxBzmvUg3rAg', 'ymOpyDEeQ6ud9lPwZnCAPg', 'range', 800, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('UfYCIyShS1eaZoYpq5BkwQ', 'en', '=');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('XYrazGqmT8KVjsAI6uG59A', 'en', '!=');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('mGBB8xEIQJSc8ymmKyqKHg', 'en', '<');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('xcohSmkWQbeL192E1tcSWg', 'en', '>');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('3Yh_Xz7cR7qZ4l7kldKLQQ', 'en', '<=');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('pEnjY5YvRde8FhM7jarlgA', 'en', '>=');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('NvZZSIIVQ868pCWjxdqU3g', 'en', 'in');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ncL02GjkSySSF85auAQ2yw', 'en', 'not in');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('QrchwHxBStyxBzmvUg3rAg', 'en', 'range');
-INSERT INTO ref_host_t(table_id, host_id) values ('ymOpyDEeQ6ud9lPwZnCAPg', 'N2CMw0HGQXeLvC1wBfln2A');
-
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('lEeqoalEQRGPhv5u6jXxyQ', 'country', 'ISO country', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'lEeqoalEQRGPhv5u6jXxyQ', 'CAN', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'lEeqoalEQRGPhv5u6jXxyQ', 'USA', 200, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'en', 'Canada');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'en', 'USA');
-INSERT INTO ref_host_t(table_id, host_id) values ('lEeqoalEQRGPhv5u6jXxyQ', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('PuGG7Le9QRmWdT8eIuNbEA', 'attribute_type', 'Attribute Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('icLGGVxPQTK9vKtG7y7XVw', 'PuGG7Le9QRmWdT8eIuNbEA', 'string', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('izWRPxBgQK6V2I8eLM2vwQ', 'PuGG7Le9QRmWdT8eIuNbEA', 'integer', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ZLb4OODcTT6D62yc4fNzqw', 'PuGG7Le9QRmWdT8eIuNbEA', 'boolean', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('0lTzqXrLQaKV8wry5WEg5A', 'PuGG7Le9QRmWdT8eIuNbEA', 'date', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ihdx0HDnQomjKrqhTIwDRw', 'PuGG7Le9QRmWdT8eIuNbEA', 'time', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('z5OcUYfOROWwoYjloC1isA', 'PuGG7Le9QRmWdT8eIuNbEA', 'timestamp', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('7oZ0aMkxSmOYRdNuWkdqRw', 'PuGG7Le9QRmWdT8eIuNbEA', 'float', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('hrMKcaOxTXWeA4wwwhllPA', 'PuGG7Le9QRmWdT8eIuNbEA', 'list', 800);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('icLGGVxPQTK9vKtG7y7XVw', 'en', 'string');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('izWRPxBgQK6V2I8eLM2vwQ', 'en', 'integer');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ZLb4OODcTT6D62yc4fNzqw', 'en', 'boolean');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('0lTzqXrLQaKV8wry5WEg5A', 'en', 'date');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ihdx0HDnQomjKrqhTIwDRw', 'en', 'time');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('z5OcUYfOROWwoYjloC1isA', 'en', 'timestamp');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('7oZ0aMkxSmOYRdNuWkdqRw', 'en', 'float');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('hrMKcaOxTXWeA4wwwhllPA', 'en', 'list');
 
 
-INSERT INTO ref_table_t(table_id, table_name, table_desc, common) values ('IqtHTASySmmzSVQqYYVy3w', 'province', 'Province or State', 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('4SySR33wS06JMfIsszcRXw', 'IqtHTASySmmzSVQqYYVy3w', 'ON', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'IqtHTASySmmzSVQqYYVy3w', 'QC', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'IqtHTASySmmzSVQqYYVy3w', 'NS', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'IqtHTASySmmzSVQqYYVy3w', 'NB', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'IqtHTASySmmzSVQqYYVy3w', 'MB', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'IqtHTASySmmzSVQqYYVy3w', 'BC', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('KMV1WtthTuarWAICFGu4VA', 'IqtHTASySmmzSVQqYYVy3w', 'PE', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'IqtHTASySmmzSVQqYYVy3w', 'SK', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'IqtHTASySmmzSVQqYYVy3w', 'AB', 900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'IqtHTASySmmzSVQqYYVy3w', 'NL', 1000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'IqtHTASySmmzSVQqYYVy3w', 'NT', 1100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'IqtHTASySmmzSVQqYYVy3w', 'YT', 1200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('uCPK09RERTm3ePOs8fggQw', 'IqtHTASySmmzSVQqYYVy3w', 'NU', 1300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'IqtHTASySmmzSVQqYYVy3w', 'AL', 100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'IqtHTASySmmzSVQqYYVy3w', 'AK', 200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'IqtHTASySmmzSVQqYYVy3w', 'AZ', 300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'IqtHTASySmmzSVQqYYVy3w', 'AR', 400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'IqtHTASySmmzSVQqYYVy3w', 'CA', 500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'IqtHTASySmmzSVQqYYVy3w', 'CO', 600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'IqtHTASySmmzSVQqYYVy3w', 'CT', 700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'IqtHTASySmmzSVQqYYVy3w', 'DE', 800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'IqtHTASySmmzSVQqYYVy3w', 'DC', 900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'IqtHTASySmmzSVQqYYVy3w', 'FL', 1000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'IqtHTASySmmzSVQqYYVy3w', 'GA', 1100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'IqtHTASySmmzSVQqYYVy3w', 'HI', 1200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'IqtHTASySmmzSVQqYYVy3w', 'ID', 1300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'IqtHTASySmmzSVQqYYVy3w', 'IL', 1400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'IqtHTASySmmzSVQqYYVy3w', 'IN', 1500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'IqtHTASySmmzSVQqYYVy3w', 'IA', 1600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'IqtHTASySmmzSVQqYYVy3w', 'KS', 1700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'IqtHTASySmmzSVQqYYVy3w', 'KY', 1800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'IqtHTASySmmzSVQqYYVy3w', 'LA', 1900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'IqtHTASySmmzSVQqYYVy3w', 'ME', 2000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('FI9d37HMS524eRphBcZRww', 'IqtHTASySmmzSVQqYYVy3w', 'MD', 2100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'IqtHTASySmmzSVQqYYVy3w', 'MA', 2200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'IqtHTASySmmzSVQqYYVy3w', 'MI', 2300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'IqtHTASySmmzSVQqYYVy3w', 'MN', 2400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'IqtHTASySmmzSVQqYYVy3w', 'MS', 2500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'IqtHTASySmmzSVQqYYVy3w', 'MO', 2600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'IqtHTASySmmzSVQqYYVy3w', 'MT', 2700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'IqtHTASySmmzSVQqYYVy3w', 'NE', 2800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'IqtHTASySmmzSVQqYYVy3w', 'NV', 2900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'IqtHTASySmmzSVQqYYVy3w', 'NH', 3000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('znDF7_FzTialWfTOcgnZqw', 'IqtHTASySmmzSVQqYYVy3w', 'NJ', 3100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'IqtHTASySmmzSVQqYYVy3w', 'NM', 3200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'IqtHTASySmmzSVQqYYVy3w', 'NY', 3300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'IqtHTASySmmzSVQqYYVy3w', 'NC', 3400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'IqtHTASySmmzSVQqYYVy3w', 'ND', 3500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'IqtHTASySmmzSVQqYYVy3w', 'OH', 3600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'IqtHTASySmmzSVQqYYVy3w', 'OK', 3700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'IqtHTASySmmzSVQqYYVy3w', 'OR', 3800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'IqtHTASySmmzSVQqYYVy3w', 'PA', 3900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'IqtHTASySmmzSVQqYYVy3w', 'RI', 4000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'IqtHTASySmmzSVQqYYVy3w', 'SC', 4100, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'IqtHTASySmmzSVQqYYVy3w', 'SD', 4200, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'IqtHTASySmmzSVQqYYVy3w', 'TN', 4300, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'IqtHTASySmmzSVQqYYVy3w', 'TX', 4400, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'IqtHTASySmmzSVQqYYVy3w', 'UT', 4500, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'IqtHTASySmmzSVQqYYVy3w', 'VT', 4600, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'IqtHTASySmmzSVQqYYVy3w', 'VA', 4700, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'IqtHTASySmmzSVQqYYVy3w', 'WA', 4800, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('WCZmuWsiROei0WY5mtEduA', 'IqtHTASySmmzSVQqYYVy3w', 'WV', 4900, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'IqtHTASySmmzSVQqYYVy3w', 'WI', 5000, 'Y');
-INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'IqtHTASySmmzSVQqYYVy3w', 'WY', 5100, 'Y');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('4SySR33wS06JMfIsszcRXw', 'en', 'Ontario');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'en', 'Quebec');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'en', 'Nova Scotia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'en', 'New Brunswick');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'en', 'Manitoba');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'en', 'British Columbia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('KMV1WtthTuarWAICFGu4VA', 'en', 'Prince Edward Island');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'en', 'Saskatchewan');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'en', 'Alberta');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'en', 'Newfoundland and Labrador');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'en', 'Northwest Territories');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'en', 'Yukon');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('uCPK09RERTm3ePOs8fggQw', 'en', 'Nunavut');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'en', 'Alabama');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'en', 'Alaska');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'en', 'Arizona');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'en', 'Arkansas');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'en', 'California');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'en', 'Colorado');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'en', 'Connecticut');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'en', 'Delaware');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'en', 'District of Columbia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'en', 'Florida');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'en', 'Georgia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'en', 'Hawaii');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'en', 'Idaho');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'en', 'Illinois');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'en', 'Indiana');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'en', 'Iowa');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'en', 'Kansas');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'en', 'Kentucky');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'en', 'Louisiana');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'en', 'Maine');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('FI9d37HMS524eRphBcZRww', 'en', 'Maryland');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'en', 'Massachusetts');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'en', 'Michigan');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'en', 'Minnesota');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'en', 'Mississippi');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'en', 'Missouri');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'en', 'Montana');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'en', 'Nebraska');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'en', 'Nevada');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'en', 'New Hampshire');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('znDF7_FzTialWfTOcgnZqw', 'en', 'New Jersey');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'en', 'New Mexico');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'en', 'New York');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'en', 'North Carolina');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'en', 'North Dakota');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'en', 'Ohio');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'en', 'Oklahoma');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'en', 'Oregon');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'en', 'Pennsylvania');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'en', 'Rhode Island');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'en', 'South Carolina');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'en', 'South Dakota');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'en', 'Tennessee');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'en', 'Texas');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'en', 'Utah');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'en', 'Vermont');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'en', 'Virginia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'en', 'Washington');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('WCZmuWsiROei0WY5mtEduA', 'en', 'West Virginia');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'en', 'Wisconsin');
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'en', 'Wyoming');
-INSERT INTO ref_host_t(table_id, host_id) values ('IqtHTASySmmzSVQqYYVy3w', 'N2CMw0HGQXeLvC1wBfln2A');
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('ymOpyDEeQ6ud9lPwZnCAPg', 'filter_operator', 'Filter Operator', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('UfYCIyShS1eaZoYpq5BkwQ', 'ymOpyDEeQ6ud9lPwZnCAPg', '=', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('XYrazGqmT8KVjsAI6uG59A', 'ymOpyDEeQ6ud9lPwZnCAPg', '!=', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('mGBB8xEIQJSc8ymmKyqKHg', 'ymOpyDEeQ6ud9lPwZnCAPg', '<', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('xcohSmkWQbeL192E1tcSWg', 'ymOpyDEeQ6ud9lPwZnCAPg', '>', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('3Yh_Xz7cR7qZ4l7kldKLQQ', 'ymOpyDEeQ6ud9lPwZnCAPg', '<=', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('pEnjY5YvRde8FhM7jarlgA', 'ymOpyDEeQ6ud9lPwZnCAPg', '>=', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('NvZZSIIVQ868pCWjxdqU3g', 'ymOpyDEeQ6ud9lPwZnCAPg', 'in', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ncL02GjkSySSF85auAQ2yw', 'ymOpyDEeQ6ud9lPwZnCAPg', 'not in', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('QrchwHxBStyxBzmvUg3rAg', 'ymOpyDEeQ6ud9lPwZnCAPg', 'range', 800);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('UfYCIyShS1eaZoYpq5BkwQ', 'en', '=');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('XYrazGqmT8KVjsAI6uG59A', 'en', '!=');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('mGBB8xEIQJSc8ymmKyqKHg', 'en', '<');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('xcohSmkWQbeL192E1tcSWg', 'en', '>');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('3Yh_Xz7cR7qZ4l7kldKLQQ', 'en', '<=');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('pEnjY5YvRde8FhM7jarlgA', 'en', '>=');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('NvZZSIIVQ868pCWjxdqU3g', 'en', 'in');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ncL02GjkSySSF85auAQ2yw', 'en', 'not in');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('QrchwHxBStyxBzmvUg3rAg', 'en', 'range');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('6EiWgygeRIGktyWXX4rp8Q', 'entity_type', 'Entity Type', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('nzzp6vsqTBCUa7bmOBQYjA', '6EiWgygeRIGktyWXX4rp8Q', 'schema', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('VM3V92ZYTGG0O6MrCVTRrQ', '6EiWgygeRIGktyWXX4rp8Q', 'rule', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('1c8x6XEfTAieHbBUssV1TA', '6EiWgygeRIGktyWXX4rp8Q', 'error', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('nByTElwuQRupJz7ntDjdKQ', '6EiWgygeRIGktyWXX4rp8Q', 'document', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('lTD9QEMvTq2DSRhjWqCQmg', '6EiWgygeRIGktyWXX4rp8Q', 'product', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('UqUNSAJAR2qFkmPw4c6fwg', '6EiWgygeRIGktyWXX4rp8Q', 'api', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('oZcT9P0GQMiolh1oDECSKA', '6EiWgygeRIGktyWXX4rp8Q', 'app', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('sCWWUk7VQVOJYsEIBlhxyg', '6EiWgygeRIGktyWXX4rp8Q', 'host', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('XThuasgWSa6NV5uXvVTL5A', '6EiWgygeRIGktyWXX4rp8Q', 'org', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('QW73SFxIQPy4WqAMSZw3iA', '6EiWgygeRIGktyWXX4rp8Q', 'form', 900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ogZmvelMQyKYTIzxezvP4w', '6EiWgygeRIGktyWXX4rp8Q', 'news', 1000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Rp8dCMpsQZSFq5ZHvcVgsA', '6EiWgygeRIGktyWXX4rp8Q', 'page', 1100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('vqsIRIYESIq9SjdGT69haA', '6EiWgygeRIGktyWXX4rp8Q', 'template', 1200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('oa9vKjnCSB6H0xmwUuMKiA', '6EiWgygeRIGktyWXX4rp8Q', 'blog', 1300);
+
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('nzzp6vsqTBCUa7bmOBQYjA', 'en', 'schema');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('VM3V92ZYTGG0O6MrCVTRrQ', 'en', 'rule');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('1c8x6XEfTAieHbBUssV1TA', 'en', 'error');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('nByTElwuQRupJz7ntDjdKQ', 'en', 'document');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('lTD9QEMvTq2DSRhjWqCQmg', 'en', 'product');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('UqUNSAJAR2qFkmPw4c6fwg', 'en', 'api');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('oZcT9P0GQMiolh1oDECSKA', 'en', 'app');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('sCWWUk7VQVOJYsEIBlhxyg', 'en', 'host');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('XThuasgWSa6NV5uXvVTL5A', 'en', 'org');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('QW73SFxIQPy4WqAMSZw3iA', 'en', 'form');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ogZmvelMQyKYTIzxezvP4w', 'en', 'news');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Rp8dCMpsQZSFq5ZHvcVgsA', 'en', 'page');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('vqsIRIYESIq9SjdGT69haA', 'en', 'template');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('oa9vKjnCSB6H0xmwUuMKiA', 'en', 'blog');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('lEeqoalEQRGPhv5u6jXxyQ', 'country', 'ISO country', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'lEeqoalEQRGPhv5u6jXxyQ', 'CAN', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'lEeqoalEQRGPhv5u6jXxyQ', 'USA', 200);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('RKuBaSNPRKiAHOrEhe2wsA', 'en', 'Canada');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('mI3Uw8gISvGe9DXpQemJ5g', 'en', 'USA');
+
+
+INSERT INTO ref_table_t(table_id, table_name, table_desc, host_id) values ('IqtHTASySmmzSVQqYYVy3w', 'province', 'Province or State', null);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('4SySR33wS06JMfIsszcRXw', 'IqtHTASySmmzSVQqYYVy3w', 'ON', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'IqtHTASySmmzSVQqYYVy3w', 'QC', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'IqtHTASySmmzSVQqYYVy3w', 'NS', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'IqtHTASySmmzSVQqYYVy3w', 'NB', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'IqtHTASySmmzSVQqYYVy3w', 'MB', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'IqtHTASySmmzSVQqYYVy3w', 'BC', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('KMV1WtthTuarWAICFGu4VA', 'IqtHTASySmmzSVQqYYVy3w', 'PE', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'IqtHTASySmmzSVQqYYVy3w', 'SK', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'IqtHTASySmmzSVQqYYVy3w', 'AB', 900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'IqtHTASySmmzSVQqYYVy3w', 'NL', 1000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'IqtHTASySmmzSVQqYYVy3w', 'NT', 1100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'IqtHTASySmmzSVQqYYVy3w', 'YT', 1200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('uCPK09RERTm3ePOs8fggQw', 'IqtHTASySmmzSVQqYYVy3w', 'NU', 1300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'IqtHTASySmmzSVQqYYVy3w', 'AL', 100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'IqtHTASySmmzSVQqYYVy3w', 'AK', 200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'IqtHTASySmmzSVQqYYVy3w', 'AZ', 300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'IqtHTASySmmzSVQqYYVy3w', 'AR', 400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'IqtHTASySmmzSVQqYYVy3w', 'CA', 500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'IqtHTASySmmzSVQqYYVy3w', 'CO', 600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'IqtHTASySmmzSVQqYYVy3w', 'CT', 700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'IqtHTASySmmzSVQqYYVy3w', 'DE', 800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'IqtHTASySmmzSVQqYYVy3w', 'DC', 900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'IqtHTASySmmzSVQqYYVy3w', 'FL', 1000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'IqtHTASySmmzSVQqYYVy3w', 'GA', 1100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'IqtHTASySmmzSVQqYYVy3w', 'HI', 1200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'IqtHTASySmmzSVQqYYVy3w', 'ID', 1300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'IqtHTASySmmzSVQqYYVy3w', 'IL', 1400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'IqtHTASySmmzSVQqYYVy3w', 'IN', 1500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'IqtHTASySmmzSVQqYYVy3w', 'IA', 1600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'IqtHTASySmmzSVQqYYVy3w', 'KS', 1700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'IqtHTASySmmzSVQqYYVy3w', 'KY', 1800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'IqtHTASySmmzSVQqYYVy3w', 'LA', 1900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'IqtHTASySmmzSVQqYYVy3w', 'ME', 2000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('FI9d37HMS524eRphBcZRww', 'IqtHTASySmmzSVQqYYVy3w', 'MD', 2100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'IqtHTASySmmzSVQqYYVy3w', 'MA', 2200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'IqtHTASySmmzSVQqYYVy3w', 'MI', 2300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'IqtHTASySmmzSVQqYYVy3w', 'MN', 2400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'IqtHTASySmmzSVQqYYVy3w', 'MS', 2500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'IqtHTASySmmzSVQqYYVy3w', 'MO', 2600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'IqtHTASySmmzSVQqYYVy3w', 'MT', 2700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'IqtHTASySmmzSVQqYYVy3w', 'NE', 2800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'IqtHTASySmmzSVQqYYVy3w', 'NV', 2900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'IqtHTASySmmzSVQqYYVy3w', 'NH', 3000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('znDF7_FzTialWfTOcgnZqw', 'IqtHTASySmmzSVQqYYVy3w', 'NJ', 3100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'IqtHTASySmmzSVQqYYVy3w', 'NM', 3200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'IqtHTASySmmzSVQqYYVy3w', 'NY', 3300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'IqtHTASySmmzSVQqYYVy3w', 'NC', 3400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'IqtHTASySmmzSVQqYYVy3w', 'ND', 3500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'IqtHTASySmmzSVQqYYVy3w', 'OH', 3600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'IqtHTASySmmzSVQqYYVy3w', 'OK', 3700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'IqtHTASySmmzSVQqYYVy3w', 'OR', 3800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'IqtHTASySmmzSVQqYYVy3w', 'PA', 3900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'IqtHTASySmmzSVQqYYVy3w', 'RI', 4000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'IqtHTASySmmzSVQqYYVy3w', 'SC', 4100);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'IqtHTASySmmzSVQqYYVy3w', 'SD', 4200);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'IqtHTASySmmzSVQqYYVy3w', 'TN', 4300);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'IqtHTASySmmzSVQqYYVy3w', 'TX', 4400);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'IqtHTASySmmzSVQqYYVy3w', 'UT', 4500);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'IqtHTASySmmzSVQqYYVy3w', 'VT', 4600);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'IqtHTASySmmzSVQqYYVy3w', 'VA', 4700);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'IqtHTASySmmzSVQqYYVy3w', 'WA', 4800);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('WCZmuWsiROei0WY5mtEduA', 'IqtHTASySmmzSVQqYYVy3w', 'WV', 4900);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'IqtHTASySmmzSVQqYYVy3w', 'WI', 5000);
+INSERT INTO ref_value_t(value_id, table_id, value_code, display_order) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'IqtHTASySmmzSVQqYYVy3w', 'WY', 5100);
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('4SySR33wS06JMfIsszcRXw', 'en', 'Ontario');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('gdcXdRvKTRCTPfXLbwwxAw', 'en', 'Quebec');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('f2nPeF5_QyCYUHLWFX_mTA', 'en', 'Nova Scotia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('o1lZHlYJTyevnO8hxgJGBQ', 'en', 'New Brunswick');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('I_w5C08tTKOzmjtKuuBQ4g', 'en', 'Manitoba');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('p6kiWsTxRvS1YALKu_Ye9g', 'en', 'British Columbia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('KMV1WtthTuarWAICFGu4VA', 'en', 'Prince Edward Island');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Ecq4WaVkSxWY7CuAEwJWKA', 'en', 'Saskatchewan');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('pdLlXyJJRkqIEVikfpAhaA', 'en', 'Alberta');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('9ZrQHay6SWSiQzF_p9VpIw', 'en', 'Newfoundland and Labrador');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Gc1w4UBzQNGe_auPDAXLAQ', 'en', 'Northwest Territories');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('1OZZ_49CSnS_LTFeXZI4FQ', 'en', 'Yukon');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('uCPK09RERTm3ePOs8fggQw', 'en', 'Nunavut');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('9Rn8wW6sQp68nMML3E640Q', 'en', 'Alabama');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('8eb2qqvyRIWrTloE9P5YWw', 'en', 'Alaska');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('0OWbTB3yQqKEtsGqfTSIAA', 'en', 'Arizona');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('P1hW5PMiS22quKjOw_p1Qw', 'en', 'Arkansas');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('9FuoUVnTTEWDAbvsAls_qQ', 'en', 'California');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('0HR8TT7FQsOJpBQ3Ts9Q6w', 'en', 'Colorado');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('axabsLmnRbCpbaVnEm5rpQ', 'en', 'Connecticut');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('atq5TpwqQ6yMzd7nRP2qsQ', 'en', 'Delaware');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('6RicSPdnS6ulOmuBNJSLiQ', 'en', 'District of Columbia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('QxUzGj8DQaamil5Ixi5Mqg', 'en', 'Florida');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('4WaXpgMWTWiTgKnBOBw_fA', 'en', 'Georgia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('6kGKDmreSCepCUZPfrlNXg', 'en', 'Hawaii');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('OkWLdgR6TSmaMJ4L6nN1iA', 'en', 'Idaho');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ysAvApSXQbCeXNuLEHO4MA', 'en', 'Illinois');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('KW4bcpSwT965ljf3eQ2JzQ', 'en', 'Indiana');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('q1SefWE7R7SydF9am1L0xQ', 'en', 'Iowa');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('pnMbZYLNRXCZBNgGQnjXIQ', 'en', 'Kansas');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('xOaPdIWlSxysJipep5_8Mw', 'en', 'Kentucky');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('PfM2V43qRyWlE22JjN9YYg', 'en', 'Louisiana');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('75844bWyTGGcGDGUlxX1Iw', 'en', 'Maine');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('FI9d37HMS524eRphBcZRww', 'en', 'Maryland');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ZLRF7XBqQtGn1ocC1fAPBg', 'en', 'Massachusetts');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ojEJsw8kSayQLw7PnbFvQA', 'en', 'Michigan');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('XFySNM6GQJKs7ipAPvIhnQ', 'en', 'Minnesota');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('p0vlgugwRu68Hz7v0PE_rQ', 'en', 'Mississippi');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Z1ltK9vbSnG0yIZf1Q9Gbg', 'en', 'Missouri');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ufBZNeKGTaKP9JRmncr1Yg', 'en', 'Montana');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('u13ZAyLMRm6jdtHv8gmouA', 'en', 'Nebraska');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('L6BM3GFRQwiTb7TGKB4pUA', 'en', 'Nevada');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('HKC5gT9LSPeCJkQ9aOCPwg', 'en', 'New Hampshire');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('znDF7_FzTialWfTOcgnZqw', 'en', 'New Jersey');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('Gu_yMNh1TLOs3S_8cw_EEw', 'en', 'New Mexico');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('xX1ql_tZR6S3Fi60w2f5Nw', 'en', 'New York');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('LaWWB1K4QMqu0oxJUWD7TQ', 'en', 'North Carolina');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('hzcMPMB8QXCo9B50SnAZcw', 'en', 'North Dakota');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('hTpuM1xVTTWdfRUgEkPXzg', 'en', 'Ohio');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('H_QDW2FfSMuVsQkrRORPzg', 'en', 'Oklahoma');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('MNV6tCAoR6KKl37yVtYfYg', 'en', 'Oregon');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('SGty6qwYRTSW4W6SETXaqQ', 'en', 'Pennsylvania');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('dFDbA9l5TZefJBTd15B6Sg', 'en', 'Rhode Island');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ECnVlHWfRrm52sD9YMbe7Q', 'en', 'South Carolina');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('sHXjPXRdRr2zn4dHYQKiVg', 'en', 'South Dakota');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('ox9JxOmpRNGwbBR6sa7vfg', 'en', 'Tennessee');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('G81Fak4dTwCdYNKiWYyojg', 'en', 'Texas');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('p7rqy1fNTUOKmDrYeYm1og', 'en', 'Utah');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('arEz8xOKQMe5f7jqRtrkgA', 'en', 'Vermont');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('5VBfmpLwToCdHlv8whWwgA', 'en', 'Virginia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('NAZNdWnQRYyEUoBVS6H8ww', 'en', 'Washington');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('WCZmuWsiROei0WY5mtEduA', 'en', 'West Virginia');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('grVp1z6jRzeh2Q_p7WFgIQ', 'en', 'Wisconsin');
+INSERT INTO value_locale_t(value_id, language, value_label) VALUES ('GqToK4trSNWjUFQTtBnpLg', 'en', 'Wyoming');
 
 -- relation type
 INSERT INTO relation_type_t(relation_id, relation_name, relation_desc) VALUES ('ox2ZLivXSoWZPYB4R94S4w', 'country-province', 'country province dropdown');
