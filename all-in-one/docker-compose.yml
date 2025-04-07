@@ -226,8 +226,7 @@ services:
 
   # reference API
   reference:
-    # image: networknt/com.networknt.reference:2.1.38
-    image: networknt/com.networknt.reference:2.2.1-slim
+    image: networknt/light-reference:2.2.1-slim
     ports:
       - 2498:2498
     volumes:
