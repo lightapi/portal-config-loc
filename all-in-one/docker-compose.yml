@@ -93,6 +93,37 @@ services:
       kafka-topics --bootstrap-server broker:29092 --list
       "
 
+  connect:
+    image: quay.io/debezium/connect:2.7
+    ports:
+     - 8083:8083
+    depends_on:
+      - broker
+    container_name: connect
+    environment:
+      BOOTSTRAP_SERVERS: broker:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8080:8080
+    depends_on:
+      - broker
+      - schema-registry
+      - connect
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'broker:29092'
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+      DYNAMIC_CONFIG_ENABLED: 'true'
+
   postgres:
     image: postgres:17.2
     depends_on:
@@ -102,49 +133,50 @@ services:
       - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_PASSWORD: secret
+    command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10
     ports:
       - 5432:5432
     hostname: postgres
     container_name: postgres
 
-  scheduler-node1:
-    image: networknt/light-scheduler:2.2.1
-    depends_on:
-      - postgres
-    volumes:
-      - ./light-scheduler/node1:/config
-    ports:
-      - 8401:8401
-    hostname: scheduler-node1
-    restart: on-failure
-    container_name: scheduler-node1
-    # network_mode: host
+  # scheduler-node1:
+  #   image: networknt/light-scheduler:2.2.1
+  #   depends_on:
+  #     - postgres
+  #   volumes:
+  #     - ./light-scheduler/node1:/config
+  #   ports:
+  #     - 8401:8401
+  #   hostname: scheduler-node1
+  #   restart: on-failure
+  #   container_name: scheduler-node1
+  #   # network_mode: host
 
-  scheduler-node2:
-    image: networknt/light-scheduler:2.2.1
-    depends_on:
-      - postgres
-    volumes:
-      - ./light-scheduler/node2:/config
-    ports:
-      - 8402:8402
-    hostname: scheduler-node2
-    restart: on-failure
-    container_name: scheduler-node2
-    # network_mode: host
+  # scheduler-node2:
+  #   image: networknt/light-scheduler:2.2.1
+  #   depends_on:
+  #     - postgres
+  #   volumes:
+  #     - ./light-scheduler/node2:/config
+  #   ports:
+  #     - 8402:8402
+  #   hostname: scheduler-node2
+  #   restart: on-failure
+  #   container_name: scheduler-node2
+  #   # network_mode: host
 
-  scheduler-node3:
-    image: networknt/light-scheduler:2.2.1
-    depends_on:
-      - postgres
-    volumes:
-      - ./light-scheduler/node3:/config
-    ports:
-      - 8403:8403
-    hostname: scheduler-node3
-    restart: on-failure
-    container_name: scheduler-node3
-    # network_mode: host
+  # scheduler-node3:
+  #   image: networknt/light-scheduler:2.2.1
+  #   depends_on:
+  #     - postgres
+  #   volumes:
+  #     - ./light-scheduler/node3:/config
+  #   ports:
+  #     - 8403:8403
+  #   hostname: scheduler-node3
+  #   restart: on-failure
+  #   container_name: scheduler-node3
+  #   # network_mode: host
 
   hybrid-command:
     image: networknt/portal-hybrid-command:2.2.1-slim
@@ -280,3 +312,4 @@ services:
     hostname: http-sidecar
     restart: on-failure
     container_name: http-sidecar
+
