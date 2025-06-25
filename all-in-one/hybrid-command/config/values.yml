@@ -9,7 +9,7 @@ client.verifyHostname: false
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
+client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 
 # kafka-producer.yml
 kafka-producer.bootstrap.servers: broker:29092
@@ -20,6 +20,14 @@ portal.sendEmail: true
 portal.cmdHost: https://localhost
 portal.resetHost: https://devsignin.lightapi.net
 portal.admin: steve.hu@lightapi.net
+
+# db-provider.yml
+# For postgres database running in a docker container, you have to use the driverClassName.
+db-provider.driverClassName: org.postgresql.Driver
+db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
+db-provider.username: postgres
+db-provider.password: secret
+db-provider.maximumPoolSize: 3
 
 # cors.yml
 cors.enabled: true
@@ -50,21 +58,17 @@ service.singletons:
   - com.networknt.balance.RoundRobinLoadBalance
 - com.networknt.cluster.Cluster:
   - com.networknt.cluster.LightCluster
+# PortalDbProviderImpl of DbProvider
+- com.networknt.db.provider.DbProvider:
+  - net.lightapi.portal.db.PortalDbProviderImpl
 # StartupHookProvider implementations, there are one to many and they are called in the same sequence defined.
 - com.networknt.server.StartupHookProvider:
   # registry all service handlers by from annotations
   - com.networknt.rpc.router.RpcStartupHookProvider
-  # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
-  # If you are using mask module to remove sensitive info before logging, uncomment the following line.
-  # - com.networknt.server.JsonPathStartupHookProvider
-  # Kafka producer hook
-  - net.lightapi.portal.command.HybridCommandStartup
+  # database startup hook to initialize datasource and cache.
+  - com.networknt.db.provider.SqlDbStartupHook
 # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
 - com.networknt.server.ShutdownHookProvider:
-  - net.lightapi.portal.command.HybridCommandShutdown
-# Kafka Producer instance
-- com.networknt.kafka.producer.NativeLightProducer:
-  - com.networknt.kafka.producer.SidecarProducer
 # Schema Registry client implementation
 - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
   - com.networknt.kafka.common.LightSchemaRegistryClient
@@ -86,3 +90,7 @@ cache.caches:
   - cacheName: auth_code
     expiryInMinutes: 5
     maxSize: 1000
+
+# rpc-router.yml
+rpc-router.handlerPackages: net.lightapi.portal
+rpc-router.jsonPath: /portal/command
