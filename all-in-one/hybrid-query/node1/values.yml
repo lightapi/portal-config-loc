@@ -7,7 +7,7 @@ client.verifyHostname: false
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
+client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 
 # kafka-streams.yml
 kafka-streams.bootstrap.servers: broker:29092
@@ -17,7 +17,7 @@ kafka-streams.application.id: hybrid-query
 
 # portal.yml
 portal.sendEmail: false
-portal.cmdHost: https://hybrid-command:8439
+portal.cmdHost: https://localhost:8439
 portal.resetHost: https://devsignin.lightapi.net
 
 # db-provider.yml
@@ -72,15 +72,23 @@ service.singletons:
     # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
     # User Query Startup Hook
     - net.lightapi.portal.user.query.UserQueryStartup
+    # Schedule Query Startup Hook
+    - net.lightapi.portal.schedule.query.ScheduleQueryStartup
     # database startup hook to initialize datasource and cache.
     - com.networknt.db.provider.SqlDbStartupHook
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # User Query Shutdown Hook
     - net.lightapi.portal.user.query.UserQueryShutdown
+    # Schedule Query Shutdown Hook
+    - net.lightapi.portal.schedule.query.ScheduleQueryShutdown
   # Schema Registry client implementation
   # - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
   #   - com.networknt.kafka.common.LightSchemaRegistryClient
 
 # security.yml
 security.enableVerifyJwt: true
+
+# rpc-router.yml
+rpc-router.handlerPackages: net.lightapi.portal
+rpc-router.jsonPath: /portal/query
