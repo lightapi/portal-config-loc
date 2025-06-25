@@ -45,4 +45,4 @@ cors.enabled: false
 # client.yml
 client.verifyHostname: false
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
+client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
