@@ -8,7 +8,7 @@ router.maxRequestTime: 5000
 client.verifyHostname: false
 client.tokenServerUrl: https://oauth-kafka:6881
 # Authorization Code
-client.tokenAcUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/token
+client.tokenAcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenAcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenAcRedirectUri: https://localhost:3000/authorization
@@ -18,7 +18,7 @@ client.tokenAcScope:
   - ref.r
   - ref.w
 # Client Credential
-client.tokenCcUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/token
+client.tokenCcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenCcScope:
@@ -27,7 +27,7 @@ client.tokenCcScope:
   - ref.r
   - ref.w
 # Refresh Token
-client.tokenRtUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/token
+client.tokenRtUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
 client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenRtClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenRtScope:
@@ -38,7 +38,7 @@ client.tokenRtScope:
 
 # JSON Web Key
 client.tokenKeyServerUrl: https://oauth-kafka:6881
-client.tokenKeyUri: /oauth2/EF3wqhfWQti2DUVrvYNM7g/keys
+client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 
 
 # service.yml
