@@ -154,6 +154,11 @@ This is the final version that has payload as the Kafka value.
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication",
     "slot.name": "dbz_replication_slot",
+    "slot.drop.on.stop": "false", 
+    "signal.when.disconnected": "true",
+    "tombstones.on.delete": "true",
+    "max.retries": 5,
+    "retry.delay.ms": 10000,
 
     "value.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter.schemas.enable": "false",
