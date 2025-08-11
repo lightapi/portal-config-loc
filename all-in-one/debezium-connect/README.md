@@ -1,4 +1,4 @@
-Here is the working config for portal-event topic with Timestamp support. 
+Here is the working config for portal-event topic with Timestamp support.
 
 
 ```
@@ -7,14 +7,14 @@ Here is the working config for portal-event topic with Timestamp support.
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "tasks.max": "1",
-    
+
     "database.hostname": "postgres",
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "secret",
     "database.dbname": "configserver",
     "database.server.name": "postgres",
-    "topic.prefix": "portal-event", 
+    "topic.prefix": "portal-event",
 
     "schema.include.list": "public",
     "table.include.list": "public.outbox_message_t",
@@ -28,7 +28,7 @@ Here is the working config for portal-event topic with Timestamp support.
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
 
-    "transforms": "unwrap,timestamp_converter,outbox,final_route", 
+    "transforms": "unwrap,timestamp_converter,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -52,7 +52,7 @@ Here is the working config for portal-event topic with Timestamp support.
     "transforms.outbox.table.field.aggregate.id": "aggregate_id",
 
     "transforms.final_route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t", 
+    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t",
     "transforms.final_route.replacement": "portal-event"
   }
 }
@@ -60,12 +60,12 @@ Here is the working config for portal-event topic with Timestamp support.
 
 The issue with above configuration:
 
-1. The id is used as topic key. 
+1. The id is used as topic key.
 2. The json is used for the key and value
 
-We need to use user_id column as key and payload as value. 
+We need to use user_id column as key and payload as value.
 
-Here is the configuration that has user_id as key. In the config, we have defined message.key.columns to be user_id and also use extractKey to remove all struct info to leave only the user_id as the key. 
+Here is the configuration that has user_id as key. In the config, we have defined message.key.columns to be user_id and also use extractKey to remove all struct info to leave only the user_id as the key.
 
 
 ```
@@ -74,14 +74,14 @@ Here is the configuration that has user_id as key. In the config, we have define
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "tasks.max": "1",
-    
+
     "database.hostname": "postgres",
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "secret",
     "database.dbname": "configserver",
     "database.server.name": "postgres",
-    "topic.prefix": "portal-event", 
+    "topic.prefix": "portal-event",
 
     "schema.include.list": "public",
     "table.include.list": "public.outbox_message_t",
@@ -96,7 +96,7 @@ Here is the configuration that has user_id as key. In the config, we have define
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "key.converter.schemas.enable": "false",
 
-    "transforms": "unwrap,extractKey,timestamp_converter,outbox,final_route", 
+    "transforms": "unwrap,extractKey,timestamp_converter,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -123,14 +123,14 @@ Here is the configuration that has user_id as key. In the config, we have define
     "transforms.outbox.table.field.aggregate.id": "aggregate_id",
 
     "transforms.final_route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t", 
+    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t",
     "transforms.final_route.replacement": "portal-event"
   }
 }
 
 ```
 
-This is the final version that has payload as the Kafka value. 
+This is the final version that has payload as the Kafka value.
 
 ```
 {
@@ -138,14 +138,14 @@ This is the final version that has payload as the Kafka value.
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "tasks.max": "1",
-    
+
     "database.hostname": "postgres",
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "secret",
     "database.dbname": "configserver",
     "database.server.name": "postgres",
-    "topic.prefix": "portal-event", 
+    "topic.prefix": "portal-event",
 
     "schema.include.list": "public",
     "table.include.list": "public.outbox_message_t",
@@ -154,7 +154,7 @@ This is the final version that has payload as the Kafka value.
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication",
     "slot.name": "dbz_replication_slot",
-    "slot.drop.on.stop": "false", 
+    "slot.drop.on.stop": "false",
     "signal.when.disconnected": "true",
     "tombstones.on.delete": "true",
     "max.retries": 5,
@@ -165,7 +165,7 @@ This is the final version that has payload as the Kafka value.
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "key.converter.schemas.enable": "false",
 
-    "transforms": "unwrap,timestamp_converter,extractPayload,extractKey,outbox,final_route", 
+    "transforms": "unwrap,timestamp_converter,extractPayload,extractKey,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -194,7 +194,7 @@ This is the final version that has payload as the Kafka value.
     "transforms.outbox.table.field.aggregate.id": "aggregate_id",
 
     "transforms.final_route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t", 
+    "transforms.final_route.regex": "portal-event\\.public\\.outbox_message_t",
     "transforms.final_route.replacement": "portal-event"
   }
 }
