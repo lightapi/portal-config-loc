@@ -302,4 +302,3 @@ services:
     hostname: http-sidecar
     restart: on-failure
     container_name: http-sidecar
-

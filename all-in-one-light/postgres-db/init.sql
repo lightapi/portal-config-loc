@@ -373,7 +373,7 @@ ALTER TABLE config_t
 
 ALTER TABLE config_t ADD CONSTRAINT config_pk PRIMARY KEY ( config_id );
 
--- each config file will have a config_id reference and this table contains all the properties including default. 
+-- each config file will have a config_id reference and this table contains all the properties including default.
 CREATE TABLE config_property_t (
     config_id                 VARCHAR(22) NOT NULL,
     property_name             VARCHAR(64) NOT NULL,
@@ -422,7 +422,7 @@ ALTER TABLE environment_property_t ADD CONSTRAINT environment_property_pk PRIMAR
                                                                                         config_id,
                                                                                         property_name);
 
--- for each platform like jenkins, ansible etc. 
+-- for each platform like jenkins, ansible etc.
 CREATE TABLE platform_t (
     host_id                     VARCHAR(22) NOT NULL,
     platform_id                 VARCHAR(22) NOT NULL,
@@ -433,7 +433,7 @@ CREATE TABLE platform_t (
     credentials                 VARCHAR(255) NOT NULL,
     proxy_url                   VARCHAR(255),
     proxy_port                  INTEGER,
-    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs. 
+    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs.
     environment                 VARCHAR(16),
     system_env                  VARCHAR(16),
     runtime_env                 VARCHAR(16),
@@ -445,7 +445,7 @@ CREATE TABLE platform_t (
     PRIMARY KEY(host_id, platform_id)
 );
 
---  each platform will have multiple pipelines. 
+--  each platform will have multiple pipelines.
 CREATE TABLE pipeline_t (
     host_id                     VARCHAR(22) NOT NULL,
     pipeline_id                 VARCHAR(22) NOT NULL,
@@ -501,7 +501,7 @@ ALTER TABLE instance_t
                                                      tag_id );
 
 
--- one gateway instance can have multiple APIs managed by it. 
+-- one gateway instance can have multiple APIs managed by it.
 CREATE TABLE instance_api_t (
     host_id          VARCHAR(22) NOT NULL,
     instance_id      VARCHAR(22) NOT NULL,
@@ -586,7 +586,7 @@ ALTER TABLE instance_property_t ADD CONSTRAINT instance_property_pk PRIMARY KEY 
 
 
 
--- product level customized properties which is generic or common for the product. 
+-- product level customized properties which is generic or common for the product.
 CREATE TABLE product_property_t (
     product_id       VARCHAR(8) NOT NULL,
     config_id        VARCHAR(22) NOT NULL,
@@ -604,15 +604,15 @@ ALTER TABLE product_property_t ADD CONSTRAINT product_property_pk PRIMARY KEY ( 
 CREATE TABLE product_version_t (
     host_id                     VARCHAR(22) NOT NULL,
     product_id                  VARCHAR(8) NOT NULL,
-    product_version             VARCHAR(12) NOT NULL, -- internal product version 
+    product_version             VARCHAR(12) NOT NULL, -- internal product version
     light4j_version             VARCHAR(12) NOT NULL, -- open source release version
     break_code                  BOOLEAN DEFAULT false, -- breaking code change to upgrade to this version.
-    break_config                BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version. 
+    break_config                BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version.
     release_note                TEXT,
     version_desc                VARCHAR(1024),
     release_type                VARCHAR(24) NOT NULL, -- Alpha Version, Beta Version, Release Candidate, General Availability, Production Release
     current                     BOOLEAN DEFAULT false,
-    version_status              VARCHAR(16) NOT NULL, 
+    version_status              VARCHAR(16) NOT NULL,
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_id, product_version)
@@ -633,7 +633,7 @@ CREATE TABLE product_version_property_t (
 );
 
 ALTER TABLE product_version_property_t
-    ADD CONSTRAINT product_version_property_pk PRIMARY KEY ( host_id, 
+    ADD CONSTRAINT product_version_property_pk PRIMARY KEY ( host_id,
                                                              product_id,
                                                              product_version,
                                                              config_id,
@@ -661,7 +661,7 @@ CREATE TABLE runtime_instance_t (
     runtime_instance_id         VARCHAR(22) NOT NULL,  -- auto generated uuid as part of pk
     deployment_id               VARCHAR(22) NOT NULL,  -- which deployment created this instance
     instance_id                 VARCHAR(126) NOT NULL, -- which logical instance in instance_t
-    instance_status             VARCHAR(16) NOT NULL,  -- deployed, running, shutdown, starting 
+    instance_status             VARCHAR(16) NOT NULL,  -- deployed, running, shutdown, starting
     update_user                 VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, runtime_instance_id),
@@ -1205,7 +1205,7 @@ CREATE TABLE auth_provider_key_t (
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
 );
 
--- multiple apis can share the same auth provider. 
+-- multiple apis can share the same auth provider.
 CREATE TABLE auth_provider_api_t(
     host_id                   VARCHAR(22) NOT NULL,
     api_id                    VARCHAR(22) NOT NULL,
@@ -1282,7 +1282,7 @@ CREATE TABLE auth_refresh_token_t (
     user_id                   VARCHAR(22) NOT NULL,
     entity_id                 VARCHAR(50) NOT NULL,
     user_type                 CHAR(1) NOT NULL,
-    email                     VARCHAR(126) NOT NULL,    
+    email                     VARCHAR(126) NOT NULL,
     roles                     VARCHAR(4096),
     groups                    VARCHAR(4096),
     positions                 VARCHAR(4096),
@@ -1409,7 +1409,7 @@ CREATE TABLE task_info_t
     process_id          VARCHAR(22)  NOT NULL,
     wf_instance_id      VARCHAR(126) NOT NULL,
     wf_task_id          VARCHAR(126) NOT NULL,
-    status_code         CHAR(1)       NOT NULL, -- U, A, C 
+    status_code         CHAR(1)       NOT NULL, -- U, A, C
     started_ts          TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     locked              CHAR(1)       NOT NULL,
     priority            INTEGER        NOT NULL,
@@ -1424,7 +1424,7 @@ CREATE TABLE task_info_t
     FOREIGN KEY (process_id) REFERENCES process_info_t(process_id) ON DELETE CASCADE
 );
 
-CREATE TABLE task_asst_t 
+CREATE TABLE task_asst_t
 (
     task_asst_id         VARCHAR(22)   NOT NULL,
     task_id              VARCHAR(22)   NOT NULL,
@@ -1439,7 +1439,7 @@ CREATE TABLE task_asst_t
     FOREIGN KEY(task_id) REFERENCES task_info_t(task_id) ON DELETE CASCADE
 );
 
-CREATE TABLE audit_log_t 
+CREATE TABLE audit_log_t
 (
     audit_log_id         VARCHAR(22)       NOT NULL,
     source_type_id       VARCHAR(126)      NULL,
@@ -1624,7 +1624,7 @@ ALTER TABLE product_version_property_t
 
 INSERT INTO org_t (domain, org_name, org_desc) VALUES ('lightapi.net', 'Light API Portal', 'Light API Portal');
 
--- insert the dev.lightapi.net as the default host. 
+-- insert the dev.lightapi.net as the default host.
 INSERT INTO host_t (host_id, domain, sub_domain) VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'lightapi.net', 'dev');
 
 
@@ -1734,7 +1734,7 @@ INSERT INTO ref_value_t(value_id, table_id, value_code, display_order, active) V
 INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('RbkF7LnvStqGqeRHC004GA', 'en', 'Supported');  -- there might be serveral supported versions
 INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('SV8tVtegSt6balvd3uolog', 'en', 'Outdated'); -- not supported but still usable, allow to deploy with warnning.
 INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('lRtAcENcTLWzLaSaNxuTPA', 'en', 'Deprecated'); -- not supported and use at your risk, don't allow to deploy
-INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HeT7oBcTSmOXJesV0tQWwA', 'en', 'Removed'); -- borken version, please don't use, soft delete. 
+INSERT INTO value_locale_t(value_id, language, value_desc) VALUES ('HeT7oBcTSmOXJesV0tQWwA', 'en', 'Removed'); -- borken version, please don't use, soft delete.
 INSERT INTO ref_host_t(table_id, host_id) values ('2A3um2OJSiK4bZ4h10jOww', 'N2CMw0HGQXeLvC1wBfln2A');
 
 
@@ -2360,7 +2360,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000100', 'Admin Client', 'Access the adm endpoints of light-portal services', false, null, null);
 
 
-INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret, 
+INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret,
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'admin client', 'APM000100', 'f7d42348-c647-4efb-a52d-4c5787421e70', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'admin', null, 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2368,7 +2368,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'admin client', 'APM000100', 'f7d42348-c647-4ef
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000123', 'PetStore Web Server', 'PetStore Web Server that calls PetStore API', false, null, null);
 
-INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret, 
+INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret,
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'petstore server', 'APM000123', 'f7d42348-c647-4efb-a52d-4c5787421e72', 'trusted', 'mobile', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', '{"c1": "361", "c2": "67"}', 'https://localhost:3000/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2377,7 +2377,7 @@ VALUES('N2CMw0HGQXeLvC1wBfln2A', 'petstore server', 'APM000123', 'f7d42348-c647-
 INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_owner, delivery_owner)
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000124', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
-INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret, 
+INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret,
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'portal web test', 'APM000124', 'f7d42348-c647-4efb-a52d-4c5787421e73', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -2387,7 +2387,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000126', 'Light Portal Test Web Application', 'Light Portal Test React Single Page Application', false, null, null);
 
 
-INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret, 
+INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret,
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'portal web app', 'APM000126', 'f7d42348-c647-4efb-a52d-4c5787421e75', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'portal.r portal.w ref.r ref.w', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.DefaultAuth', null);
@@ -2396,7 +2396,7 @@ INSERT INTO app_t(host_id, app_id, app_name, app_desc, is_kafka_app, operation_o
 VALUES ('N2CMw0HGQXeLvC1wBfln2A', 'APM000127', 'Petstore Client Application', 'An example application that is used to demo access to openapi-petstore', false, null, null);
 
 
-INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret, 
+INSERT INTO auth_client_t (host_id, client_name, app_id, client_id, client_type, client_profile, client_secret,
     client_scope, custom_claim, redirect_uri, authenticate_class, deref_client_id)
 VALUES('N2CMw0HGQXeLvC1wBfln2A', 'petstore app', 'APM000127', 'f7d42348-c647-4efb-a52d-4c5787421e76', 'trusted', 'browser', '1000:5b37332c202d36362c202d36392c203131362c203132362c2036322c2037382c20342c202d37382c202d3131352c202d35332c202d34352c202d342c202d3132322c203130322c2033325d:29ad1fe88d66584c4d279a6f58277858298dbf9270ffc0de4317a4d38ba4b41f35f122e0825c466f2fa14d91e17ba82b1a2f2a37877a2830fae2973076d93cc2',
 'read:pets write:pets', null, 'https://dev.lightapi.net/authorization', 'com.networknt.oauth.auth.LightPortalAuth', null);
@@ -3159,7 +3159,7 @@ BEGIN
                   AND instance_id = v_instance_id
                   AND config_id = v_config_id
                   AND property_name = v_property_name
-                  AND jsonb_typeof(property_value::JSONB) = 'array' -- Filter non-arrays                  
+                  AND jsonb_typeof(property_value::JSONB) = 'array' -- Filter non-arrays
             ) sub;
         END IF;
     ELSE
@@ -3252,11 +3252,11 @@ BEGIN
             SELECT jsonb_agg(element ORDER BY update_ts)
             INTO v_merged_json
             FROM (
-                SELECT 
-                    jsonb_array_elements(property_value::JSONB) AS element, 
+                SELECT
+                    jsonb_array_elements(property_value::JSONB) AS element,
                     update_ts
                 FROM instance_app_property_t
-                WHERE 
+                WHERE
                     host_id = v_host_id
                     AND instance_id = v_instance_id
                     AND config_id = v_config_id
@@ -3307,4 +3307,3 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER instance_app_property_merge_trigger
 AFTER INSERT OR UPDATE OR DELETE ON instance_app_property_t
 FOR EACH ROW EXECUTE FUNCTION merge_instance_app_property_trigger();
-
