@@ -1,0 +1,88 @@
+---
+# This is the docker compose for kafka components only so that we can create topics properly. Otherwise, some the applications
+# will create portal-event topic with only one partition and the dead letter topic with 3 partitions. 
+services:
+  broker:
+    image: confluentinc/cp-kafka:7.9.0
+    hostname: broker
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    volumes:
+      - ./kafka-data/data:/var/lib/kafka/data
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker:29093"
+      KAFKA_LISTENERS: "PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      # Replace CLUSTER_ID with a unique base64 UUID using "bin/kafka-storage.sh random-uuid"
+      # See https://docs.confluent.io/kafka/operations-tools/kafka-tools.html#kafka-storage-sh
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.9.0
+    depends_on:
+      - broker
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker:29092 --list
+
+      echo -e 'Creating kafka topics'
+
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event.dql --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
+
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-day-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-min-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-sec-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-evey-hour-tasks-store-changelog --config retention.ms=-1
+
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server broker:29092 --list
+      "
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8080:8080
+    depends_on:
+      - broker
+      - schema-registry
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'broker:29092'
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+      DYNAMIC_CONFIG_ENABLED: 'true'
+

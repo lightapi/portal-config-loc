@@ -63,35 +63,26 @@ services:
   #     CONFLUENT_METRICS_TOPIC_REPLICATION: 1
   #     PORT: 9021
 
-  init-kafka:
-    image: confluentinc/cp-kafka:7.9.0
-    depends_on:
-      - broker
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "
-      # blocks until kafka is reachable
-      kafka-topics --bootstrap-server broker:29092 --list
+  # init-kafka:
+  #   image: confluentinc/cp-kafka:7.9.0
+  #   depends_on:
+  #     - broker
+  #   entrypoint: ["/bin/sh", "-c"]
+  #   command: |
+  #     "
+  #     # blocks until kafka is reachable
+  #     kafka-topics --bootstrap-server broker:29092 --list
 
-      echo -e 'Creating kafka topics'
+  #     echo -e 'Creating kafka topics'
 
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
-      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
+  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event.dql --config cleanup.policy=compact
+  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
+  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
 
-      echo -e 'Successfully created the following topics:'
-      kafka-topics --bootstrap-server broker:29092 --list
-      "
+  #     echo -e 'Successfully created the following topics:'
+  #     kafka-topics --bootstrap-server broker:29092 --list
+  #     "
 
   connect:
     image: quay.io/debezium/connect:2.7
@@ -115,7 +106,6 @@ services:
     depends_on:
       - broker
       - schema-registry
-      - connect
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'broker:29092'
