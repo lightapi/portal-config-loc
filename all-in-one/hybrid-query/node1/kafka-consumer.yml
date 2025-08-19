@@ -92,7 +92,7 @@ fetchMinBytes: ${kafka-consumer.fetchMinBytes:-1}
 # want to recreate the consumer instance for every request, increase this number to a bigger value. Default to 5 minutes
 # that is in sync with max.poll.interval.ms default value. When this value is increased to a value greater than 5 minutes,
 # the max.poll.interval.ms will be automatically increased as these two values are related although completely different.
-instanceTimeoutMs: ${kafka-consumer.instanceTimeoutMs:300000}
+instanceTimeoutMs: ${kafka-consumer.instanceTimeoutMs:3600000}
 # Amount of time to backoff when an iterator runs out of date.
 iteratorBackoffMs: ${kafka-consumer.iteratorBackoffMs:50}
 #In case of .NET application we realized , under load, response comes back for batch HTTP request however FinACK does not come until
