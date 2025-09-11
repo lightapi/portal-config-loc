@@ -24,6 +24,7 @@ kafka-streams.application.id: hybrid-query
 portal.sendEmail: false
 portal.cmdHost: https://localhost:8439
 portal.resetHost: https://devsignin.lightapi.net
+portal.topic: portal-event
 
 # db-provider.yml
 # For postgres database running in a docker container, you have to use the driverClassName.
