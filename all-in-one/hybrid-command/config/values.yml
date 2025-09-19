@@ -6,8 +6,8 @@ server.environment: null
 
 # client.yml
 client.verifyHostname: false
-client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
-client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e73
+client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenKeyServerUrl: https://oauth-kafka:6881
 client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 
