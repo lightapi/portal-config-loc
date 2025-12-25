@@ -115,11 +115,14 @@ services:
       DYNAMIC_CONFIG_ENABLED: 'true'
 
   postgres:
-    image: postgres:17.2
+    image: timescale/timescaledb:latest-pg18
+    # image: timescale/timescaledb:latest-pg17
+    # image: postgres:17.2
     depends_on:
       - broker
     volumes:
-      - ./postgres-db/data:/var/lib/postgresql/data
+      - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
+      # - ./postgres-db/data:/var/lib/postgresql/data
       - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_PASSWORD: secret
