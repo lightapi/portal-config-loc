@@ -115,14 +115,14 @@ services:
       DYNAMIC_CONFIG_ENABLED: 'true'
 
   postgres:
-    image: timescale/timescaledb:latest-pg18
-    # image: timescale/timescaledb:latest-pg17
+    # image: timescale/timescaledb:latest-pg18
+    image: timescale/timescaledb:latest-pg17
     # image: postgres:17.2
     depends_on:
       - broker
     volumes:
-      - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
-      # - ./postgres-db/data:/var/lib/postgresql/data
+      # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
+      - ./postgres-db/data:/var/lib/postgresql/data
       - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_PASSWORD: secret
@@ -131,6 +131,12 @@ services:
       - 5432:5432
     hostname: postgres
     container_name: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s    
 
   # scheduler-node1:
   #   image: networknt/light-scheduler:2.2.1
@@ -187,6 +193,9 @@ services:
       # - 5005:5005
     restart: on-failure
     container_name: hybrid-command
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   hybrid-query1:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -198,6 +207,9 @@ services:
       - 8440:8440
     restart: on-failure
     container_name: hybrid-query1
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   hybrid-query2:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -209,6 +221,9 @@ services:
       - 8441:8441
     restart: on-failure
     container_name: hybrid-query2
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   hybrid-query3:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -220,6 +235,9 @@ services:
       - 8442:8442
     restart: on-failure
     container_name: hybrid-query3
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   oauth-kafka:
     # image: networknt/oauth-kafka:2.1.38
@@ -234,6 +252,9 @@ services:
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: oauth-kafka
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   config-server:
     # image: networknt/config-server:2.1.38
@@ -248,6 +269,9 @@ services:
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: config-server
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # reference API
   reference:
@@ -261,6 +285,9 @@ services:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     restart: on-failure
     container_name: reference
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   light-gateway:
     image: networknt/light-gateway:2.2.1-slim
