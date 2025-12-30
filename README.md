@@ -40,30 +40,30 @@ Now, let's create topics.
 
 ```
 #### Block Chain
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic taiji --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic snapshot --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic symbol-token --config cleanup.policy=compact
 
 #### Light Portal
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-nonce --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-notification --config retention.ms=-1
 
 # city an map should be removed as sync between nodes are not working in a timely fasion.
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
-# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-city --config cleanup.policy=compact
+# kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-map --config cleanup.policy=compact
 
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-userid --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-taiji --config cleanup.policy=compact
 
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
-kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic controller-health-check
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-reference --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic light-scheduler --config cleanup.policy=compact
+kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic controller-health-check
 
 
-# kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
+# kafka-topics --create --bootstrap-server localhost:9093 --replication-factor 1 --partitions 3 --topic portal-log --config retention.ms=-1
 
 ```
 

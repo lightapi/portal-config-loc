@@ -1,6 +1,6 @@
 # Generic Kafka Consumer Configuration
 properties:
-  bootstrap.servers: ${kafka-consumer.bootstrap.servers:localhost:9092}
+  bootstrap.servers: ${kafka-consumer.bootstrap.servers:localhost:9093}
   # Consumer will use the schema for deserialization from byte array
   key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
   value.deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer

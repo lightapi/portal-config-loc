@@ -16,7 +16,7 @@ client.derefClientId: f7d42348-c647-4efb-a52d-4c5787421e73
 client.injectOpenTracing: true
 
 # kafka-producer.yml
-kafka-producer.bootstrap.servers: localhost:9092
+kafka-producer.bootstrap.servers: localhost:9093
 kafka-producer.schema.registry.url: http://localhost:8081
 
 # portal.yml
