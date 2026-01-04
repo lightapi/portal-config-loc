@@ -75,13 +75,13 @@ service.singletons:
   - com.networknt.server.StartupHookProvider:
     # registry all service handlers by from annotations
     - com.networknt.rpc.router.RpcStartupHookProvider
+    # database startup hook to initialize datasource and cache.
+    - com.networknt.db.provider.SqlDbStartupHook
     # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
     # User Producer Startup Hook
     - net.lightapi.portal.user.query.DeadLetterProducerStartupHook
     # User Consumer Startup Hook
     - net.lightapi.portal.user.query.PortalEventConsumerStartupHook
-    # database startup hook to initialize datasource and cache.
-    - com.networknt.db.provider.SqlDbStartupHook
     # Schedule Query Startup Hook
     - net.lightapi.portal.schedule.query.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
