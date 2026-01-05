@@ -1,0 +1,198 @@
+# server.yml
+server.serviceId: com.networknt.gateway-1.0.0
+
+# router.yml
+router.maxRequestTime: 5000
+
+# client.yml
+client.verifyHostname: false
+client.tokenServerUrl: https://oauth-kafka:6881
+# Authorization Code
+client.tokenAcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
+client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenAcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenAcRedirectUri: https://localhost:3000/authorization
+client.tokenAcScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+# Client Credential
+client.tokenCcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
+client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenCcScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+# Refresh Token
+client.tokenRtUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
+client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e72
+client.tokenRtClientSecret: f6h1FTI8Q3-7UScPZDzfXA
+client.tokenRtScope:
+  - portal.r
+  - portal.w
+  - ref.r
+  - ref.w
+
+# JSON Web Key
+client.tokenKeyServerUrl: https://oauth-kafka:6881
+client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
+
+
+# service.yml
+service.singletons:
+  - com.networknt.registry.URL:
+    - com.networknt.registry.URLImpl
+  - com.networknt.registry.Registry:
+    - com.networknt.registry.support.DirectRegistry
+  - com.networknt.balance.LoadBalance:
+    - com.networknt.balance.RoundRobinLoadBalance
+  - com.networknt.cluster.Cluster:
+    - com.networknt.cluster.LightCluster
+  - com.networknt.cache.CacheManager:
+    - com.networknt.cache.CaffeineCacheManager
+
+# pathPrefixService.yml
+pathPrefixService.enabled: true
+pathPrefixService.mapping:
+  /oauth2: com.networknt.oauth-kafka-1.0.0
+  /r: com.networknt.reference-1.0.0
+  /portal/command: com.networknt.portal.hybrid.command-1.0.0
+  /portal/query: com.networknt.portal.hybrid.query-1.0.0
+  /config-server: com.networknt.config-server-1.0.0
+  /services: com.networknt.controller-1.0.0
+  /schedulers: com.networknt.scheduler-1.0.0
+
+# direct-registry.yml
+direct-registry.directUrls:
+  com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440
+  com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
+  com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
+  com.networknt.reference-1.0.0: https://reference:2498
+  com.networknt.config-server-1.0.0: https://config-server:8435
+  # com.networknt.controller-1.0.0: https://localhost:8438,https://localhost:8437,https://localhost:8436
+
+
+# handler.yml
+handler.handlers:
+  # Light-framework cross-cutting concerns implemented in the microservice
+  - com.networknt.exception.ExceptionHandler@exception
+  - com.networknt.metrics.MetricsHandler@metrics
+  - com.networknt.traceability.TraceabilityHandler@traceability
+  - com.networknt.correlation.CorrelationHandler@correlation
+  # Cors handler to handler post/put pre-flight. It is not used in the sidecar but only in the router.
+  - com.networknt.cors.CorsHttpHandler@cors
+  - com.networknt.openapi.OpenApiHandler@specification
+  - com.networknt.openapi.JwtVerifyHandler@security
+  - com.networknt.body.BodyHandler@body
+  - com.networknt.audit.AuditHandler@audit
+  - com.networknt.sanitizer.SanitizerHandler@sanitizer
+  - com.networknt.openapi.ValidatorHandler@validator
+  # Header middleware to manipulate request and/or response headers before or after downstream server
+  - com.networknt.header.HeaderHandler@header
+  # Rate limit middleware to prevent DDoS attacks externally or throttle requests internally
+  - com.networknt.limit.LimitHandler@limit
+  # IP whitelist handler to allow only one or several IPs to connect to the gateway.
+  # - com.networknt.whitelist.WhitelistHandler@whitelist
+  # Direct requests to named services based on the request path
+  # - com.networknt.router.middleware.GatewayServiceDictHandler@path
+  - com.networknt.router.middleware.PathPrefixServiceHandler@prefix
+  - com.networknt.router.middleware.TokenHandler@token
+  - com.networknt.router.RouterHandler@router
+  - com.networknt.proxy.LightProxyHandler@proxy
+  - com.networknt.proxy.ProxyServerInfoHandler@proxyServerInfo
+  - com.networknt.resource.VirtualHostHandler@virtual
+  # Customer business domain specific cross-cutting concerns handlers
+  # - com.example.validator.CustomizedValidator@custvalidator
+  # Framework endpoint handlers
+  # Control Pane middleware handlers and API handler
+  - com.networknt.chaos.KillappAssaultHandler@killapp
+  - com.networknt.chaos.LatencyAssaultHandler@latency
+  - com.networknt.chaos.MemoryAssaultHandler@memory
+  - com.networknt.chaos.ExceptionAssaultHandler@exchaos
+  - com.networknt.chaos.ChaosMonkeyGetHandler@chaosget
+  - com.networknt.chaos.ChaosMonkeyPostHandler@chaospost
+  - com.networknt.health.HealthGetHandler@health
+  - com.networknt.info.ServerInfoGetHandler@info
+  - com.networknt.logging.handler.LoggerGetHandler@getLogger
+  - com.networknt.logging.handler.LoggerPostHandler@postLogger
+  - com.networknt.logging.handler.LoggerGetLogContentsHandler@getLogContents
+  - com.networknt.config.reload.handler.ModuleRegistryGetHandler@modules
+  - com.networknt.config.reload.handler.ConfigReloadHandler@configReload
+  - com.networknt.specification.SpecDisplayHandler@spec
+  - com.networknt.specification.SpecSwaggerUIHandler@swaggerui
+  - com.networknt.specification.FaviconHandler@favicon
+  - com.networknt.router.OAuthServerHandler@oauth
+  - com.networknt.router.OAuthServerGetHandler@getOauth
+  - com.networknt.server.handler.ServerShutdownHandler@shutdown
+  - com.networknt.auth.StatelessAuthHandler@stateless
+  - com.networknt.auth.GoogleAuthHandler@google
+  - com.networknt.auth.FacebookAuthHandler@facebook
+  - com.networknt.auth.GithubAuthHandler@github
+
+handler.chains.default:
+  # - whitelist
+  - exception
+  # - metrics
+  - limit
+  - correlation
+  # - killapp
+  # - latency
+  # - memory
+  # - exchaos
+  - cors
+  - stateless
+  - header
+  # - body
+  # - specification
+  # - security
+  # - audit
+  # - sanitizer
+  # - validator
+  # - path
+  - prefix
+  - token
+  - router
+
+# cache.yml
+cache.caches:
+  - cacheName: jwt
+    expiryInMinutes: 15
+    maxSize: 100
+  - cacheName: jwk
+    expiryInMinutes: 129600
+    maxSize: 100
+
+# cors.yml
+cors.enabled: true
+cors.allowedOrigins:
+  - https://devsignin.lightapi.net
+  - https://dev.lightapi.net
+  - https://localhost:3000
+  - http://localhost:5173
+cors.allowedMethods:
+  - GET
+  - POST
+  - PUT
+  - DELETE
+
+# statelessAuth.yml
+statelessAuth.googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps.googleusercontent.com
+statelessAuth.facebookClientId: 603230757035427
+statelessAuth.githubClientId: f13cddcfe475920deca7
+
+# security.yml
+security.skipPathPrefixes: ["/adm/server/info"]
+
+# token.yml
+token.enabled: true
+token.appliedPathPrefixes:
+  - /oauth2
+  - /r
+  - /portal/query
+  - /portal/command
+  - /config-server
+  - /services
+  - /schedulers

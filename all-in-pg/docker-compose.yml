@@ -1,0 +1,155 @@
+---
+services:
+
+  postgres:
+    # image: timescale/timescaledb:latest-pg18
+    image: timescale/timescaledb:latest-pg17
+    # image: postgres:17.2
+    volumes:
+      # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
+      - ./postgres-db/data:/var/lib/postgresql/data
+      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_PASSWORD: secret
+    command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10
+    ports:
+      - 5432:5432
+    hostname: postgres
+    container_name: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s    
+
+  hybrid-command:
+    image: networknt/portal-hybrid-command:2.2.1-slim
+    environment:
+      NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    volumes:
+      - ./hybrid-command/config:/config
+      - ./hybrid-command/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8439:8439
+      # The debug port
+      # - 5005:5005
+    restart: on-failure
+    container_name: hybrid-command
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  hybrid-query1:
+    image: networknt/portal-hybrid-query:2.2.1-slim
+    volumes:
+      - ./hybrid-query/node1:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8440:8440
+    restart: on-failure
+    container_name: hybrid-query1
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  hybrid-query2:
+    image: networknt/portal-hybrid-query:2.2.1-slim
+    volumes:
+      - ./hybrid-query/node2:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8441:8441
+    restart: on-failure
+    container_name: hybrid-query2
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  hybrid-query3:
+    image: networknt/portal-hybrid-query:2.2.1-slim
+    volumes:
+      - ./hybrid-query/node3:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8442:8442
+    restart: on-failure
+    container_name: hybrid-query3
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  oauth-kafka:
+    # image: networknt/oauth-kafka:2.1.38
+    image: networknt/oauth-kafka:2.2.1-slim
+    ports:
+      - 6881:6881
+      # - 5005:5005
+    volumes:
+      - ./oauth-kafka/config:/config
+    # environment:
+    # The following environment varialbe will enable the debug in the container.
+    # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    restart: on-failure
+    container_name: oauth-kafka
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  config-server:
+    # image: networknt/config-server:2.1.38
+    image: networknt/config-server:2.2.1-slim
+    ports:
+      - 8435:8435
+      # - 5005:5005
+    volumes:
+      - ./config-server/config:/config
+    # environment:
+    # The following environment varialbe will enable the debug in the container.
+    # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    restart: on-failure
+    container_name: config-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # reference API
+  reference:
+    image: networknt/light-reference:2.2.1-slim
+    ports:
+      - 2498:2498
+    volumes:
+      - ./light-reference/config:/config
+      - /home/steve/data:/data
+    # environment:
+    #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    restart: on-failure
+    container_name: reference
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  light-gateway:
+    image: networknt/light-gateway:2.2.1-slim
+    ports:
+      - 443:8443
+    #   - 5005:5005
+    volumes:
+      - ./light-gateway/config:/config
+      - ./light-gateway/lightapi/dist:/lightapi/dist
+      - ./light-gateway/signin/dist:/signin/dist
+    environment:
+      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
+      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
+      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    container_name: light-gateway
+    # network_mode: host
