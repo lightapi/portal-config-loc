@@ -180,7 +180,7 @@ cors.allowedMethods:
 
 # statelessAuth.yml
 statelessAuth.googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps.googleusercontent.com
-statelessAuth.facebookClientId: 603230757035427
+statelessAuth.facebookClientId: "603230757035427"
 statelessAuth.githubClientId: f13cddcfe475920deca7
 
 # security.yml

@@ -86,7 +86,6 @@ services:
         condition: service_healthy
 
   oauth-kafka:
-    # image: networknt/oauth-kafka:2.1.38
     image: networknt/oauth-kafka:2.2.1-slim
     ports:
       - 6881:6881
