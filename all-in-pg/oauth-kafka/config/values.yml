@@ -26,6 +26,7 @@ cors.allowedOrigins:
   - https://signin.lightapi.net
   - https://dev.lightapi.net
   - https://devsignin.lightapi.net
+  - https://locsignin.lightapi.net
   - https://devoauth.lightapi.net
 allowedMethods:
   - GET

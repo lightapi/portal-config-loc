@@ -169,6 +169,7 @@ cache.caches:
 cors.enabled: true
 cors.allowedOrigins:
   - https://devsignin.lightapi.net
+  - https://locsignin.lightapi.net
   - https://dev.lightapi.net
   - https://localhost:3000
   - http://localhost:5173
