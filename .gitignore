@@ -30,3 +30,4 @@ all-in-one/log-monitor
 all-in-light/postgres-db/data/
 
 all-in-pg/postgres-db/data/
+dist/
