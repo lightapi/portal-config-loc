@@ -78,13 +78,13 @@ service.singletons:
     # database startup hook to initialize datasource and cache.
     - com.networknt.db.provider.SqlDbStartupHook
     # Postgres Pub/Sub event processor  
-    - net.lightapi.portal.user.query.DbEventConsumerStartupHook
+    - net.lightapi.portal.db.DbEventConsumerStartupHook
     # Schedule Query Startup Hook
     - net.lightapi.portal.schedule.query.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # Postgres Pub/Sub event processor
-    - net.lightapi.portal.user.query.DbEventConsumerShutdownHook  
+    - net.lightapi.portal.db.DbEventConsumerShutdownHook  
     # Schedule Query Shutdown Hook
     - net.lightapi.portal.schedule.query.ScheduleQueryShutdown
 
