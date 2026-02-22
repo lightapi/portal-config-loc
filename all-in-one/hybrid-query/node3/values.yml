@@ -83,7 +83,7 @@ service.singletons:
     # User Consumer Startup Hook
     - net.lightapi.portal.user.query.PortalEventConsumerStartupHook
     # Schedule Query Startup Hook
-    - net.lightapi.portal.schedule.query.ScheduleQueryStartup
+    - net.lightapi.portal.db.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # User Consumer Shutdown Hook
@@ -91,7 +91,7 @@ service.singletons:
     # User Producer Shutdown Hook
     - net.lightapi.portal.user.query.DeadLetterProducerShutdownHook
     # Schedule Query Shutdown Hook
-    - net.lightapi.portal.schedule.query.ScheduleQueryShutdown
+    - net.lightapi.portal.db.ScheduleQueryShutdown
   - com.networknt.kafka.producer.NativeLightProducer:
     - com.networknt.kafka.producer.SidecarProducer
   # Schema Registry client implementation

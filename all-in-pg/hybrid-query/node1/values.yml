@@ -80,13 +80,13 @@ service.singletons:
     # Postgres Pub/Sub event processor  
     - net.lightapi.portal.db.DbEventConsumerStartupHook
     # Schedule Query Startup Hook
-    - net.lightapi.portal.schedule.query.ScheduleQueryStartup
+    - net.lightapi.portal.db.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # Postgres Pub/Sub event processor
     - net.lightapi.portal.db.DbEventConsumerShutdownHook  
     # Schedule Query Shutdown Hook
-    - net.lightapi.portal.schedule.query.ScheduleQueryShutdown
+    - net.lightapi.portal.db.ScheduleQueryShutdown
 
 # security.yml
 security.enableVerifyJwt: true
