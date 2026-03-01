@@ -191,7 +191,7 @@ services:
       - 8439:8439
       # The debug port
       # - 5005:5005
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-command
     depends_on:
       postgres:
@@ -205,7 +205,7 @@ services:
       - /home/steve/data:/data
     ports:
       - 8440:8440
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-query1
     depends_on:
       postgres:
@@ -219,7 +219,7 @@ services:
       - /home/steve/data:/data
     ports:
       - 8441:8441
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-query2
     depends_on:
       postgres:
@@ -233,7 +233,7 @@ services:
       - /home/steve/data:/data
     ports:
       - 8442:8442
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-query3
     depends_on:
       postgres:
@@ -250,7 +250,7 @@ services:
     # environment:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: oauth-kafka
     depends_on:
       postgres:
@@ -267,7 +267,7 @@ services:
     # environment:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: config-server
     depends_on:
       postgres:
@@ -283,7 +283,7 @@ services:
       - /home/steve/data:/data
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: reference
     depends_on:
       postgres:
@@ -315,7 +315,7 @@ services:
     ports:
       - 9443:9443
     hostname: openapi-petstore
-    restart: on-failure
+    # restart: on-failure
     container_name: openapi-petstore
 
   http-sidecar:
@@ -330,5 +330,5 @@ services:
     volumes:
       - ./http-sidecar/config:/config
     hostname: http-sidecar
-    restart: on-failure
+    # restart: on-failure
     container_name: http-sidecar

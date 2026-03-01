@@ -37,7 +37,7 @@ services:
       - 8439:8439
       # The debug port
       # - 5005:5005
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-command
     depends_on:
       postgres:
@@ -51,7 +51,7 @@ services:
       - /home/steve/data:/data
     ports:
       - 8440:8440
-    restart: on-failure
+    # restart: on-failure
     container_name: hybrid-query1
     depends_on:
       postgres:
@@ -68,7 +68,7 @@ services:
     # environment:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: oauth-kafka
     depends_on:
       postgres:
@@ -85,7 +85,7 @@ services:
     # environment:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: config-server
     depends_on:
       postgres:
@@ -101,7 +101,7 @@ services:
       - /home/steve/data:/data
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    restart: on-failure
+    # restart: on-failure
     container_name: reference
     depends_on:
       postgres:
