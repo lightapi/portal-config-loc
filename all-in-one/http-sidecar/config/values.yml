@@ -29,8 +29,8 @@ service.singletons:
     - com.networknt.body.RequestBodyInterceptor
   - com.networknt.cache.CacheManager:
     - com.networknt.cache.CaffeineCacheManager
-  - com.networknt.server.StartupHookProvider:
-    - com.networknt.rule.RuleLoaderStartupHook
+  - com.networknt.rule.RuleExecutor:
+    - com.networknt.rule.MultiThreadRuleExecutor
 
 
 # handler.yml
