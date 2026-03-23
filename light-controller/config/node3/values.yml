@@ -33,7 +33,6 @@ service.singletons:
   # StartupHookProvider implementations, there are one to many, and they are called in the same sequence defined.
   - com.networknt.server.StartupHookProvider:
       - com.networknt.controller.ControllerStartupHook
-      - com.networknt.rule.RuleLoaderStartupHook
 
   # ShutdownHookProvider implementations, there are one to many, and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
@@ -42,6 +41,8 @@ service.singletons:
       - com.networknt.kafka.producer.SidecarProducer
   - io.confluent.kafka.schemaregistry.client.SchemaRegistryClient:
       - com.networknt.kafka.common.LightSchemaRegistryClient
+  - com.networknt.rule.RuleExecutor:
+      - com.networknt.rule.MultiThreadRuleExecutor
 
 # handler.yml
 handler.handlers:
