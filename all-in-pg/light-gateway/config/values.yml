@@ -58,6 +58,7 @@ pathPrefixService.mapping:
   /config-server: com.networknt.config-server-1.0.0
   /services: com.networknt.controller-1.0.0
   /schedulers: com.networknt.scheduler-1.0.0
+  /chat: com.networknt.llmchat-1.0.0
 
 # direct-registry.yml
 direct-registry.directUrls:
@@ -67,7 +68,7 @@ direct-registry.directUrls:
   com.networknt.reference-1.0.0: https://reference:2498
   com.networknt.config-server-1.0.0: https://config-server:8435
   com.networknt.controller-1.0.0: https://controller-node1:8438,https://controller-node2:8437,https://controller-node3:8436
-
+  com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
 
 # handler.yml
 handler.handlers:
@@ -125,30 +126,346 @@ handler.handlers:
   - com.networknt.auth.GoogleAuthHandler@google
   - com.networknt.auth.FacebookAuthHandler@facebook
   - com.networknt.auth.GithubAuthHandler@github
+  - com.networknt.websocket.router.WebSocketRouterHandler@websocket
 
-handler.chains.default:
-  # - whitelist
-  - exception
-  # - metrics
-  - limit
-  - correlation
-  # - killapp
-  # - latency
-  # - memory
-  # - exchaos
+handler.chains:
+  default:
+    # - whitelist
+    - exception
+    # - metrics
+    - limit
+    - correlation
+    # - killapp
+    # - latency
+    # - memory
+    # - exchaos
+    - cors
+    - stateless
+    - header
+    # - body
+    # - specification
+    # - security
+    # - audit
+    # - sanitizer
+    # - validator
+    # - path
+    - prefix
+    - token
+    - router
+  
+  chat:
+    - prefix
+    - security
+    - websocket
+
+  admin:
+    - exception
+    - correlation
+    - specification
+    - security
+    - body
+    - validator
+  code:
+    - exception
+    - traceability
+    - correlation
+    - cors
+    - header
+    - prefix
+    - router
+
+  google:
+    - exception
+    - traceability
+    - correlation
+    - cors
+    - google
+    - stateless
+    - header
+    - prefix
+    - router
+
+  facebook:
+    - exception
+    - traceability
+    - correlation
+    - cors
+    - facebook
+    - stateless
+    - header
+    - prefix
+    - router
+
+  github:
+    - exception
+    - traceability
+    - correlation
+    - cors
+    - github
+    - stateless
+    - header
+    - prefix
+    - router
+
+handler.paths:
+  - path: '/authorization'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/logout'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/code'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/code'
+    method: 'POST'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/keys'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/token'
+    method: 'POST'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/deref/{token}'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/oauth2/{hostId}/signing'
+    method: 'POST'
+    exec:
+      - default
+
+  - path: '/google'
+    method: 'GET'
+    exec:
+      - google
+
+  - path: '/facebook'
+    method: 'GET'
+    exec:
+      - facebook
+
+  - path: '/github'
+    method: 'GET'
+    exec:
+      - github
+
+  - path: '/chat'
+    method: 'GET'
+    exec:
+      - chat
+
+  - path: '/r/data'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/r/schema/{host}/{file}'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/portal/query'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/portal/query'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/portal/command'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/portal/command'
+    method: 'GET'
+    exec:
+      - default
+
+  # light-scheduler
+  - path: '/schedulers'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/schedulers'
+    method: 'GET'
+    exec:
+      - default
+
+  # light-controller
+  - path: '/services'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/services'
+    method: 'DELETE'
+    exec:
+      - default
+  - path: '/services'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/lookup'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/check'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/check'
+    method: 'PUT'
+    exec:
+      - default
+  - path: '/services/check/{id}'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/info'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/chaosmonkey'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/chaosmonkey'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/services/chaosmonkey/assault'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/ws'
+    method: 'get'
+    exec:
+      - default
+  - path: '/services/logger'
+    method: 'GET'
+    exec:
+      - default
+  - path: '/services/logger'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/services/logger/content'
+    method: 'POST'
+    exec:
+      - default
+
+  # Config Server
+  - path: '/config-server/configs'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/files'
+    method: 'GET'
+    exec:
+      - default
+
+  - path: '/config-server/certs'
+    method: 'GET'
+    exec:
+      - default
+
+  # In most case, the /server/info endpoint shouldn't be exposed. If it is, then it must be protected by OAuth 2.0
+  - path: '/adm/server/info'
+    method: 'get'
+    exec:
+      - admin
+      - info
+  # the health endpoint for the proxy itself without security, this for both Kubernetes liveness and readiness.
+  - path: '/health'
+    method: 'get'
+    exec:
+      - exception
+      - health
+  # the health check endpoint called from control plane with security and it will invoke backend optionally.
+  - path: '/adm/health/${server.serviceId}'
+    method: 'get'
+    exec:
+      - admin
+      - health
+
+  - path: '/adm/logger'
+    method: 'get'
+    exec:
+      - admin
+      - getLogger
+
+  - path: '/adm/logger'
+    method: 'post'
+    exec:
+      - admin
+      - postLogger
+
+  - path: '/adm/logger/content'
+    method: 'GET'
+    exec:
+      - admin
+      - getLogContents
+
+  - path: '/adm/modules'
+    method: 'get'
+    exec:
+      - admin
+      - modules
+
+  - path: '/adm/modules'
+    method: 'post'
+    exec:
+      - admin
+      - configReload
+
+  - path: '/adm/shutdown'
+    method: 'delete'
+    exec:
+      - admin
+      - shutdown
+
+  - path: '/adm/chaosmonkey'
+    method: 'get'
+    exec:
+      # enable security once we have this endpoint in the spec with a proper scope.
+      - admin
+      - chaosget
+
+  - path: '/adm/chaosmonkey/{assault}'
+    method: 'post'
+    exec:
+      # enable security once we have this endpoint in the spec with a proper scope.
+      - admin
+      - chaospost
+
+  - path: '/spec.yaml'
+    method: 'get'
+    exec:
+      - spec
+  - path: '/specui.html'
+    method: 'get'
+    exec:
+      - swaggerui
+  - path: '/favicon.ico'
+    method: 'get'
+    exec:
+      - favicon
+
+handler.defaultHandlers:
   - cors
-  - stateless
-  - header
-  # - body
-  # - specification
-  # - security
-  # - audit
-  # - sanitizer
-  # - validator
-  # - path
-  - prefix
-  - token
-  - router
+  - virtual
 
 # cache.yml
 cache.caches:
@@ -191,3 +508,18 @@ token.appliedPathPrefixes:
   - /config-server
   - /services
   - /schedulers
+
+# virtual host
+virtual-host.hosts:
+  - domain: local.lightapi.net
+    path: /
+    #base: /home/steve/light-chain/light-config-test/light-router/local-direct/lightapi/build
+    base: /lightapi/dist
+    transferMinSize: 10245760
+    directoryListingEnabled: false
+  - domain: locsignin.lightapi.net
+    path: /
+    #base: /home/steve/light-chain/light-config-test/light-router/local-direct/signin/build
+    base: /signin/dist
+    transferMinSize: 10245760
+    directoryListingEnabled: false
