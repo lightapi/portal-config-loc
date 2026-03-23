@@ -2,6 +2,13 @@
 
 shopt -s extglob
 
+# Check for force switch
+FORCE_BUILD=false
+if [[ "$1" == "-f" ]] || [[ "$1" == "--force" ]]; then
+    FORCE_BUILD=true
+    echo "Force build enabled: Compiling all projects regardless of status."
+fi
+
 # Base directory
 BASE_DIR=~/lightapi
 cd "$BASE_DIR" || { echo "Error: Cannot cd to $BASE_DIR"; exit 1; }
@@ -35,6 +42,9 @@ done
 # Function to check if project has changes
 project_has_changes() {
     local project_name="$1"
+    if [ "$FORCE_BUILD" = true ]; then
+        return 0
+    fi
     [[ -n "${CHANGED_PROJECTS_MAP[$project_name]}" ]]
 }
 
