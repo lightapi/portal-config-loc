@@ -15,8 +15,6 @@ client.tokenAcRedirectUri: https://localhost:3000/authorization
 client.tokenAcScope:
   - portal.r
   - portal.w
-  - ref.r
-  - ref.w
 # Client Credential
 client.tokenCcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
@@ -24,8 +22,6 @@ client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenCcScope:
   - portal.r
   - portal.w
-  - ref.r
-  - ref.w
 # Refresh Token
 client.tokenRtUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
 client.tokenRtClientId: f7d42348-c647-4efb-a52d-4c5787421e72
@@ -33,8 +29,6 @@ client.tokenRtClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenRtScope:
   - portal.r
   - portal.w
-  - ref.r
-  - ref.w
 
 # JSON Web Key
 client.tokenKeyServerUrl: https://oauth-kafka:6881

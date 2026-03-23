@@ -15,8 +15,6 @@ client.tokenAcRedirectUri: https://localhost:3000/authorization
 client.tokenAcScope:
   - portal.r
   - portal.w
-  - ref.r
-  - ref.w
 # Client Credential
 client.tokenCcUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/token
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
@@ -24,8 +22,6 @@ client.tokenCcClientSecret: f6h1FTI8Q3-7UScPZDzfXA
 client.tokenCcScope:
   - portal.r
   - portal.w
-  - ref.r
-  - ref.w
 # JSON Web Key
 client.tokenKeyServerUrl: https://localhost:6881
 client.tokenKeyUri: /oauth2/N2CMw0HGQXeLvC1wBfln2A/keys
