@@ -138,7 +138,7 @@ services:
     image: networknt/light-gateway:2.2.1-slim
     ports:
       - 443:8443
-    #   - 5005:5005
+      # - 5005:5005
     volumes:
       - ./light-gateway/config:/config
       - ./light-gateway/lightapi/dist:/lightapi/dist
