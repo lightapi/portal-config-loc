@@ -42,6 +42,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
 
   hybrid-query1:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -55,6 +57,8 @@ services:
     container_name: hybrid-query1
     depends_on:
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
 
   hybrid-query2:
@@ -70,6 +74,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
 
   hybrid-query3:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -83,6 +89,8 @@ services:
     container_name: hybrid-query3
     depends_on:
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
 
   oauth-kafka:
@@ -99,6 +107,8 @@ services:
     container_name: oauth-kafka
     depends_on:
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
 
   config-server:
@@ -117,6 +127,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -f https://localhost:8435/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # reference API
   reference:
@@ -132,6 +148,8 @@ services:
     container_name: reference
     depends_on:
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
 
   light-gateway:
@@ -151,4 +169,10 @@ services:
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     container_name: light-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
     # network_mode: host
