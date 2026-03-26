@@ -154,6 +154,8 @@ handler.chains:
     - router
   
   chat:
+    - exception
+    - stateless
     - prefix
     - security
     - websocket
@@ -497,6 +499,7 @@ statelessAuth.githubClientId: f13cddcfe475920deca7
 
 # security.yml
 security.skipPathPrefixes: ["/adm/server/info"]
+security.enableVerifyScope: false
 
 # token.yml
 token.enabled: true
@@ -523,3 +526,7 @@ virtual-host.hosts:
     base: /signin/dist
     transferMinSize: 10245760
     directoryListingEnabled: false
+
+# websocket-router.yml
+websocket-router.pathPrefixService:
+  /chat: com.networknt.llmchat-1.0.0
