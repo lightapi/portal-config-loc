@@ -1,5 +1,5 @@
 # server.yml
-server.serviceId: com.networknt.gateway-1.0.0
+server.serviceId: com.networknt.portal.gateway-1.0.0
 
 # router.yml
 router.maxRequestTime: 5000
@@ -47,6 +47,8 @@ service.singletons:
     - com.networknt.cluster.LightCluster
   - com.networknt.cache.CacheManager:
     - com.networknt.cache.CaffeineCacheManager
+  - com.networknt.rule.RuleExecutor:
+    - com.networknt.rule.MultiThreadRuleExecutor
 
 # pathPrefixService.yml
 pathPrefixService.enabled: true
@@ -59,6 +61,8 @@ pathPrefixService.mapping:
   /services: com.networknt.controller-1.0.0
   /schedulers: com.networknt.scheduler-1.0.0
   /chat: com.networknt.llmchat-1.0.0
+  /ctrl/mcp: com.networknt.controller-1.0.0
+  /ctrl/event: com.networknt.controller-1.0.0
 
 # direct-registry.yml
 direct-registry.directUrls:
@@ -67,8 +71,11 @@ direct-registry.directUrls:
   com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
   com.networknt.reference-1.0.0: https://reference:2498
   com.networknt.config-server-1.0.0: https://config-server:8435
-  com.networknt.controller-1.0.0: https://controller-node1:8438,https://controller-node2:8437,https://controller-node3:8436
+  # com.networknt.controller-1.0.0: https://controller-node1:8438,https://controller-node2:8437,https://controller-node3:8436
+  com.networknt.controller-1.0.0: https://192.168.5.85:8443
   com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
+  com.networknt.petstore-1.0.0: https://192.168.5.85:9443
+  com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
 
 # handler.yml
 handler.handlers:
@@ -127,6 +134,7 @@ handler.handlers:
   - com.networknt.auth.FacebookAuthHandler@facebook
   - com.networknt.auth.GithubAuthHandler@github
   - com.networknt.websocket.router.WebSocketRouterHandler@websocket
+  - com.networknt.mcp.McpHandler@mcp
 
 handler.chains:
   default:
@@ -159,6 +167,12 @@ handler.chains:
     - prefix
     - security
     - websocket
+
+  mcp:
+    - exception
+    - cors
+    - security
+    - mcp
 
   admin:
     - exception
@@ -269,6 +283,41 @@ handler.paths:
     exec:
       - chat
 
+  - path: '/ctrl/event'
+    method: 'GET'
+    exec:
+      - chat
+
+  - path: '/mcp'
+    method: 'GET'
+    exec:
+      - mcp
+
+  - path: '/mcp'
+    method: 'POST'
+    exec:
+      - mcp
+
+  - path: '/mcp'
+    method: 'OPTIONS'
+    exec:
+      - cors
+
+  - path: '/ctrl/mcp'
+    method: 'GET'
+    exec:
+      - mcp
+
+  - path: '/ctrl/mcp'
+    method: 'POST'
+    exec:
+      - mcp
+
+  - path: '/ctrl/mcp'
+    method: 'OPTIONS'
+    exec:
+      - cors
+  
   - path: '/r/data'
     method: 'GET'
     exec:
@@ -348,10 +397,6 @@ handler.paths:
       - default
   - path: '/services/chaosmonkey/assault'
     method: 'POST'
-    exec:
-      - default
-  - path: '/ws'
-    method: 'get'
     exec:
       - default
   - path: '/services/logger'
@@ -486,11 +531,16 @@ cors.allowedOrigins:
   - https://dev.lightapi.net
   - https://localhost:3000
   - http://localhost:5173
+  - http://0.0.0.0:6274
+  - https://localhost:8443
+  - https://0.0.0.0:8443
+
 cors.allowedMethods:
   - GET
   - POST
   - PUT
   - DELETE
+  - OPTIONS
 
 # statelessAuth.yml
 statelessAuth.googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps.googleusercontent.com
@@ -500,6 +550,7 @@ statelessAuth.githubClientId: f13cddcfe475920deca7
 # security.yml
 security.skipPathPrefixes: ["/adm/server/info"]
 security.enableVerifyScope: false
+security.ignoreJwtExpiry: true
 
 # token.yml
 token.enabled: true
@@ -530,3 +581,524 @@ virtual-host.hosts:
 # websocket-router.yml
 websocket-router.pathPrefixService:
   /chat: com.networknt.llmchat-1.0.0
+  /ctrl/event: com.networknt.controller-1.0.0
+
+# rule.yml
+rule.endpointRules:
+  echo@call:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: mcp-reader
+  /v1/pets@get:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: host-admin
+  /v1/pets@post:
+    permission: {}
+  /v1/streams@get:
+    permission: {}
+  /v1/accounts@get:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    res-fil:
+      - response-column-filter.lightapi.net.dev.lightapi.net
+      - response-row-filter.lightapi.net.dev.lightapi.net
+    permission:
+      col:
+        role:
+          teller: '["accountNo","userId","accountType","firstName","lastName"]'
+          account-manager: '["accountNo","userId","accountType","firstName","lastName","status"]'
+      row:
+        role:
+          teller:
+            - colName: accountType
+              colValue: C
+              operator: =
+      roles: account-manager teller
+  /v1/flowers@post:
+    permission: {}
+  /v1/accounts@post:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: host-admin
+  /v1/documents@get:
+    permission: {}
+  '/v1/pets/{petId}@get':
+    permission: {}
+  '/v1/pets/{petId}@put':
+    permission: {}
+  getRandomNumber@call:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: mcp-reader mcp-writer
+  /v1/notifications@get:
+    permission: {}
+  '/v1/pets/{petId}@delete':
+    permission: {}
+  '/v1/accounts/{accountNo}@get':
+    permission: {}
+  '/v1/accounts/{accountNo}@put':
+    permission: {}
+  fetch_generic_url_content@call:
+    permission: {}
+  fetch_networknt_site_docs@call:
+    permission: {}
+  '/v1/accounts/{accountNo}@delete':
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission: {}
+  search_networknt_site_code@call:
+    permission: {}
+  search_networknt_site_docs@call:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: github-reader
+rule.ruleBodies:
+  response-row-filter.lightapi.net.dev.lightapi.net:
+    common: 'Y'
+    hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
+    ruleId: response-row-filter.lightapi.net.dev.lightapi.net
+    actions:
+      - actionId: row-filter-action
+        actionDesc: Invoke the action to filter the response body
+        actionClassName: com.networknt.rule.ResponseRowFilterAction
+        conditionResult: false
+    ruleName: 'Response row filter based on role, group, position, attribute and user'
+    ruleType: res-fil
+    ruleOwner: 01964b05-5532-7c79-8cde-191dcbd421b8
+    conditions:
+      - index: 1
+        conditionId: row-is-not-null
+        operatorCode: isNotNull
+        propertyPath: row
+        conditionDesc: row object is in the objMap in the rule input
+    ruleVersion: 1.0.0
+  response-column-filter.lightapi.net.dev.lightapi.net:
+    common: 'Y'
+    hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
+    ruleId: response-column-filter.lightapi.net.dev.lightapi.net
+    actions:
+      - actionId: col-filter-action
+        actionDesc: Invoke the action to filter the response body
+        actionClassName: com.networknt.rule.ResponseColumnFilterAction
+        conditionResult: false
+    ruleName: 'Response column filter based on role, group, position, attribute and user'
+    ruleType: res-fil
+    ruleOwner: 01964b05-5532-7c79-8cde-191dcbd421b8
+    conditions:
+      - index: 1
+        conditionId: col-is-not-null
+        operatorCode: isNotNull
+        propertyPath: col
+        conditionDesc: col object is in the objMap in the rule input
+    ruleVersion: 1.0.0
+  allow-role-based-access-control.lightapi.net.dev.lightapi.net:
+    common: 'Y'
+    hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
+    ruleId: allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    actions:
+      - actionId: role-based-access-control-action
+        actionDesc: Call action to verify the role claim
+        actionValues:
+          - value: $roles
+            actionValueId: permission-roles
+            valueTypeCode: STRING
+        actionClassName: com.networknt.rule.RoleBasedAccessControlAction
+        conditionResult: false
+    ruleDesc: >-
+      If the token has role claim, then at least one role in the JWT role claim
+      matches the endpoint permission roles configuration.
+    ruleName: Role-Based Access Control for authorization code token.
+    ruleType: req-acc
+    ruleOwner: 01964b05-5532-7c79-8cde-191dcbd421b8
+    conditions:
+      - index: 1
+        conditionId: role-is-not-null
+        operatorCode: isNotNull
+        propertyPath: auditInfo.subject_claims.ClaimsMap.role
+        conditionDesc: >-
+          role in the claim map is not null indicate the token has a role claim.
+          Match it with the endpoint permission with the action.
+    ruleVersion: 1.0.0
+
+# mcp-router.yml
+mcp-router.tools:
+  - name: echo
+    path: /mcp
+    method: call
+    apiType: mcp
+    endpoint: echo@call
+    protocol: http
+    serviceId: com.networknt.local.mcp-1.0.0
+    description: Echoes back the input
+    inputSchema:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: getRandomNumber
+    path: /mcp
+    method: call
+    apiType: mcp
+    endpoint: getRandomNumber@call
+    protocol: http
+    serviceId: com.networknt.local.mcp-1.0.0
+    description: Returns a random number between min and max
+    inputSchema:
+      type: object
+      required:
+        - min
+        - max
+      properties:
+        max:
+          type: integer
+        min:
+          type: integer
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: listProducts
+    path: '/v1/market/{store}/products'
+    method: get
+    apiType: openapi
+    endpoint: '/v1/market/{store}/products@get'
+    protocol: https
+    serviceId: com.networknt.market-1.0.0
+    description: Get all products from stores
+    inputSchema:
+      type: object
+      required:
+        - store
+      properties:
+        limit:
+          type: integer
+          format: int32
+          description: How many items to return at one time (max 100)
+        store:
+          type: string
+          description: The downstream store name
+  - name: search_networknt_site_docs
+    path: /networknt/networknt-site
+    method: call
+    apiType: mcp
+    endpoint: search_networknt_site_docs@call
+    protocol: https
+    serviceId: com.networknt.mcp.github.nnts-1.0.0
+    description: >-
+      Semantically search within the fetched documentation from GitHub
+      repository: networknt/networknt-site. Useful for specific queries.
+    inputSchema:
+      type: object
+      $schema: 'http://json-schema.org/draft-07/schema#'
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The search query to find relevant documentation
+      additionalProperties: false
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: fetch_generic_url_content
+    path: /networknt/networknt-site
+    method: call
+    apiType: mcp
+    endpoint: fetch_generic_url_content@call
+    protocol: https
+    serviceId: com.networknt.mcp.github.nnts-1.0.0
+    description: >-
+      Generic tool to fetch content from any absolute URL, respecting robots.txt
+      rules. Use this to retrieve referenced urls (absolute urls) that were
+      mentioned in previously fetched documentation.
+    inputSchema:
+      type: object
+      $schema: 'http://json-schema.org/draft-07/schema#'
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: The URL of the document or page to fetch
+      additionalProperties: false
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: fetch_networknt_site_docs
+    path: /networknt/networknt-site
+    method: call
+    apiType: mcp
+    endpoint: fetch_networknt_site_docs@call
+    protocol: https
+    serviceId: com.networknt.mcp.github.nnts-1.0.0
+    description: >-
+      Fetch entire documentation file from GitHub repository:
+      networknt/networknt-site. Useful for general questions. Always call this
+      tool first if asked about networknt/networknt-site.
+    inputSchema:
+      type: object
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: search_networknt_site_code
+    path: /networknt/networknt-site
+    method: call
+    apiType: mcp
+    endpoint: search_networknt_site_code@call
+    protocol: https
+    serviceId: com.networknt.mcp.github.nnts-1.0.0
+    description: >-
+      Search for code within the GitHub repository: "networknt/networknt-site"
+      using the GitHub Search API (exact match). Returns matching files for you
+      to query further if relevant.
+    inputSchema:
+      type: object
+      $schema: 'http://json-schema.org/draft-07/schema#'
+      required:
+        - query
+      properties:
+        page:
+          type: number
+          description: >-
+            Page number to retrieve (starting from 1). Each page contains 30
+            results.
+        query:
+          type: string
+          description: The search query to find relevant code files
+      additionalProperties: false
+    toolMetadata:
+      read_only: false
+      destructive: false
+  - name: listNotifications
+    path: /v1/notifications
+    method: get
+    apiType: openapi
+    endpoint: /v1/notifications@get
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Get Notifications
+  - name: listPets
+    path: /v1/pets
+    method: get
+    apiType: openapi
+    endpoint: /v1/pets@get
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: List all pets
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          type: integer
+          format: int32
+          description: How many items to return at one time (max 100)
+  - name: showPetById
+    path: '/v1/pets/{petId}'
+    method: get
+    apiType: openapi
+    endpoint: '/v1/pets/{petId}@get'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Info for a specific pet
+    inputSchema:
+      type: object
+      required:
+        - petId
+      properties:
+        petId:
+          type: string
+          description: The id of the pet to retrieve
+  - name: streams
+    path: /v1/streams
+    method: get
+    apiType: openapi
+    endpoint: /v1/streams@get
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: The API to get a stream of json response
+  - name: updateAccountByNo
+    path: '/v1/accounts/{accountNo}'
+    method: put
+    apiType: openapi
+    endpoint: '/v1/accounts/{accountNo}@put'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Update an account by accountNo
+    inputSchema:
+      type: object
+      required:
+        - accountNo
+      properties:
+        body:
+          type: object
+          required:
+            - accountNo
+            - userId
+            - accountType
+            - status
+          properties:
+            status:
+              type: string
+            userId:
+              type: string
+            lastName:
+              type: string
+            accountNo:
+              type: string
+            firstName:
+              type: string
+            accountType:
+              type: string
+        accountNo:
+          type: string
+          description: The account no of the account to update
+  - name: updatePets
+    path: '/v1/pets/{petId}'
+    method: put
+    apiType: openapi
+    endpoint: '/v1/pets/{petId}@put'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Update a pet
+    inputSchema:
+      type: object
+      required:
+        - petId
+      properties:
+        body:
+          type: object
+          properties:
+            petAge:
+              type: integer
+              maximum: 20
+              minimum: 1
+              nullable: false
+              description: current age of the pet
+            petToys:
+              type: array
+              items:
+                type: string
+              description: Toys of the pet
+            ownerSsn:
+              type: string
+              pattern: '^\d{3}-\d{2}-\d{4}$'
+              description: owner SSN
+            ownerEmail:
+              type: string
+              pattern: '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,6}$'
+              maxLength: 65
+              minLength: 2
+              description: owner email
+          additionalProperties: false
+        petId:
+          type: string
+          description: The id of the pet to update
+  - name: deletePetById
+    path: '/v1/pets/{petId}'
+    method: delete
+    apiType: openapi
+    endpoint: '/v1/pets/{petId}@delete'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Delete a specific pet
+    inputSchema:
+      type: object
+      required:
+        - petId
+      properties:
+        petId:
+          type: string
+          description: The id of the pet to delete
+  - name: deleteAccountByNo
+    path: '/v1/accounts/{accountNo}'
+    method: delete
+    apiType: openapi
+    endpoint: '/v1/accounts/{accountNo}@delete'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Delete a specific account by accountNo
+    inputSchema:
+      type: object
+      required:
+        - accountNo
+      properties:
+        accountNo:
+          type: string
+          description: The no of the account to delete
+  - name: createAccount
+    path: /v1/accounts
+    method: post
+    apiType: openapi
+    endpoint: /v1/accounts@post
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Create an account
+    inputSchema:
+      type: object
+      required:
+        - accountNo
+        - userId
+        - accountType
+        - status
+      properties:
+        status:
+          type: string
+        userId:
+          type: string
+        lastName:
+          type: string
+        accountNo:
+          type: string
+        firstName:
+          type: string
+        accountType:
+          type: string
+  - name: documents
+    path: /v1/documents
+    method: get
+    apiType: openapi
+    endpoint: /v1/documents@get
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: The API to get a document in a JSON with base64 content
+  - name: getAccountByNo
+    path: '/v1/accounts/{accountNo}'
+    method: get
+    apiType: openapi
+    endpoint: '/v1/accounts/{accountNo}@get'
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: get account with a specific accountNo
+    inputSchema:
+      type: object
+      required:
+        - accountNo
+      properties:
+        accountNo:
+          type: string
+          description: The accountNo of the account to retrieve
+  - name: getAccounts
+    path: /v1/accounts
+    method: get
+    apiType: openapi
+    endpoint: /v1/accounts@get
+    protocol: https
+    serviceId: com.networknt.petstore-1.0.0
+    description: Get a list of accounts
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          type: integer
+          format: int32
+          description: How many items to return at one time (max 100)
