@@ -70,8 +70,8 @@ direct-registry.directUrls:
   com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
   com.networknt.reference-1.0.0: https://reference:2498
   com.networknt.config-server-1.0.0: https://config-server:8435
-  # com.networknt.controller-1.0.0: https://controller-node1:8438,https://controller-node2:8437,https://controller-node3:8436
-  com.networknt.controller-1.0.0: https://192.168.5.85:8443
+  com.networknt.controller-1.0.0: https://controller:8438
+  # com.networknt.controller-1.0.0: https://192.168.5.85:8438
   com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
   com.networknt.petstore-1.0.0: https://192.168.5.85:9443
   com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
