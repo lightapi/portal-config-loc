@@ -1,0 +1,192 @@
+---
+services:
+
+  postgres:
+    # image: timescale/timescaledb:latest-pg18
+    image: timescale/timescaledb:latest-pg17
+    # image: postgres:17.2
+    volumes:
+      # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
+      - ./postgres-db/data:/var/lib/postgresql/data
+      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_PASSWORD: secret
+    command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10
+    ports:
+      - 5432:5432
+    hostname: postgres
+    container_name: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  hybrid-command:
+    image: networknt/portal-hybrid-command:2.2.1
+    environment:
+      NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
+      # The following environment varialbe will enable the debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    volumes:
+      - ./hybrid-command/config:/config
+      - ./hybrid-command/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8439:8439
+      # The debug port
+      # - 5005:5005
+    # restart: on-failure
+    hostname: hybrid-command
+    container_name: hybrid-command
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  hybrid-query1:
+    image: networknt/portal-hybrid-query:2.2.1
+    volumes:
+      - ./hybrid-query/node1:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8440:8440
+    # restart: on-failure
+    hostname: hybrid-query1
+    container_name: hybrid-query1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  hybrid-query2:
+    image: networknt/portal-hybrid-query:2.2.1
+    volumes:
+      - ./hybrid-query/node2:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8441:8441
+    # restart: on-failure
+    hostname: hybrid-query2
+    container_name: hybrid-query2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  hybrid-query3:
+    image: networknt/portal-hybrid-query:2.2.1
+    volumes:
+      - ./hybrid-query/node3:/config
+      - ./hybrid-query/service:/service
+      - /home/steve/data:/data
+    ports:
+      - 8442:8442
+    # restart: on-failure
+    hostname: hybrid-query3
+    container_name: hybrid-query3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  oauth-kafka:
+    image: networknt/oauth-kafka:2.2.1-native
+    ports:
+      - 6881:6881
+    volumes:
+      - ./oauth-kafka/config:/config
+    hostname: oauth-kafka
+    container_name: oauth-kafka
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -f https://localhost:6881/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  config-server:
+    image: networknt/config-server:2.2.1-native
+    ports:
+      - 8435:8435
+    volumes:
+      - ./config-server/config:/config
+    hostname: config-server
+    container_name: config-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      controller:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -f https://localhost:8435/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  controller:
+    image: networknt/light-controller:2.2.1-native
+    volumes:
+      - ./light-controller/config:/config
+    ports:
+      - 8438:8438
+    hostname: controller
+    container_name: controller
+    depends_on:
+      postgres:
+        condition: service_healthy
+      oauth-kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -f https://localhost:8438/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  reference:
+    image: networknt/light-reference:2.2.1-native
+    ports:
+      - 2498:2498
+    volumes:
+      - ./light-reference/config:/config
+      - /home/steve/data:/data
+    hostname: reference
+    container_name: reference
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  light-gateway:
+    image: networknt/light-gateway:2.2.1-native
+    ports:
+      - 443:8443
+    volumes:
+      - ./light-gateway/config:/config
+      - ./light-gateway/lightapi/dist:/lightapi/dist
+      - ./light-gateway/signin/dist:/signin/dist
+    environment:
+      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
+      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
+      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+    hostname: light-gateway
+    container_name: light-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
