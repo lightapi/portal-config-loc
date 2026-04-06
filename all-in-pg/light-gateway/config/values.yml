@@ -62,7 +62,6 @@ pathPrefixService.mapping:
   /schedulers: com.networknt.scheduler-1.0.0
   /chat: com.networknt.llmchat-1.0.0
   /ctrl/mcp: com.networknt.controller-1.0.0
-  /ctrl/event: com.networknt.controller-1.0.0
 
 # direct-registry.yml
 direct-registry.directUrls:
@@ -283,11 +282,6 @@ handler.paths:
     exec:
       - chat
 
-  - path: '/ctrl/event'
-    method: 'GET'
-    exec:
-      - chat
-
   - path: '/mcp'
     method: 'GET'
     exec:
@@ -306,12 +300,12 @@ handler.paths:
   - path: '/ctrl/mcp'
     method: 'GET'
     exec:
-      - mcp
+      - chat
 
   - path: '/ctrl/mcp'
     method: 'POST'
     exec:
-      - mcp
+      - chat
 
   - path: '/ctrl/mcp'
     method: 'OPTIONS'
@@ -581,7 +575,7 @@ virtual-host.hosts:
 # websocket-router.yml
 websocket-router.pathPrefixService:
   /chat: com.networknt.llmchat-1.0.0
-  /ctrl/event: com.networknt.controller-1.0.0
+  /ctrl/mcp: com.networknt.controller-1.0.0
 
 # rule.yml
 rule.endpointRules:

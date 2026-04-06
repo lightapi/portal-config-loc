@@ -134,6 +134,23 @@ services:
       retries: 10
       start_period: 10s
 
+  # controller:
+  #   image: networknt/light-controller:2.2.1-slim
+  #   volumes:
+  #     - ./light-controller/config:/config
+  #   ports:
+  #     - 8438:8438
+  #     # - 5005:5005
+  #   # environment:
+  #   # The following environment varialbe will enable the debug in the container.
+  #   # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+  #   # restart: on-failure
+  #   container_name: light-controller
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+
   # reference API
   reference:
     image: networknt/light-reference:2.2.1-slim
@@ -168,6 +185,7 @@ services:
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+      # JAVA_TOOL_OPTIONS: "-Djavax.net.debug=all"
     container_name: light-gateway
     depends_on:
       postgres:
