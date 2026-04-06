@@ -70,7 +70,7 @@ docker_project() {
     local project_dir="$1"
     local project_name="$2"
 
-    if project_has_changes "light-portal"; then
+    if project_has_changes "$project_name"; then
         echo "Dockerizing $project_name..."
         cd "$BASE_DIR/$project_dir" && ./build.sh 2.2.1 -l
         if [ $? -ne 0 ]; then
