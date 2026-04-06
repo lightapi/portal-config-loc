@@ -38,6 +38,7 @@ services:
       # The debug port
       # - 5005:5005
     # restart: on-failure
+    hostname: hybrid-command
     container_name: hybrid-command
     depends_on:
       postgres:
@@ -54,6 +55,7 @@ services:
     ports:
       - 8440:8440
     # restart: on-failure
+    hostname: hybrid-query1
     container_name: hybrid-query1
     depends_on:
       postgres:
@@ -70,6 +72,7 @@ services:
     ports:
       - 8441:8441
     # restart: on-failure
+    hostname: hybrid-query2
     container_name: hybrid-query2
     depends_on:
       postgres:
@@ -86,6 +89,7 @@ services:
     ports:
       - 8442:8442
     # restart: on-failure
+    hostname: hybrid-query3
     container_name: hybrid-query3
     depends_on:
       postgres:
@@ -104,6 +108,7 @@ services:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
+    hostname: oauth-kafka
     container_name: oauth-kafka
     depends_on:
       postgres:
@@ -127,6 +132,7 @@ services:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
+    hostname: config-server
     container_name: config-server
     depends_on:
       postgres:
@@ -151,6 +157,7 @@ services:
     # The following environment varialbe will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
+    hostname: controller
     container_name: controller
     depends_on:
       postgres:
@@ -175,6 +182,7 @@ services:
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
+    hostname: reference
     container_name: reference
     depends_on:
       postgres:
@@ -199,6 +207,7 @@ services:
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
       # JAVA_TOOL_OPTIONS: "-Djavax.net.debug=all"
+    hostname: light-gateway
     container_name: light-gateway
     depends_on:
       postgres:
