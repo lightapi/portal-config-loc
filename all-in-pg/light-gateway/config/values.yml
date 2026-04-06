@@ -159,7 +159,7 @@ handler.chains:
     - prefix
     - token
     - router
-  
+
   chat:
     - exception
     - stateless
@@ -311,7 +311,7 @@ handler.paths:
     method: 'OPTIONS'
     exec:
       - cors
-  
+
   - path: '/r/data'
     method: 'GET'
     exec:

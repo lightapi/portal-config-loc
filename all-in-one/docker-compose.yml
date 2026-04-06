@@ -136,7 +136,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s    
+      start_period: 5s
 
   # scheduler-node1:
   #   image: networknt/light-scheduler:2.2.1

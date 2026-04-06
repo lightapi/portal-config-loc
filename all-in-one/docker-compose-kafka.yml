@@ -1,6 +1,6 @@
 ---
 # This is the docker compose for kafka components only so that we can create topics properly. Otherwise, some the applications
-# will create portal-event topic with only one partition and the dead letter topic with 3 partitions. 
+# will create portal-event topic with only one partition and the dead letter topic with 3 partitions.
 services:
   broker:
     image: confluentinc/cp-kafka:7.9.0
@@ -85,4 +85,3 @@ services:
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
       DYNAMIC_CONFIG_ENABLED: 'true'
-

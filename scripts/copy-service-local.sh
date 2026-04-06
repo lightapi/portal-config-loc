@@ -22,7 +22,7 @@ while IFS= read -r line; do
     if [[ "$line" =~ \./ ]]; then
         repo=$(echo "$line" | sed 's/^\.\///; s/:.*//')
         status=$(echo "$line" | sed 's/.*: //')
-        
+
         # Check if this repo has changes
         if [[ "$status" == *"Uncommitted changes"* ]] || \
            [[ "$status" == *"Untracked files"* ]] || \
@@ -52,7 +52,7 @@ project_has_changes() {
 build_project() {
     local project_dir="$1"
     local project_name="$2"
-    
+
     if project_has_changes "$project_name"; then
         echo "Building $project_name..."
         cd "$BASE_DIR/$project_dir" && mvn clean install
@@ -69,7 +69,7 @@ build_project() {
 docker_project() {
     local project_dir="$1"
     local project_name="$2"
-    
+
     if project_has_changes "light-portal"; then
         echo "Dockerizing $project_name..."
         cd "$BASE_DIR/$project_dir" && ./build.sh 2.2.1 -l
@@ -94,9 +94,9 @@ fi
 
 # Define all projects we care about (only -query and -command)
 projects=(
-    "user" "oauth" "rule" "role" "group" "position" 
-    "attribute" "client" "service" "host" "product" 
-    "deployment" "instance" "config" "category" 
+    "user" "oauth" "rule" "role" "group" "position"
+    "attribute" "client" "service" "host" "product"
+    "deployment" "instance" "config" "category"
     "schema" "tag" "schedule" "ref"
 )
 
@@ -113,13 +113,13 @@ all_projects=("${projects[@]}" "${other_projects[@]}")
 for project in "${all_projects[@]}"; do
     query_project="${project}-query"
     command_project="${project}-command"
-    
+
     # Query project
     if build_project "$query_project" "$query_project"; then
         BUILT_PROJECTS+=("$query_project")
         QUERY_PROJECTS_BUILT+=("$project")
     fi
-    
+
     # Command project
     if build_project "$command_project" "$command_project"; then
         BUILT_PROJECTS+=("$command_project")
@@ -143,7 +143,7 @@ echo "Total projects checked: $(mgitstatus | wc -l)"
 echo "Projects built: ${#BUILT_PROJECTS[@]}"
 if [ ${#BUILT_PROJECTS[@]} -eq 0 ]; then
     echo "No projects needed building - everything is up to date!"
-    
+
     # Check if we should still clean and copy (maybe JARs were deleted)
     read -p "Clean and copy anyway? (y/n): " -n 1 -r
     echo
@@ -179,14 +179,14 @@ copy_jar() {
     local project="$1"
     local project_type="$2"  # "query" or "command"
     local dest_dir="$3"
-    
+
     local jar_pattern="${project}-${project_type}-*.jar"
     local jar_file=$(find "$BASE_DIR/${project}-${project_type}/target" \
         -name "$jar_pattern" \
         ! -name "*-javadoc.jar" \
         ! -name "*-sources.jar" \
         2>/dev/null | head -1)
-    
+
     if [ -f "$jar_file" ]; then
         echo "  Copying ${project}-${project_type} to $dest_dir..."
         cp "$jar_file" "$dest_dir/"
@@ -215,4 +215,3 @@ echo "Build and copy completed successfully!"
 echo "Query projects built: ${#QUERY_PROJECTS_BUILT[@]}"
 echo "Command projects built: ${#COMMAND_PROJECTS_BUILT[@]}"
 echo "========================================="
-

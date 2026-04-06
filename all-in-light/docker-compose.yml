@@ -21,7 +21,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s    
+      start_period: 5s
 
   hybrid-command:
     image: networknt/portal-hybrid-command:2.2.1-slim

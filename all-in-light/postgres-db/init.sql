@@ -224,7 +224,7 @@ DROP TABLE IF EXISTS outbox_message_t CASCADE;
 CREATE TABLE event_store_t (
     id UUID PRIMARY KEY,                   -- Unique ID for the event itself
     host_id UUID NOT NULL,                 -- host_id will be the Kafka key for multi-tenancy
-    user_id UUID NOT NULL,                 -- user_id will be the Kafka key for single-tenancy  
+    user_id UUID NOT NULL,                 -- user_id will be the Kafka key for single-tenancy
     nonce BIGINT NOT NULL,                 -- The nonce per user sequence number
     aggregate_id VARCHAR(255) NOT NULL,    -- The ID of the aggregate (e.g., customer-123)
     aggregate_version BIGINT DEFAULT 1 NOT NULL,     -- Monotonically increasing sequence number per aggregate
@@ -433,7 +433,7 @@ CREATE TABLE schema_t (
     schema_source        VARCHAR(126) NOT NULL,  -- which api or app owns the schema
     schema_name          VARCHAR(126) NOT NULL,  -- schema name
     schema_desc          VARCHAR(1024),          -- description of the schema
-    schema_body          VARCHAR(65535) NOT NULL,-- schema body 
+    schema_body          VARCHAR(65535) NOT NULL,-- schema body
     schema_owner         UUID NOT NULL,          -- schema owner
     schema_status        CHAR(1) DEFAULT 'P' NOT NULL,  -- D draft P published R retired
     example              VARCHAR(65535),         -- json example
@@ -645,7 +645,7 @@ ALTER TABLE api_endpoint_scope_t ADD CONSTRAINT api_endpoint_scope_pk PRIMARY KE
 CREATE TABLE app_api_t (
     host_id                 UUID NOT NULL,
     app_id                  VARCHAR(512) NOT NULL,
-    endpoint_id             UUID NOT NULL,        
+    endpoint_id             UUID NOT NULL,
     scope                   VARCHAR(128) NOT NULL,
     aggregate_version       BIGINT DEFAULT 1 NOT NULL,
     active                  BOOLEAN NOT NULL DEFAULT TRUE,
@@ -725,7 +725,7 @@ ALTER TABLE config_t ADD CONSTRAINT config_uk UNIQUE (config_name);
 
 
 
--- each config file will have a config_id reference and this table contains all the properties including default. 
+-- each config file will have a config_id reference and this table contains all the properties including default.
 CREATE TABLE config_property_t (
     config_id                 UUID NOT NULL,
     property_id               UUID NOT NULL,
@@ -743,7 +743,7 @@ CREATE TABLE config_property_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR(255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(property_id)
 );
 
@@ -779,7 +779,7 @@ CREATE TABLE environment_property_t (
 );
 
 
--- for each platform like jenkins, ansible etc. 
+-- for each platform like jenkins, ansible etc.
 CREATE TABLE platform_t (
     host_id                     UUID NOT NULL,
     platform_id                 UUID NOT NULL,
@@ -790,8 +790,8 @@ CREATE TABLE platform_t (
     credentials                 VARCHAR(255) NOT NULL,
     proxy_url                   VARCHAR(255),
     proxy_port                  INTEGER,
-    handler_class               VARCHAR(1024) NOT NULL, -- The handler class in light-portal to interact with the platform. 
-    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs. 
+    handler_class               VARCHAR(1024) NOT NULL, -- The handler class in light-portal to interact with the platform.
+    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs.
     environment                 VARCHAR(16),
     zone                        VARCHAR(16),
     region                      VARCHAR(16),
@@ -807,7 +807,7 @@ CREATE TABLE platform_t (
 
 ALTER TABLE platform_t ADD CONSTRAINT platform_uk UNIQUE(host_id, platform_name, platform_version);
 
---  each platform will have multiple pipelines. 
+--  each platform will have multiple pipelines.
 CREATE TABLE pipeline_t (
     host_id                     UUID NOT NULL,
     pipeline_id                 UUID NOT NULL,
@@ -817,7 +817,7 @@ CREATE TABLE pipeline_t (
     current                     BOOLEAN DEFAULT false,    -- The current pipeline for the platform_id if it is true.
     endpoint                    VARCHAR(1024) NOT NULL,
     version_status              VARCHAR(16) NOT NULL,     -- from ref table pipeline_version_status. Supported, Outdated, Deprecated, Removed
-    system_env                  VARCHAR(16) NOT NULL,     -- a pipeline must be 
+    system_env                  VARCHAR(16) NOT NULL,     -- a pipeline must be
     runtime_env                 VARCHAR(16),
     request_schema              TEXT NOT NULL,
     response_schema             TEXT NOT NULL,
@@ -841,13 +841,13 @@ CREATE TABLE instance_t (
     product_version_id   UUID NOT NULL,
     service_id           VARCHAR(512) NOT NULL, -- for a standalone product, use service_id for query.
     current              BOOLEAN DEFAULT false, -- for this service_id, the current product version
-    readonly             BOOLEAN DEFAULT false, -- lock the instance level configuration customization. 
+    readonly             BOOLEAN DEFAULT false, -- lock the instance level configuration customization.
     environment          VARCHAR(16),
     service_desc         VARCHAR(4096),         -- service description and it should be the same for all instances
     instance_desc        VARCHAR(1024),         -- instance description and it is related to the specific prod version
     zone                 VARCHAR(16),
     region               VARCHAR(16),
-    lob                  VARCHAR(16), 
+    lob                  VARCHAR(16),
     resource_name        VARCHAR(126),          -- identify the resource, host, or namespace.
     business_name        VARCHAR(126),
     env_tag              VARCHAR(16),           -- envirnment tag along with service_id for service lookup and configuration.
@@ -876,13 +876,13 @@ COMMENT ON COLUMN instance_t.service_id IS
 
 
 -- Allow only one record with NULL env_tag per combination
-CREATE UNIQUE INDEX instance_uk_null_env 
-ON instance_t (host_id, service_id, product_version_id) 
+CREATE UNIQUE INDEX instance_uk_null_env
+ON instance_t (host_id, service_id, product_version_id)
 WHERE env_tag IS NULL;
 
 -- Allow multiple records with different non-NULL env_tags
-CREATE UNIQUE INDEX instance_uk_with_env 
-ON instance_t (host_id, service_id, env_tag, product_version_id) 
+CREATE UNIQUE INDEX instance_uk_with_env
+ON instance_t (host_id, service_id, env_tag, product_version_id)
 WHERE env_tag IS NOT NULL;
 
 
@@ -928,7 +928,7 @@ CREATE TABLE deployment_instance_property_t (
 );
 
 
--- one gateway instance can have multiple APIs managed by it. 
+-- one gateway instance can have multiple APIs managed by it.
 CREATE TABLE instance_api_t (
     host_id              UUID NOT NULL,
     instance_api_id      UUID NOT NULL,
@@ -1020,7 +1020,7 @@ CREATE TABLE instance_app_property_t (
 
 -- add instance api and app association relation, there is no instance_id in the table because both instance api
 -- and instance app will have an associated instance id. The two instance app and api should related to the same
--- instance. For example, light-gateway instance that link both client application to api microservice. 
+-- instance. For example, light-gateway instance that link both client application to api microservice.
 CREATE TABLE instance_app_api_t (
     host_id              UUID NOT NULL,
     instance_app_id      UUID NOT NULL,
@@ -1053,8 +1053,8 @@ CREATE TABLE instance_app_api_property_t (
     PRIMARY KEY(host_id, instance_app_id, instance_api_id, property_id)
 );
 
-ALTER TABLE instance_app_api_property_t 
-    ADD CONSTRAINT instance_app_api_property_uk 
+ALTER TABLE instance_app_api_property_t
+    ADD CONSTRAINT instance_app_api_property_uk
         UNIQUE ( instance_app_id, instance_api_id, property_id );
 
 ALTER TABLE instance_app_api_property_t
@@ -1111,8 +1111,8 @@ ALTER TABLE instance_file_t ADD v_file_name VARCHAR(126) GENERATED ALWAYS AS ( L
 ALTER TABLE instance_file_t
     ADD CHECK ( file_type IN ( 'Cert', 'File' ) );
 
-ALTER TABLE instance_file_t 
-    ADD CONSTRAINT instance_file_uk 
+ALTER TABLE instance_file_t
+    ADD CONSTRAINT instance_file_uk
         UNIQUE (instance_id, v_file_name);
 
 ALTER TABLE instance_file_t
@@ -1121,7 +1121,7 @@ ALTER TABLE instance_file_t
       ON DELETE CASCADE;
 
 
--- product level customized properties which is generic or common for the product. 
+-- product level customized properties which is generic or common for the product.
 CREATE TABLE product_property_t (
     product_id           VARCHAR(8) NOT NULL,
     property_id          UUID NOT NULL,
@@ -1141,10 +1141,10 @@ CREATE TABLE product_version_t (
     host_id              UUID NOT NULL,
     product_version_id   UUID NOT NULL,
     product_id           VARCHAR(8) NOT NULL,
-    product_version      VARCHAR(12) NOT NULL, -- internal product version 
+    product_version      VARCHAR(12) NOT NULL, -- internal product version
     light4j_version      VARCHAR(12) NOT NULL, -- open source release version
     break_code           BOOLEAN DEFAULT false, -- breaking code change to upgrade to this version.
-    break_config         BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version. 
+    break_config         BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version.
     release_note         TEXT,
     version_desc         VARCHAR(1024),
     release_type         VARCHAR(24) NOT NULL, -- Alpha Version, Beta Version, Release Candidate, General Availability, Production Release
@@ -1175,7 +1175,7 @@ CREATE TABLE product_version_environment_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, system_env, runtime_env),
-    FOREIGN KEY(host_id, product_version_id) 
+    FOREIGN KEY(host_id, product_version_id)
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE
 );
 
@@ -1192,9 +1192,9 @@ CREATE TABLE product_version_config_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, config_id),
-    FOREIGN KEY(host_id, product_version_id) 
+    FOREIGN KEY(host_id, product_version_id)
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
-    FOREIGN KEY(config_id) 
+    FOREIGN KEY(config_id)
         REFERENCES config_t(config_id) ON DELETE CASCADE
 );
 
@@ -1210,9 +1210,9 @@ CREATE TABLE product_version_config_property_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, property_id),
-    FOREIGN KEY(host_id, product_version_id) 
+    FOREIGN KEY(host_id, product_version_id)
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
-    FOREIGN KEY(property_id) 
+    FOREIGN KEY(property_id)
         REFERENCES config_property_t(property_id) ON DELETE CASCADE
 );
 
@@ -1251,12 +1251,12 @@ CREATE TABLE product_version_pipeline_t (
     FOREIGN KEY(host_id, pipeline_id) REFERENCES pipeline_t (host_id, pipeline_id) ON DELETE CASCADE
 );
 
--- 
+--
 CREATE TABLE deployment_t (
     host_id                  UUID NOT NULL,
     deployment_id            UUID NOT NULL,
     deployment_instance_id   UUID NOT NULL,   -- since deployment is per leg, we need to link to deployment instance.
-    deployment_status        VARCHAR(16) NOT NULL, -- 
+    deployment_status        VARCHAR(16) NOT NULL, --
     deployment_type          VARCHAR(16) NOT NULL,
     schedule_ts              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     platform_job_id          VARCHAR(126),           -- update by the executor once it is started
@@ -1272,7 +1272,7 @@ CREATE TABLE deployment_t (
 
 
 
--- runtime instance created by the control pane. 
+-- runtime instance created by the control pane.
 CREATE TABLE runtime_instance_t (
     host_id                  UUID NOT NULL,
     runtime_instance_id      UUID NOT NULL,  -- auto generated uuid as part of pk
@@ -1280,8 +1280,8 @@ CREATE TABLE runtime_instance_t (
     service_id               VARCHAR(512) NOT NULL, -- serviceId from the server.yml
     env_tag                  VARCHAR(16),           -- optional environment from server.yml
     ip_address               VARCHAR(30) NOT NULL,  -- detected from the server instance and registered on the control pane.
-    port_number              INT NOT NULL,          -- registered on control pane.         
-    instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting 
+    port_number              INT NOT NULL,          -- registered on control pane.
+    instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting
     aggregate_version        BIGINT DEFAULT 1 NOT NULL,
     active                   BOOLEAN NOT NULL DEFAULT TRUE,
     delete_user          VARCHAR (255),
@@ -1340,7 +1340,7 @@ CREATE TABLE ref_table_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(table_id)
 );
 
@@ -1354,7 +1354,7 @@ CREATE TABLE ref_value_t (
     value_id             UUID NOT NULL,
     table_id             UUID NOT NULL,
     value_code           VARCHAR(80) NOT NULL, -- The dropdown value
-    value_desc           TEXT NULL,            -- Optional detailed description  
+    value_desc           TEXT NULL,            -- Optional detailed description
     start_ts             TIMESTAMP WITH TIME ZONE NULL,
     end_ts               TIMESTAMP WITH TIME ZONE NULL,
     display_order        INT DEFAULT 0,        -- for editor and dropdown list.
@@ -1413,7 +1413,7 @@ CREATE TABLE relation_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (relation_id, value_id_from, value_id_to),
     FOREIGN KEY (relation_id) REFERENCES relation_type_t (relation_id) ON DELETE CASCADE,
     FOREIGN KEY (value_id_from) REFERENCES ref_value_t (value_id) ON DELETE CASCADE,
@@ -1857,7 +1857,7 @@ CREATE TABLE attribute_user_t (
 CREATE TABLE attribute_permission_t (
     host_id              UUID NOT NULL,
     attribute_id         VARCHAR(128) NOT NULL,
-    endpoint_id          UUID NOT NULL,    
+    endpoint_id          UUID NOT NULL,
     attribute_value      VARCHAR(1024) NOT NULL,
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1943,7 +1943,7 @@ CREATE TABLE auth_provider_key_t (
     FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
 );
 
--- multiple apis can share the same auth provider. 
+-- multiple apis can share the same auth provider.
 CREATE TABLE auth_provider_api_t(
     host_id              UUID NOT NULL,
     api_id               VARCHAR(16) NOT NULL,
@@ -2035,7 +2035,7 @@ CREATE TABLE auth_refresh_token_t (
     user_id              UUID NOT NULL,
     entity_id            VARCHAR(50) NOT NULL,
     user_type            CHAR(1) NOT NULL,
-    email                VARCHAR(126) NOT NULL,    
+    email                VARCHAR(126) NOT NULL,
     roles                VARCHAR(4096),
     groups               VARCHAR(4096),
     positions            VARCHAR(4096),
@@ -2104,7 +2104,7 @@ CREATE TABLE config_snapshot_t (
     snapshot_ts                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     snapshot_type               VARCHAR(32) NOT NULL, -- e.g., 'DEPLOYMENT', 'USER_SAVE', 'SCHEDULED_BACKUP'
     host_id                     UUID NOT NULL,        -- The hostId of the instance.
-    instance_id                 UUID NOT NULL,        -- The instance id for the configuration. 
+    instance_id                 UUID NOT NULL,        -- The instance id for the configuration.
     description                 TEXT,                 -- User-provided description or system-generated info
     current                     BOOLEAN NOT NULL DEFAULT FALSE,     -- Current config snapshot for the hostId and instanceId
     user_id                     UUID,                 -- User who triggered it (if applicable)
@@ -2116,7 +2116,7 @@ CREATE TABLE config_snapshot_t (
     service_id            VARCHAR(512),       -- Service id context
     api_id                VARCHAR(16),        -- Api id context
     api_version           VARCHAR(16),        -- Api version context
-    -- tag, 
+    -- tag,
     PRIMARY KEY(snapshot_id),
     FOREIGN KEY(host_id, deployment_id) REFERENCES deployment_t(host_id, deployment_id) ON DELETE SET NULL,
     FOREIGN KEY(user_id) REFERENCES user_t(user_id) ON DELETE SET NULL,
@@ -2125,7 +2125,7 @@ CREATE TABLE config_snapshot_t (
 );
 
 -- Index for finding snapshots by type or scope
-CREATE INDEX idx_config_snapshot_scope ON config_snapshot_t (host_id, environment, product_id, 
+CREATE INDEX idx_config_snapshot_scope ON config_snapshot_t (host_id, environment, product_id,
     product_version, service_id, api_id, api_version, snapshot_type, snapshot_ts);
 CREATE INDEX idx_config_snapshot_deployment ON config_snapshot_t (deployment_id);
 
@@ -2135,7 +2135,7 @@ CREATE TABLE config_snapshot_property_t (
     snapshot_id                 UUID NOT NULL,         -- FK to config_snapshot_t
     config_phase                CHAR(1) NOT NULL,      -- Move config phase to this table so that one snapshot can cover all phases
     config_id                   UUID NOT NULL,         -- The config id
-    property_id                 UUID NOT NULL,         -- The final property id 
+    property_id                 UUID NOT NULL,         -- The final property id
     property_name               VARCHAR(64) NOT NULL,  -- The final property name
     property_type               VARCHAR(32) NOT NULL,  -- The property type
     property_value              TEXT,                  -- The effective property value at snapshot time
@@ -2390,7 +2390,7 @@ CREATE TABLE task_info_t
     process_id          UUID NOT NULL,
     wf_instance_id      VARCHAR(126) NOT NULL,
     wf_task_id          VARCHAR(126) NOT NULL,
-    status_code         CHAR(1)       NOT NULL, -- U, A, C 
+    status_code         CHAR(1)       NOT NULL, -- U, A, C
     started_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     locked              CHAR(1)       NOT NULL,
     priority            INTEGER        NOT NULL,
@@ -2405,7 +2405,7 @@ CREATE TABLE task_info_t
     FOREIGN KEY (process_id) REFERENCES process_info_t(process_id) ON DELETE CASCADE
 );
 
-CREATE TABLE task_asst_t 
+CREATE TABLE task_asst_t
 (
     task_asst_id         UUID NOT NULL,
     task_id              UUID NOT NULL,
@@ -2420,7 +2420,7 @@ CREATE TABLE task_asst_t
     FOREIGN KEY(task_id) REFERENCES task_info_t(task_id) ON DELETE CASCADE
 );
 
-CREATE TABLE audit_log_t 
+CREATE TABLE audit_log_t
 (
     audit_log_id         UUID NOT NULL,
     source_type_id       VARCHAR(126)      NULL,
@@ -2521,7 +2521,7 @@ DROP VIEW IF EXISTS cascade_relationships_v;
 
 CREATE VIEW cascade_relationships_v AS
 WITH fk_details AS (
-    SELECT 
+    SELECT
         pn.nspname::text AS parent_schema,
         pc.relname::text AS parent_table,
         cn.nspname::text AS child_schema,
@@ -2539,7 +2539,7 @@ WITH fk_details AS (
     JOIN pg_class cc ON c.conrelid = cc.oid
     JOIN pg_namespace cn ON cc.relnamespace = cn.oid
     CROSS JOIN LATERAL (
-        SELECT 
+        SELECT
             unnest(c.confkey) AS parent_col,
             unnest(c.conkey) AS child_col,
             generate_series(1, array_length(c.conkey, 1)) AS ord
@@ -2554,34 +2554,34 @@ SELECT
     fd.constraint_name,
     -- Human readable mapping
     string_agg(
-        format('%I → %I', 
-            (SELECT attname FROM pg_attribute 
+        format('%I → %I',
+            (SELECT attname FROM pg_attribute
              WHERE attrelid = fd.parent_table_oid
                AND attnum = fd.parent_col),
-            (SELECT attname FROM pg_attribute 
+            (SELECT attname FROM pg_attribute
              WHERE attrelid = fd.child_table_oid
                AND attnum = fd.child_col)
-        ), 
+        ),
         ', ' ORDER BY fd.ord
     ) AS foreign_key_mapping,
     -- Structured data for trigger
     jsonb_object_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col),
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
     ) AS foreign_key_json,
     -- Arrays for easier processing
     array_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col)
         ORDER BY fd.ord
     ) AS parent_columns,
     array_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
         ORDER BY fd.ord
@@ -2627,10 +2627,10 @@ WHERE EXISTS (
       AND a.attname = 'delete_ts'
       AND NOT a.attisdropped
 )
-GROUP BY 
+GROUP BY
     fd.parent_schema, fd.parent_table,
     fd.child_schema, fd.child_table,
-    fd.constraint_name, fd.constraint_id, 
+    fd.constraint_name, fd.constraint_id,
     fd.child_table_oid, fd.parent_table_oid
 ORDER BY fd.parent_schema, fd.parent_table, fd.child_schema, fd.child_table;
 
@@ -2648,41 +2648,41 @@ DECLARE
 BEGIN
     -- Get current user
     current_user_name := current_user;
-    
+
     -- Handle SOFT DELETE (active = false)
     IF NEW.active = FALSE AND OLD.active = TRUE THEN
         -- Generate deletion timestamp
         delete_timestamp := CURRENT_TIMESTAMP;
-        
+
         -- Set deletion context
-        deletion_context := format('PARENT_CASCADE_%s_%s', 
-            TG_TABLE_NAME, 
+        deletion_context := format('PARENT_CASCADE_%s_%s',
+            TG_TABLE_NAME,
             to_char(delete_timestamp, 'YYYYMMDD_HH24MISSMS')
         );
-        
+
         -- Update parent with deletion context if columns exist
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := deletion_context;
         END IF;
-        
+
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := delete_timestamp;
         END IF;
-        
+
         -- Update parent's update columns
         NEW.update_ts := delete_timestamp;
         NEW.update_user := current_user_name;
-        
+
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -2701,15 +2701,15 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-            
+
             -- Add condition to only update currently active records
             where_clause := where_clause || ' AND active = TRUE';
-            
+
             -- Cascade the soft delete with context
             query_text := format(
-                'UPDATE %I.%I 
+                'UPDATE %I.%I
                  SET active = FALSE,
-                     delete_ts = $2, 
+                     delete_ts = $2,
                      delete_user = $3,
                      update_ts = $2,
                      update_user = $4
@@ -2718,14 +2718,14 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-            
+
             EXECUTE query_text USING OLD, delete_timestamp, deletion_context, current_user_name;
         END LOOP;
-        
+
     -- Handle RESTORE (active = true)
     ELSIF NEW.active = TRUE AND OLD.active = FALSE THEN
         -- Only restore children that were deleted by parent cascade
-        
+
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -2734,7 +2734,7 @@ BEGIN
         LOOP
             -- Pattern to match cascade deletions
             deletion_context_pattern := format('PARENT_CASCADE_%s_%%', TG_TABLE_NAME);
-            
+
             -- Build WHERE clause
             where_clause := '';
             FOR column_index IN 1..fk_record.column_count LOOP
@@ -2747,16 +2747,16 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-            
+
             -- Only restore cascade-deleted records
-            where_clause := where_clause || 
+            where_clause := where_clause ||
                 ' AND delete_user LIKE $2 AND active = FALSE';
-            
+
             -- Restore the records
             query_text := format(
-                'UPDATE %I.%I 
+                'UPDATE %I.%I
                  SET active = TRUE,
-                     delete_ts = NULL, 
+                     delete_ts = NULL,
                      delete_user = NULL,
                      update_ts = CURRENT_TIMESTAMP,
                      update_user = $3
@@ -2765,34 +2765,34 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-            
+
             EXECUTE query_text USING OLD, deletion_context_pattern, current_user_name;
         END LOOP;
-        
+
         -- Clear parent's deletion context
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := NULL;
         END IF;
-        
+
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := NULL;
         END IF;
-        
+
         -- Update parent's update columns
         NEW.update_ts := CURRENT_TIMESTAMP;
         NEW.update_user := current_user_name;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -2807,7 +2807,7 @@ DECLARE
     has_delete_ts_column BOOLEAN;
 BEGIN
     FOR table_record IN
-        SELECT 
+        SELECT
             n.nspname AS schema_name,
             c.relname AS table_name,
             c.oid AS table_oid
@@ -2829,27 +2829,27 @@ BEGIN
               AND a.attname = 'active'
               AND NOT a.attisdropped
         ) INTO has_active_column;
-        
+
         SELECT EXISTS (
             SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = table_record.table_oid
               AND a.attname = 'delete_ts'
               AND NOT a.attisdropped
         ) INTO has_delete_ts_column;
-        
+
         IF NOT (has_active_column AND has_delete_ts_column) THEN
-            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)', 
+            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)',
                 table_record.schema_name, table_record.table_name,
                 has_active_column, has_delete_ts_column;
             CONTINUE;
         END IF;
-        
+
         -- Drop existing trigger if it exists
         EXECUTE format(
             'DROP TRIGGER IF EXISTS trg_cascade_soft_ops ON %I.%I',
             table_record.schema_name, table_record.table_name
         );
-        
+
         -- Create new trigger
         EXECUTE format(
             'CREATE TRIGGER trg_cascade_soft_ops
@@ -2858,8 +2858,8 @@ BEGIN
              EXECUTE FUNCTION smart_cascade_soft_delete()',
             table_record.schema_name, table_record.table_name
         );
-        
-        RAISE NOTICE 'Created cascade trigger on %.%', 
+
+        RAISE NOTICE 'Created cascade trigger on %.%',
             table_record.schema_name, table_record.table_name;
     END LOOP;
 END $$;
@@ -2915,7 +2915,7 @@ BEGIN
     FROM deployment_instance_t
     WHERE host_id = p_host_id AND instance_id = p_instance_id AND active = TRUE
     LIMIT 1;
-    
+
     -- Get product_id (Needed for product_property_t)
     SELECT product_id INTO v_product_id
     FROM product_version_t
@@ -2944,7 +2944,7 @@ BEGIN
 
     -- 4. Copy data to all relevant RAW snapshot tables (STEPS A-I)
     -- This data will be used by the MERGE step (Step J)
-    
+
     -- A. snapshot_instance_property_t (Instance Overrides)
     INSERT INTO snapshot_instance_property_t (
         snapshot_id, host_id, instance_id, property_id, property_value,
@@ -3099,7 +3099,7 @@ BEGIN
         value_type,
         source_level
     )
-    WITH 
+    WITH
     -- 1. Deployment Override (Highest Priority - No Merge)
     DeploymentOverride AS (
         SELECT t.property_id, t.property_value, 1 AS priority_rank, 'deployment_instance' AS source_level
@@ -3119,7 +3119,7 @@ BEGIN
     ),
     -- Perform the Merge for the Instance Pool
     MergedInstanceLevel AS (
-        SELECT 
+        SELECT
             ip.property_id,
             CASE cp.value_type
                 WHEN 'list' THEN (
@@ -3221,4 +3221,3 @@ CREATE TRIGGER event_trigger
 AFTER INSERT ON outbox_message_t
 FOR EACH STATEMENT
 EXECUTE FUNCTION notify_event();
-
