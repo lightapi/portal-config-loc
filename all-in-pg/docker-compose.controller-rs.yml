@@ -2,16 +2,22 @@
 services:
 
   controller:
-    image: "${CONTROLLER_RS_IMAGE:?Set CONTROLLER_RS_IMAGE to the Rust controller image}"
+    image: networknt/controller-rs:latest
     ports:
       - 8438:8438
+    volumes:
+      - /home/steve/workspace/keystore:/keystore:ro
     environment:
       CONTROLLER_ADDR: 0.0.0.0:8438
       CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
       CONTROLLER_USER_ID: 01964b05-5532-7c79-8cde-191dcbd421b8
+      CONTROLLER_TLS_CERT_PATH: /keystore/server.pem
+      CONTROLLER_TLS_KEY_PATH: /keystore/server.key
+      CONTROLLER_TLS_TRUST_CERT_PATH: /keystore/server.pem
       DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
       DATABASE_MAXIMUM_POOL_SIZE: 3
       MICROSERVICE_JWKS_URL: https://oauth-kafka:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
+      MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
       MICROSERVICE_JWT_AUDIENCE: urn:com.networknt
     hostname: controller
     container_name: controller
