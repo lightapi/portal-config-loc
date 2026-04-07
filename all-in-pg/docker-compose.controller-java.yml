@@ -9,7 +9,7 @@ services:
       - 8438:8438
       # - 5005:5005
     # environment:
-    # The following environment varialbe will enable the debug in the container.
+    # The following environment variable will enable the debug in the container.
     # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
     hostname: controller
