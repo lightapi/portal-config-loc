@@ -10,6 +10,7 @@ rm gateway.txt
 rm broker.txt
 rm connect.txt
 rm config.txt
+rm controller.txt
 
 docker logs hybrid-query1 > query1.txt
 docker logs hybrid-query2 > query2.txt
@@ -22,3 +23,5 @@ docker logs light-gateway > gateway.txt
 docker logs broker > broker.txt
 docker logs connect > connect.txt
 docker logs config-server > config.txt
+docker logs controller > controller.txt
+

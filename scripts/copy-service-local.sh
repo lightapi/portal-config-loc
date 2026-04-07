@@ -11,6 +11,7 @@ fi
 
 # Base directory
 BASE_DIR=~/lightapi
+DEST_DIR=~/lightapi/portal-config-loc
 cd "$BASE_DIR" || { echo "Error: Cannot cd to $BASE_DIR"; exit 1; }
 
 echo "Checking repository statuses with mgitstatus..."
@@ -22,7 +23,7 @@ while IFS= read -r line; do
     if [[ "$line" =~ \./ ]]; then
         repo=$(echo "$line" | sed 's/^\.\///; s/:.*//')
         status=$(echo "$line" | sed 's/.*: //')
-
+        
         # Check if this repo has changes
         if [[ "$status" == *"Uncommitted changes"* ]] || \
            [[ "$status" == *"Untracked files"* ]] || \
@@ -52,7 +53,7 @@ project_has_changes() {
 build_project() {
     local project_dir="$1"
     local project_name="$2"
-
+    
     if project_has_changes "$project_name"; then
         echo "Building $project_name..."
         cd "$BASE_DIR/$project_dir" && mvn clean install
@@ -94,10 +95,10 @@ fi
 
 # Define all projects we care about (only -query and -command)
 projects=(
-    "user" "oauth" "rule" "role" "group" "position"
-    "attribute" "client" "service" "host" "product"
-    "deployment" "instance" "config" "category"
-    "schema" "tag" "schedule" "ref"
+    "user" "oauth" "rule" "role" "group" "position" 
+    "attribute" "client" "service" "host" "product" 
+    "deployment" "instance" "config" "category" 
+    "schema" "tag" "schedule" "ref" "genai" "workflow"
 )
 
 # Also include other projects mentioned in mgitstatus output
@@ -161,14 +162,14 @@ echo "========================================="
 # Clean destination directories (only if we have projects to copy or user chose to)
 if [ ${#QUERY_PROJECTS_BUILT[@]} -gt 0 ] || [ ${#COMMAND_PROJECTS_BUILT[@]} -gt 0 ]; then
     echo "Cleaning destination directories..."
-    find portal-config-loc/all-in-one/hybrid-query/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-    find portal-config-loc/all-in-one/hybrid-command/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-one/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-one/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
-    find portal-config-loc/all-in-pg/hybrid-query/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-    find portal-config-loc/all-in-pg/hybrid-command/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-pg/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-pg/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
-    find portal-config-loc/all-in-light/hybrid-query/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-    find portal-config-loc/all-in-light/hybrid-command/service -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-light/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-light/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 fi
 
 # Copy JAR files for projects that were built
@@ -179,14 +180,14 @@ copy_jar() {
     local project="$1"
     local project_type="$2"  # "query" or "command"
     local dest_dir="$3"
-
-    local jar_pattern="${project}-${project_type}-*.jar"
+    
     local jar_file=$(find "$BASE_DIR/${project}-${project_type}/target" \
-        -name "$jar_pattern" \
+        \( -name "${project}-${project_type}-*.jar" -o -name "${project}-${project_type}.jar" \) \
         ! -name "*-javadoc.jar" \
         ! -name "*-sources.jar" \
+        ! -name "original-*.jar" \
         2>/dev/null | head -1)
-
+    
     if [ -f "$jar_file" ]; then
         echo "  Copying ${project}-${project_type} to $dest_dir..."
         cp "$jar_file" "$dest_dir/"
@@ -197,16 +198,16 @@ copy_jar() {
 
 # Copy query projects
 for project in "${QUERY_PROJECTS_BUILT[@]}"; do
-    copy_jar "$project" "query" "portal-config-loc/all-in-one/hybrid-query/service"
-    copy_jar "$project" "query" "portal-config-loc/all-in-pg/hybrid-query/service"
-    copy_jar "$project" "query" "portal-config-loc/all-in-light/hybrid-query/service"
+    copy_jar "$project" "query" "$DEST_DIR/all-in-one/hybrid-query/service"
+    copy_jar "$project" "query" "$DEST_DIR/all-in-pg/hybrid-query/service"
+    copy_jar "$project" "query" "$DEST_DIR/all-in-light/hybrid-query/service"
 done
 
 # Copy command projects
 for project in "${COMMAND_PROJECTS_BUILT[@]}"; do
-    copy_jar "$project" "command" "portal-config-loc/all-in-one/hybrid-command/service"
-    copy_jar "$project" "command" "portal-config-loc/all-in-pg/hybrid-command/service"
-    copy_jar "$project" "command" "portal-config-loc/all-in-light/hybrid-command/service"
+    copy_jar "$project" "command" "$DEST_DIR/all-in-one/hybrid-command/service"
+    copy_jar "$project" "command" "$DEST_DIR/all-in-pg/hybrid-command/service"
+    copy_jar "$project" "command" "$DEST_DIR/all-in-light/hybrid-command/service"
 done
 
 
@@ -215,3 +216,4 @@ echo "Build and copy completed successfully!"
 echo "Query projects built: ${#QUERY_PROJECTS_BUILT[@]}"
 echo "Command projects built: ${#COMMAND_PROJECTS_BUILT[@]}"
 echo "========================================="
+
