@@ -6,7 +6,7 @@ services:
     ports:
       - 8438:8438
     volumes:
-      - /home/steve/workspace/keystore:/keystore:ro
+      - ./controller-rs:/keystore:ro
     environment:
       CONTROLLER_ADDR: 0.0.0.0:8438
       CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
