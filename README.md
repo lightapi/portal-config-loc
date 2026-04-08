@@ -8,11 +8,38 @@ For `portal-view` development there are two practical ways to populate the hybri
 - `all-in-pg/hybrid-query/service`
 - `all-in-pg/hybrid-command/service`
 
+The recommended shared source for checked-in jars is the separate `service-jar` repository:
+
+- `~/lightapi/service-jar/hybrid-query`
+- `~/lightapi/service-jar/hybrid-command`
+
 Use the baked-in hybrid Docker images by default if you are only working on `portal-view` or another consumer of the services. This is the easiest setup for most developers because the jars are packaged into published wrapper images for `hybrid-command` and `hybrid-query`.
 
 Use a local build only if you are actively changing one or more `*-query` or `*-command` services in your workspace and need those unpublished changes locally.
 
-### Option 1: Use published baked-in hybrid images
+### Option 1: Use checked-in jars from `service-jar`
+
+Clone both repositories into the same workspace:
+
+```bash
+cd ~
+mkdir -p lightapi
+cd lightapi
+git clone git@github.com:lightapi/portal-config-loc.git
+git clone git@github.com:lightapi/service-jar.git
+```
+
+You can copy the checked-in jars manually if needed:
+
+```bash
+cd ~/lightapi
+cp service-jar/hybrid-query/*.jar portal-config-loc/all-in-pg/hybrid-query/service/
+cp service-jar/hybrid-command/*.jar portal-config-loc/all-in-pg/hybrid-command/service/
+```
+
+This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks the `hybrid-query/service` and `hybrid-command/service` directories under the currently selected compose directory. For example, with the `pg` setup shown above, that means `all-in-pg/hybrid-query/service` and `all-in-pg/hybrid-command/service`. If the jars are missing, it automatically copies them from `~/lightapi/service-jar`. If the `service-jar` repo or the expected jar files are missing, the deploy script exits with an error.
+
+### Option 2: Use published baked-in hybrid images
 
 The default `all-in-pg` compose file now pulls published wrapper images by default:
 
@@ -40,7 +67,7 @@ VERSION=2.3.4-SNAPSHOT ./scripts/download-service-jars.sh
 
 If you want to refresh snapshots, rerun the script after the new snapshot jars are published.
 
-### Option 2: Copy locally built jars
+### Option 3: Copy locally built jars
 
 If you are developing the backend services in the same workspace, build and copy the local jars instead:
 
@@ -48,6 +75,8 @@ If you are developing the backend services in the same workspace, build and copy
 cd ~/lightapi/portal-config-loc
 ./scripts/copy-service-local.sh
 ```
+
+This script now also copies the built jars into `~/lightapi/service-jar/hybrid-query` and `~/lightapi/service-jar/hybrid-command` when the `service-jar` repository is present.
 
 Use `-f` to force rebuilding all projects:
 
@@ -82,8 +111,8 @@ mkdir lightapi
 ```
 cd lightapi
 git clone git@github.com:lightapi/portal-config-loc.git
+git clone git@github.com:lightapi/service-jar.git
 cd portal-config-loc
-./scripts/download-service-jars.sh
 ./scripts/deploy-local.sh pg rust
 ```
 

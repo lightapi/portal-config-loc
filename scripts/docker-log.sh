@@ -24,4 +24,3 @@ docker logs broker > broker.txt
 docker logs connect > connect.txt
 docker logs config-server > config.txt
 docker logs controller > controller.txt
-
