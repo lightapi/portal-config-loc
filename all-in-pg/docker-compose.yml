@@ -5,24 +5,12 @@
 # Start with the Rust controller:
 #   CONTROLLER_RS_IMAGE=<rust-controller-image> docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml up -d
 #
-# Use published baked-in hybrid service images by default:
-#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml up -d
-#
-# Use locally built baked-in hybrid images instead:
-#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml -f docker-compose.image-local.yml up -d --build
-#
-# Use local host-mounted hybrid service jars instead:
-#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml -f docker-compose.service-local.yml up -d
-#
 # Keep the service name as "controller" in every override so downstream services do not need to change.
 services:
 
   postgres:
     # image: timescale/timescaledb:latest-pg18
-    image: portal-config-loc/postgres-pgvector:pg17-local
-    build:
-      context: ./postgres-db
-      dockerfile: Dockerfile
+    image: timescale/timescaledb:latest-pg17
     # image: postgres:17.2
     volumes:
       # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
@@ -43,13 +31,14 @@ services:
       start_period: 5s
 
   hybrid-command:
-    image: ${HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.2.1-services}
+    image: networknt/portal-hybrid-command:2.2.1
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     volumes:
       - ./hybrid-command/config:/config
+      - ./hybrid-command/service:/service
       - /home/steve/data:/data
     ports:
       - 8439:8439
@@ -65,9 +54,10 @@ services:
         condition: service_healthy
 
   hybrid-query1:
-    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
+    image: networknt/portal-hybrid-query:2.2.1
     volumes:
       - ./hybrid-query/node1:/config
+      - ./hybrid-query/service:/service
       - /home/steve/data:/data
     ports:
       - 8440:8440
@@ -81,9 +71,10 @@ services:
         condition: service_healthy
 
   hybrid-query2:
-    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
+    image: networknt/portal-hybrid-query:2.2.1
     volumes:
       - ./hybrid-query/node2:/config
+      - ./hybrid-query/service:/service
       - /home/steve/data:/data
     ports:
       - 8441:8441
@@ -97,9 +88,10 @@ services:
         condition: service_healthy
 
   hybrid-query3:
-    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
+    image: networknt/portal-hybrid-query:2.2.1
     volumes:
       - ./hybrid-query/node3:/config
+      - ./hybrid-query/service:/service
       - /home/steve/data:/data
     ports:
       - 8442:8442

@@ -23,7 +23,7 @@ while IFS= read -r line; do
     if [[ "$line" =~ \./ ]]; then
         repo=$(echo "$line" | sed 's/^\.\///; s/:.*//')
         status=$(echo "$line" | sed 's/.*: //')
-        
+
         # Check if this repo has changes
         if [[ "$status" == *"Uncommitted changes"* ]] || \
            [[ "$status" == *"Untracked files"* ]] || \
@@ -53,7 +53,7 @@ project_has_changes() {
 build_project() {
     local project_dir="$1"
     local project_name="$2"
-    
+
     if project_has_changes "$project_name"; then
         echo "Building $project_name..."
         cd "$BASE_DIR/$project_dir" && mvn clean install
@@ -187,7 +187,7 @@ copy_jar() {
         ! -name "*-sources.jar" \
         ! -name "original-*.jar" \
         2>/dev/null | head -1)
-    
+
     if [ -f "$jar_file" ]; then
         echo "  Copying ${project}-${project_type} to $dest_dir..."
         cp "$jar_file" "$dest_dir/"
