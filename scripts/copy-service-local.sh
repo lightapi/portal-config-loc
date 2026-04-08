@@ -96,9 +96,9 @@ fi
 
 # Define all projects we care about (only -query and -command)
 projects=(
-    "user" "oauth" "rule" "role" "group" "position" 
-    "attribute" "client" "service" "host" "product" 
-    "deployment" "instance" "config" "category" 
+    "user" "oauth" "rule" "role" "group" "position"
+    "attribute" "client" "service" "host" "product"
+    "deployment" "instance" "config" "category"
     "schema" "tag" "schedule" "ref" "genai" "workflow"
 )
 
@@ -189,7 +189,7 @@ copy_jar() {
     local project="$1"
     local project_type="$2"  # "query" or "command"
     local dest_dir="$3"
-    
+
     local jar_file=$(find "$BASE_DIR/${project}-${project_type}/target" \
         \( -name "${project}-${project_type}-*.jar" -o -name "${project}-${project_type}.jar" \) \
         ! -name "*-javadoc.jar" \
