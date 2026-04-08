@@ -126,12 +126,6 @@ check_prerequisites() {
         exit 1
     fi
 
-    # Check if mvn exists
-    if ! command -v mvn &> /dev/null; then
-        log_error "Maven (mvn) not found. Please install Maven."
-        exit 1
-    fi
-
     # Check if docker-compose.yml exists
     if [ ! -f "$DOCKER_COMPOSE_DIR/docker-compose.yml" ]; then
         log_error "docker-compose.yml not found at $DOCKER_COMPOSE_DIR"
@@ -189,6 +183,8 @@ stop_docker_compose() {
 # Start Docker Compose
 start_docker_compose() {
     log_info "Starting Docker Compose services..."
+
+    ensure_service_jars || exit 1
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
