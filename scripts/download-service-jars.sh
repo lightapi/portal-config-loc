@@ -57,6 +57,7 @@ download_artifact() {
   local output_dir="$2"
 
   echo "Downloading ${GROUP_ID}:${artifact_id}:${VERSION}"
+  echo "mvn org.apache.maven.plugins:maven-dependency-plugin:${DEPENDENCY_PLUGIN_VERSION}:copy -Dartifact=${GROUP_ID}:${artifact_id}:${VERSION}:jar -DoutputDirectory=${output_dir} -DremoteRepositories=${REMOTE_REPOS}"
   mvn "org.apache.maven.plugins:maven-dependency-plugin:${DEPENDENCY_PLUGIN_VERSION}:copy" \
     -Dartifact="${GROUP_ID}:${artifact_id}:${VERSION}:jar" \
     -DoutputDirectory="${output_dir}" \
