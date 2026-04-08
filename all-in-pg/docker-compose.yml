@@ -39,8 +39,8 @@ services:
   hybrid-command:
     image: portal-config-loc/hybrid-command:2.2.1-local
     build:
-      context: .
-      dockerfile: ./hybrid-command/Dockerfile
+      context: ./hybrid-command
+      dockerfile: Dockerfile
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
       # The following environment varialbe will enable the debug in the container.
@@ -64,8 +64,8 @@ services:
   hybrid-query1:
     image: portal-config-loc/hybrid-query:2.2.1-local
     build:
-      context: .
-      dockerfile: ./hybrid-query/Dockerfile
+      context: ./hybrid-query
+      dockerfile: Dockerfile
     volumes:
       - ./hybrid-query/node1:/config
       - /home/steve/data:/data
@@ -83,8 +83,8 @@ services:
   hybrid-query2:
     image: portal-config-loc/hybrid-query:2.2.1-local
     build:
-      context: .
-      dockerfile: ./hybrid-query/Dockerfile
+      context: ./hybrid-query
+      dockerfile: Dockerfile
     volumes:
       - ./hybrid-query/node2:/config
       - /home/steve/data:/data
@@ -102,8 +102,8 @@ services:
   hybrid-query3:
     image: portal-config-loc/hybrid-query:2.2.1-local
     build:
-      context: .
-      dockerfile: ./hybrid-query/Dockerfile
+      context: ./hybrid-query
+      dockerfile: Dockerfile
     volumes:
       - ./hybrid-query/node3:/config
       - /home/steve/data:/data
