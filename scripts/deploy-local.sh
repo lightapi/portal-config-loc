@@ -7,6 +7,7 @@ set -e  # Exit on error
 BASE_DIR=~/lightapi
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
 DOCKER_COMPOSE_FILES=()
+DOCKER_COMPOSE_CMD=(docker compose)
 CONTROLLER_TYPE=""
 
 # Check for config argument
@@ -79,9 +80,9 @@ log_error() {
 check_prerequisites() {
     log_info "Checking prerequisites..."
     
-    # Check if docker-compose exists
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "docker-compose not found. Please install docker-compose."
+    # Check if docker compose exists
+    if ! docker compose version &> /dev/null; then
+        log_error "docker compose not found. Please install Docker with Compose plugin support."
         exit 1
     fi
     
@@ -118,19 +119,19 @@ stop_docker_compose() {
     }
     
     # Check if any containers are running
-    if docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
         log_info "Stopping running containers..."
-        docker-compose "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30
         
         # Wait for containers to stop
         local max_wait=60
         local wait_time=0
         
-        while docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; do
+        while "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; do
             if [ $wait_time -ge $max_wait ]; then
                 log_warning "Some containers are still running after $max_wait seconds"
                 log_info "Force stopping containers..."
-                docker-compose "${DOCKER_COMPOSE_FILES[@]}" down --timeout 10
+                "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 10
                 break
             fi
             sleep 5
@@ -154,16 +155,16 @@ start_docker_compose() {
     
     # Start services in detached mode
     log_info "Starting services..."
-    if docker-compose "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
+    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
         log_success "Docker Compose services started"
         
         # Show status
         log_info "Current service status:"
-        docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
         
         # Tail logs for a few seconds to show startup
         log_info "Showing startup logs (tail for 10 seconds)..."
-        timeout 10 docker-compose "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=10 2>/dev/null || true
+        timeout 10 "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=10 2>/dev/null || true
     else
         log_error "Failed to start Docker Compose services"
         return 1
@@ -183,9 +184,9 @@ verify_services() {
         log_info "Health check attempt $attempt of $max_attempts..."
         
         # Count total services and healthy services
-        local total_services=$(docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --services | wc -l)
-        local healthy_services=$(docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
-            if docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --filter "status=running" "$service" | grep -q "Up"; then
+        local total_services=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | wc -l)
+        local healthy_services=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
+            if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --filter "status=running" "$service" | grep -q "Up"; then
                 echo "1"
             fi
         done | wc -l)
@@ -202,7 +203,7 @@ verify_services() {
     
     log_warning "Some services may not be fully healthy after $max_attempts attempts"
     log_info "Current service status:"
-    docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
     return 1
 }
 
@@ -217,8 +218,8 @@ show_summary() {
     
     cd "$DOCKER_COMPOSE_DIR" && {
         log_info "Running containers:"
-        docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
-            status=$(docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps "$service" | tail -1 | awk '{print $3}')
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
+            status=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps "$service" | tail -1 | awk '{print $3}')
             log_info "  - $service: $status"
         done
         
@@ -256,10 +257,10 @@ main() {
     show_summary
     
     log_success "Deployment completed successfully!"
-    log_info "To view logs: docker-compose ${DOCKER_COMPOSE_FILES[*]} logs -f"
+    log_info "To view logs: docker compose ${DOCKER_COMPOSE_FILES[*]} logs -f"
     
     cd "$DOCKER_COMPOSE_DIR" || return 1
-    docker-compose "${DOCKER_COMPOSE_FILES[@]}" logs -f light-gateway oauth-kafka hybrid-query1 hybrid-query2 hybrid-query3 hybrid-command > output.log &
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f light-gateway oauth-kafka hybrid-query1 hybrid-query2 hybrid-query3 hybrid-command > output.log &
     ./log-monitor output.log
 
 }
@@ -278,10 +279,10 @@ case "${1:-}" in
         start_docker_compose
         ;;
     "status")
-        cd "$DOCKER_COMPOSE_DIR" && docker-compose "${DOCKER_COMPOSE_FILES[@]}" ps
+        cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
         ;;
     "logs")
-        cd "$DOCKER_COMPOSE_DIR" && docker-compose "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
+        cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [config] [controller] [command]"
