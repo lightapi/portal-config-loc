@@ -37,7 +37,7 @@ cp service-jar/hybrid-query/*.jar portal-config-loc/all-in-pg/hybrid-query/servi
 cp service-jar/hybrid-command/*.jar portal-config-loc/all-in-pg/hybrid-command/service/
 ```
 
-This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks `all-in-pg/hybrid-query/service` and `all-in-pg/hybrid-command/service`; if the jars are missing, it automatically copies them from `~/lightapi/service-jar`. If the `service-jar` repo or the expected jar files are missing, the deploy script exits with an error.
+This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks the `hybrid-query/service` and `hybrid-command/service` directories under the currently selected compose directory. For example, with the `pg` setup shown above, that means `all-in-pg/hybrid-query/service` and `all-in-pg/hybrid-command/service`. If the jars are missing, it automatically copies them from `~/lightapi/service-jar`. If the `service-jar` repo or the expected jar files are missing, the deploy script exits with an error.
 
 ### Option 2: Use published baked-in hybrid images
 

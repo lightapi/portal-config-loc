@@ -138,7 +138,7 @@ check_prerequisites() {
         exit 1
     fi
 
-    if [ "${#DOCKER_COMPOSE_FILES[@]}" -gt 1 ]; then
+    if [ "${#DOCKER_COMPOSE_FILES[@]}" -gt 3 ]; then
         local override_file="${DOCKER_COMPOSE_FILES[3]}"
         if [ ! -f "$override_file" ]; then
             log_error "docker-compose override file not found at $override_file"

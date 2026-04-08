@@ -12,7 +12,7 @@ fi
 # Base directory
 BASE_DIR=~/lightapi
 DEST_DIR=~/lightapi/portal-config-loc
-SERVICE_JAR_DIR=~/lightapi/service-jar
+SERVICE_JAR_DIR="$BASE_DIR/service-jar"
 cd "$BASE_DIR" || { echo "Error: Cannot cd to $BASE_DIR"; exit 1; }
 
 echo "Checking repository statuses with mgitstatus..."
