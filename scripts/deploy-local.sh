@@ -154,7 +154,7 @@ start_docker_compose() {
     
     # Start services in detached mode
     log_info "Starting services..."
-    if docker-compose "${DOCKER_COMPOSE_FILES[@]}" up -d; then
+    if docker-compose "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
         log_success "Docker Compose services started"
         
         # Show status
