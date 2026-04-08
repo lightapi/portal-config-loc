@@ -5,8 +5,11 @@
 # Start with the Rust controller:
 #   CONTROLLER_RS_IMAGE=<rust-controller-image> docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml up -d
 #
-# Use baked-in hybrid service jars by default:
-#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml up -d --build
+# Use published baked-in hybrid service images by default:
+#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml up -d
+#
+# Use locally built baked-in hybrid images instead:
+#   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml -f docker-compose.image-local.yml up -d --build
 #
 # Use local host-mounted hybrid service jars instead:
 #   docker compose -f docker-compose.yml -f docker-compose.controller-java.yml -f docker-compose.service-local.yml up -d
@@ -37,10 +40,7 @@ services:
       start_period: 5s
 
   hybrid-command:
-    image: portal-config-loc/hybrid-command:2.2.1-local
-    build:
-      context: ./hybrid-command
-      dockerfile: Dockerfile
+    image: ${HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.2.1-services}
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
       # The following environment varialbe will enable the debug in the container.
@@ -62,10 +62,7 @@ services:
         condition: service_healthy
 
   hybrid-query1:
-    image: portal-config-loc/hybrid-query:2.2.1-local
-    build:
-      context: ./hybrid-query
-      dockerfile: Dockerfile
+    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
     volumes:
       - ./hybrid-query/node1:/config
       - /home/steve/data:/data
@@ -81,10 +78,7 @@ services:
         condition: service_healthy
 
   hybrid-query2:
-    image: portal-config-loc/hybrid-query:2.2.1-local
-    build:
-      context: ./hybrid-query
-      dockerfile: Dockerfile
+    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
     volumes:
       - ./hybrid-query/node2:/config
       - /home/steve/data:/data
@@ -100,10 +94,7 @@ services:
         condition: service_healthy
 
   hybrid-query3:
-    image: portal-config-loc/hybrid-query:2.2.1-local
-    build:
-      context: ./hybrid-query
-      dockerfile: Dockerfile
+    image: ${HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1-services}
     volumes:
       - ./hybrid-query/node3:/config
       - /home/steve/data:/data
