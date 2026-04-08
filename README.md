@@ -14,7 +14,7 @@ Use a local build only if you are actively changing one or more `*-query` or `*-
 
 ### Option 1: Download published jars
 
-The script below downloads every `*-query` and `*-command` jar into the `all-in-pg` service folders. It uses Sonatype snapshot repository for `*-SNAPSHOT` versions and Maven Central for release versions.
+The script below downloads every `*-query` and `*-command` jar into the `all-in-pg` service folders. It uses the official Maven `maven-dependency-plugin:copy` approach so Maven resolves the snapshot metadata and downloads the correct jar into the target directory. For `*-SNAPSHOT` versions it uses Sonatype snapshot repository, and for release versions it uses Maven Central.
 
 ```bash
 cd ~/lightapi/portal-config-loc

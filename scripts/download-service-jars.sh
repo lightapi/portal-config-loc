@@ -6,6 +6,7 @@ TARGET_QUERY_DIR="${BASE_DIR}/all-in-pg/hybrid-query/service"
 TARGET_COMMAND_DIR="${BASE_DIR}/all-in-pg/hybrid-command/service"
 GROUP_ID="${GROUP_ID:-net.lightapi}"
 VERSION="${VERSION:-2.3.4-SNAPSHOT}"
+DEPENDENCY_PLUGIN_VERSION="${DEPENDENCY_PLUGIN_VERSION:-3.6.1}"
 
 if [ "${DEBUG:-false}" = "true" ]; then
   set -x
@@ -41,9 +42,9 @@ projects=(
   "user"
 )
 
-REMOTE_REPOS="central::default::https://repo1.maven.org/maven2"
+REMOTE_REPOS="central::::https://repo1.maven.org/maven2"
 if [[ "${VERSION}" == *-SNAPSHOT ]]; then
-  REMOTE_REPOS="${REMOTE_REPOS},snapshot::default::https://central.sonatype.com/repository/maven-snapshots/"
+  REMOTE_REPOS="sonatype-snapshots::::https://central.sonatype.com/repository/maven-snapshots/"
 fi
 
 mkdir -p "${TARGET_QUERY_DIR}" "${TARGET_COMMAND_DIR}"
@@ -56,7 +57,7 @@ download_artifact() {
   local output_dir="$2"
 
   echo "Downloading ${GROUP_ID}:${artifact_id}:${VERSION}"
-  mvn -q -U dependency:copy \
+  mvn -q -U "org.apache.maven.plugins:maven-dependency-plugin:${DEPENDENCY_PLUGIN_VERSION}:copy" \
     -Dartifact="${GROUP_ID}:${artifact_id}:${VERSION}:jar" \
     -DoutputDirectory="${output_dir}" \
     -DremoteRepositories="${REMOTE_REPOS}" \
