@@ -19,7 +19,10 @@ services:
 
   postgres:
     # image: timescale/timescaledb:latest-pg18
-    image: timescale/timescaledb:latest-pg17
+    image: portal-config-loc/postgres-pgvector:pg17-local
+    build:
+      context: ./postgres-db
+      dockerfile: Dockerfile
     # image: postgres:17.2
     volumes:
       # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata

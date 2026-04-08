@@ -8,20 +8,21 @@ For `portal-view` development there are two practical ways to populate the hybri
 - `all-in-pg/hybrid-query/service`
 - `all-in-pg/hybrid-command/service`
 
-Use the baked-in hybrid Docker images by default if you are only working on `portal-view` or another consumer of the services. This is the easiest setup for most developers because the jars are packaged into local wrapper images for `hybrid-command` and `hybrid-query`.
+Use the baked-in hybrid Docker images by default if you are only working on `portal-view` or another consumer of the services. This is the easiest setup for most developers because the jars are packaged into published wrapper images for `hybrid-command` and `hybrid-query`.
 
 Use a local build only if you are actively changing one or more `*-query` or `*-command` services in your workspace and need those unpublished changes locally.
 
-### Option 1: Use baked-in hybrid images
+### Option 1: Use published baked-in hybrid images
 
-The default `all-in-pg` compose file now builds local wrapper images that copy the jars from:
+The default `all-in-pg` compose file now pulls published wrapper images by default:
 
-- `all-in-pg/hybrid-command/service`
-- `all-in-pg/hybrid-query/service`
+- `networknt/portal-hybrid-command:2.2.1-services`
+- `networknt/portal-hybrid-query:2.2.1-services`
 
-into the Docker image at `/service`.
+You can override them with:
 
-This means other developers do not need runtime `/service` bind mounts just to start the stack.
+- `HYBRID_COMMAND_IMAGE`
+- `HYBRID_QUERY_IMAGE`
 
 The script below can still refresh the jars in those folders before the image build. It uses the same official Maven `maven-dependency-plugin:copy` command that works from the command line, so Maven resolves the snapshot metadata and downloads the correct jar into the target directory. For `*-SNAPSHOT` versions it uses Sonatype snapshot repository, and for release versions it uses Maven Central.
 
@@ -55,7 +56,14 @@ cd ~/lightapi/portal-config-loc
 ./scripts/copy-service-local.sh -f
 ```
 
-If you want Docker to use the host service folders directly instead of the baked-in jars, add the local override compose file:
+If you want Docker to use locally built baked-in images instead of the published wrapper tags, add the image-local override compose file:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-pg
+docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.image-local.yml up -d --build
+```
+
+If you want Docker to use the host service folders directly instead of baked-in jars, add the service-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
@@ -79,11 +87,33 @@ cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
 
-`deploy-local.sh` uses `docker compose up -d`, so if you change the jars in `all-in-pg/hybrid-command/service` or `all-in-pg/hybrid-query/service`, rebuild the hybrid images before restarting:
+### Publish wrapper images
+
+If you maintain the baked-in hybrid images, publish them from `all-in-pg` after refreshing the service jars:
+
+```bash
+cd ~/lightapi/portal-config-loc
+./scripts/download-service-jars.sh
+cd all-in-pg/hybrid-command
+./build.sh 2.2.1-services
+cd ../hybrid-query
+./build.sh 2.2.1-services
+```
+
+To build without pushing:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-pg/hybrid-command
+./build.sh 2.2.1-services -l
+cd ../hybrid-query
+./build.sh 2.2.1-services -l
+```
+
+If you change the jars in `all-in-pg/hybrid-command/service` or `all-in-pg/hybrid-query/service` and want to rebuild local wrapper images before restarting:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose build hybrid-command hybrid-query1 hybrid-query2 hybrid-query3
+docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.image-local.yml build hybrid-command hybrid-query1 hybrid-query2 hybrid-query3
 ```
 
 ### Start portal-view

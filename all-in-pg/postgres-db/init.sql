@@ -2,7 +2,7 @@ CREATE DATABASE configserver;
 \c configserver;
 
 -- Enable pgvector extension
--- CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS session_memory_t CASCADE;
 
@@ -3654,4 +3654,3 @@ INSERT INTO host_t (host_id, domain, sub_domain, host_owner) VALUES ('01964b05-5
 INSERT INTO user_host_t (host_id, user_id, current)  values ('01964b05-552a-7c4b-9184-6857e7f3dc5f', '01964b05-5532-7c79-8cde-191dcbd421b8', true);
 
 INSERT INTO employee_t (host_id, employee_id, user_id, title, manager_id, hire_date) VALUES ('01964b05-552a-7c4b-9184-6857e7f3dc5f', 'sh35', '01964b05-5532-7c79-8cde-191dcbd421b8', 'Consulant API Platform', null, '2023-06-18');
-
