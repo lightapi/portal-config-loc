@@ -6,6 +6,7 @@ set -e  # Exit on error
 # Configuration
 BASE_DIR=~/lightapi
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
+SERVICE_JAR_REPO="$BASE_DIR/service-jar"
 DOCKER_COMPOSE_FILES=()
 DOCKER_COMPOSE_CMD=(docker compose)
 CONTROLLER_TYPE=""
@@ -76,6 +77,45 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
+copy_missing_service_jars() {
+    local target_service_dir="$1"
+    local repo_service_dir="$2"
+    local service_name="$3"
+
+    mkdir -p "$target_service_dir"
+
+    if find "$target_service_dir" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
+        log_info "$service_name jars already present in $target_service_dir"
+        return 0
+    fi
+
+    if [ ! -d "$SERVICE_JAR_REPO" ]; then
+        log_error "Service jars missing in $target_service_dir and service-jar repo not found at $SERVICE_JAR_REPO"
+        return 1
+    fi
+
+    if [ ! -d "$repo_service_dir" ]; then
+        log_error "Service jars missing in $target_service_dir and source folder not found: $repo_service_dir"
+        return 1
+    fi
+
+    if ! find "$repo_service_dir" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
+        log_error "No jar files found in $repo_service_dir for $service_name"
+        return 1
+    fi
+
+    log_info "Copying $service_name jars from $repo_service_dir to $target_service_dir"
+    cp "$repo_service_dir"/*.jar "$target_service_dir"/
+}
+
+ensure_service_jars() {
+    local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
+    local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
+
+    copy_missing_service_jars "$query_target" "$SERVICE_JAR_REPO/hybrid-query" "hybrid-query" || exit 1
+    copy_missing_service_jars "$command_target" "$SERVICE_JAR_REPO/hybrid-command" "hybrid-command" || exit 1
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
@@ -105,6 +145,8 @@ check_prerequisites() {
             exit 1
         fi
     fi
+
+    ensure_service_jars
     
     log_success "All prerequisites met"
 }
