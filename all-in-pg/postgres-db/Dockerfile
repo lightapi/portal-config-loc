@@ -1,5 +1,3 @@
 FROM timescale/timescaledb:latest-pg17
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends postgresql-17-pgvector && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache postgresql-pgvector
