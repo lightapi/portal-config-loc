@@ -6,7 +6,7 @@ set -e  # Exit on error
 # Configuration
 BASE_DIR=~/lightapi
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
-SERVICE_JAR_REPO="$BASE_DIR/service-jar"
+SERVICE_ASSET_REPO="$BASE_DIR/service-asset"
 DOCKER_COMPOSE_FILES=()
 DOCKER_COMPOSE_CMD=(docker compose)
 CONTROLLER_TYPE=""
@@ -77,43 +77,64 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
-copy_missing_service_jars() {
-    local target_service_dir="$1"
-    local repo_service_dir="$2"
-    local service_name="$3"
+copy_missing_dir_contents() {
+    local target_dir="$1"
+    local repo_dir="$2"
+    local asset_name="$3"
+    local file_pattern="${4:-*}"
+    local recursive_copy="${5:-false}"
 
-    mkdir -p "$target_service_dir"
+    mkdir -p "$target_dir"
 
-    if find "$target_service_dir" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
-        log_info "$service_name jars already present in $target_service_dir"
+    if [[ "$recursive_copy" == "true" ]]; then
+        if find "$target_dir" -mindepth 1 | grep -q .; then
+            log_info "$asset_name already present in $target_dir"
+            return 0
+        fi
+    elif find "$target_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .; then
+        log_info "$asset_name already present in $target_dir"
         return 0
     fi
 
-    if [ ! -d "$SERVICE_JAR_REPO" ]; then
-        log_error "Service jars missing in $target_service_dir and service-jar repo not found at $SERVICE_JAR_REPO"
+    if [ ! -d "$SERVICE_ASSET_REPO" ]; then
+        log_error "$asset_name missing in $target_dir and service-asset repo not found at $SERVICE_ASSET_REPO"
         return 1
     fi
 
-    if [ ! -d "$repo_service_dir" ]; then
-        log_error "Service jars missing in $target_service_dir and source folder not found: $repo_service_dir"
+    if [ ! -d "$repo_dir" ]; then
+        log_error "$asset_name missing in $target_dir and source folder not found: $repo_dir"
         return 1
     fi
 
-    if ! find "$repo_service_dir" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
-        log_error "No jar files found in $repo_service_dir for $service_name"
-        return 1
-    fi
+    if [[ "$recursive_copy" == "true" ]]; then
+        if ! find "$repo_dir" -mindepth 1 | grep -q .; then
+            log_error "No asset files found in $repo_dir for $asset_name"
+            return 1
+        fi
 
-    log_info "Copying $service_name jars from $repo_service_dir to $target_service_dir"
-    cp "$repo_service_dir"/*.jar "$target_service_dir"/
+        log_info "Copying $asset_name from $repo_dir to $target_dir"
+        cp -R "$repo_dir"/. "$target_dir"/
+    else
+        if ! find "$repo_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .; then
+            log_error "No matching files found in $repo_dir for $asset_name"
+            return 1
+        fi
+
+        log_info "Copying $asset_name from $repo_dir to $target_dir"
+        cp "$repo_dir"/$file_pattern "$target_dir"/
+    fi
 }
 
-ensure_service_jars() {
+ensure_service_assets() {
     local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
+    local lightapi_target="$DOCKER_COMPOSE_DIR/light-gateway/lightapi/dist"
+    local signin_target="$DOCKER_COMPOSE_DIR/light-gateway/signin/dist"
 
-    copy_missing_service_jars "$query_target" "$SERVICE_JAR_REPO/hybrid-query" "hybrid-query" || exit 1
-    copy_missing_service_jars "$command_target" "$SERVICE_JAR_REPO/hybrid-command" "hybrid-command" || exit 1
+    copy_missing_dir_contents "$query_target" "$SERVICE_ASSET_REPO/hybrid-query" "hybrid-query jars" "*.jar" || exit 1
+    copy_missing_dir_contents "$command_target" "$SERVICE_ASSET_REPO/hybrid-command" "hybrid-command jars" "*.jar" || exit 1
+    copy_missing_dir_contents "$lightapi_target" "$SERVICE_ASSET_REPO/lightapi/dist" "lightapi UI assets" "*" "true" || exit 1
+    copy_missing_dir_contents "$signin_target" "$SERVICE_ASSET_REPO/signin/dist" "signin UI assets" "*" "true" || exit 1
 }
 
 # Check prerequisites
@@ -140,7 +161,7 @@ check_prerequisites() {
         fi
     fi
 
-    ensure_service_jars
+    ensure_service_assets
 
     log_success "All prerequisites met"
 }
@@ -184,7 +205,7 @@ stop_docker_compose() {
 start_docker_compose() {
     log_info "Starting Docker Compose services..."
 
-    ensure_service_jars || exit 1
+    ensure_service_assets || exit 1
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"

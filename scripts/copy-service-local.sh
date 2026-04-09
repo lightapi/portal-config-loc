@@ -12,7 +12,7 @@ fi
 # Base directory
 BASE_DIR=~/lightapi
 DEST_DIR=~/lightapi/portal-config-loc
-SERVICE_JAR_DIR="$BASE_DIR/service-jar"
+SERVICE_ASSET_DIR="$BASE_DIR/service-asset"
 cd "$BASE_DIR" || { echo "Error: Cannot cd to $BASE_DIR"; exit 1; }
 
 echo "Checking repository statuses with mgitstatus..."
@@ -172,12 +172,12 @@ if [ ${#QUERY_PROJECTS_BUILT[@]} -gt 0 ] || [ ${#COMMAND_PROJECTS_BUILT[@]} -gt 
     find "$DEST_DIR/all-in-light/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
     find "$DEST_DIR/all-in-light/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
-    if [ -d "$SERVICE_JAR_DIR" ]; then
-        mkdir -p "$SERVICE_JAR_DIR/hybrid-query" "$SERVICE_JAR_DIR/hybrid-command"
-        find "$SERVICE_JAR_DIR/hybrid-query" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-        find "$SERVICE_JAR_DIR/hybrid-command" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    if [ -d "$SERVICE_ASSET_DIR" ]; then
+        mkdir -p "$SERVICE_ASSET_DIR/hybrid-query" "$SERVICE_ASSET_DIR/hybrid-command"
+        find "$SERVICE_ASSET_DIR/hybrid-query" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+        find "$SERVICE_ASSET_DIR/hybrid-command" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
     else
-        echo "Warning: service-jar repository not found at $SERVICE_JAR_DIR. Skipping service-jar sync."
+        echo "Warning: service-asset repository not found at $SERVICE_ASSET_DIR. Skipping service-asset sync."
     fi
 fi
 
@@ -205,15 +205,15 @@ copy_jar() {
     fi
 }
 
-copy_to_service_jar_repo() {
+copy_to_service_asset_repo() {
     local project="$1"
     local project_type="$2"  # "query" or "command"
 
-    if [ ! -d "$SERVICE_JAR_DIR" ]; then
+    if [ ! -d "$SERVICE_ASSET_DIR" ]; then
         return 0
     fi
 
-    local repo_dest="$SERVICE_JAR_DIR/hybrid-${project_type}"
+    local repo_dest="$SERVICE_ASSET_DIR/hybrid-${project_type}"
     mkdir -p "$repo_dest"
     copy_jar "$project" "$project_type" "$repo_dest"
 }
@@ -223,7 +223,7 @@ for project in "${QUERY_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "query" "$DEST_DIR/all-in-one/hybrid-query/service"
     copy_jar "$project" "query" "$DEST_DIR/all-in-pg/hybrid-query/service"
     copy_jar "$project" "query" "$DEST_DIR/all-in-light/hybrid-query/service"
-    copy_to_service_jar_repo "$project" "query"
+    copy_to_service_asset_repo "$project" "query"
 done
 
 # Copy command projects
@@ -231,7 +231,7 @@ for project in "${COMMAND_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "command" "$DEST_DIR/all-in-one/hybrid-command/service"
     copy_jar "$project" "command" "$DEST_DIR/all-in-pg/hybrid-command/service"
     copy_jar "$project" "command" "$DEST_DIR/all-in-light/hybrid-command/service"
-    copy_to_service_jar_repo "$project" "command"
+    copy_to_service_asset_repo "$project" "command"
 done
 
 
