@@ -1,6 +1,13 @@
 # portal-config-loc
 Portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers. For pure UI developers, he/she can use the https://localhost:3000 to connect to the dev portal server.
 
+## Create a workspace
+
+```
+cd ~
+mkdir lightapi
+```
+
 ## Choose a service source
 
 For `portal-view` development there are two practical ways to populate the hybrid service jars under:
@@ -73,52 +80,25 @@ cd ~/lightapi/portal-config-loc/all-in-pg
 docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.service-local.yml up -d
 ```
 
-### Create a workspace
+
+## Start services
 
 ```
-cd ~
-mkdir lightapi
-```
-
-### Start services
-
-```
-cd lightapi
+cd ~/lightapi
 git clone git@github.com:lightapi/portal-config-loc.git
 git clone git@github.com:lightapi/service-asset.git
 cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
 
-### Publish wrapper images
+## Import Events
 
-If you maintain the baked-in hybrid images, publish them from `all-in-pg` after refreshing the service jars:
-
-```bash
-cd ~/lightapi/portal-config-loc
-./scripts/download-service-jars.sh
-cd all-in-pg/hybrid-command
-./build.sh 2.2.1-services
-cd ../hybrid-query
-./build.sh 2.2.1-services
+```
+cd ~/lightapi/service-asset
+./importer.sh -f events.json
 ```
 
-To build without pushing:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-pg/hybrid-command
-./build.sh 2.2.1-services -l
-cd ../hybrid-query
-./build.sh 2.2.1-services -l
-```
-
-If you change the jars in `all-in-pg/hybrid-command/service` or `all-in-pg/hybrid-query/service` and want to rebuild local wrapper images before restarting:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.image-local.yml build hybrid-command hybrid-query1 hybrid-query2 hybrid-query3
-```
-### Update /etc/hosts
+## Update /etc/hosts
 
 Update /etc/hosts to add the following line. Please change the IP address to your desktop IP.
 
@@ -126,7 +106,7 @@ Update /etc/hosts to add the following line. Please change the IP address to you
 192.168.5.85  local.lightapi.net locsignin.lightapi.net
 ```
 
-### Start portal-view
+## Start portal-view
 
 Start the portal view in Nodejs to UI development.
 
