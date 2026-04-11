@@ -356,7 +356,7 @@ CREATE TABLE schedule_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(schedule_id)
+    PRIMARY KEY(host_id, schedule_id)
 );
 
 CREATE INDEX idx_schedule_host_id ON schedule_t (host_id);
@@ -1097,7 +1097,6 @@ CREATE TABLE instance_app_api_t (
     FOREIGN KEY(host_id, instance_api_id) REFERENCES instance_api_t(host_id, instance_api_id) ON DELETE CASCADE
 );
 
-ALTER TABLE instance_app_api_t ADD CONSTRAINT instance_app_api_uk UNIQUE ( instance_app_id, instance_api_id );
 
 CREATE TABLE instance_app_api_property_t (
     host_id              UUID NOT NULL,
@@ -1113,10 +1112,6 @@ CREATE TABLE instance_app_api_property_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, instance_app_id, instance_api_id, property_id)
 );
-
-ALTER TABLE instance_app_api_property_t
-    ADD CONSTRAINT instance_app_api_property_uk
-        UNIQUE ( instance_app_id, instance_api_id, property_id );
 
 ALTER TABLE instance_app_api_property_t
     ADD CONSTRAINT instance_app_api_property_fk FOREIGN KEY (host_id, instance_app_id, instance_api_id)
@@ -1174,7 +1169,7 @@ ALTER TABLE instance_file_t
 
 ALTER TABLE instance_file_t
     ADD CONSTRAINT instance_file_uk
-        UNIQUE (instance_id, v_file_name);
+        UNIQUE (host_id, instance_id, v_file_name);
 
 ALTER TABLE instance_file_t
   ADD CONSTRAINT instance_file_fk FOREIGN KEY (host_id, instance_id)
@@ -1989,7 +1984,7 @@ CREATE TABLE auth_provider_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (provider_id),
+    PRIMARY KEY (host_id, provider_id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
@@ -1998,6 +1993,7 @@ ALTER TABLE auth_provider_t
 
 
 CREATE TABLE auth_provider_key_t (
+    host_id              UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     kid                  VARCHAR(22) NOT NULL,
     public_key           VARCHAR(65535) NOT NULL,
@@ -2007,8 +2003,8 @@ CREATE TABLE auth_provider_key_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(provider_id, kid),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
+    PRIMARY KEY(host_id, provider_id, kid),
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE
 );
 
 -- multiple apis can share the same auth provider.
@@ -2023,7 +2019,7 @@ CREATE TABLE auth_provider_api_t(
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, api_id, provider_id),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, api_id) REFERENCES api_t(host_id, api_id) ON DELETE CASCADE
 );
 
@@ -2090,7 +2086,7 @@ CREATE TABLE auth_provider_client_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, client_id, provider_id),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
 
@@ -2116,9 +2112,9 @@ CREATE TABLE auth_code_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (auth_code),
+    PRIMARY KEY (host_id, auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES auth_provider_t(provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, provider_id) REFERENCES auth_provider_t(host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
@@ -2143,7 +2139,7 @@ CREATE TABLE auth_refresh_token_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (refresh_token),
+    PRIMARY KEY (host_id, refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
@@ -2159,7 +2155,7 @@ CREATE TABLE auth_ref_token_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (ref_token),
+    PRIMARY KEY (host_id, ref_token),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
@@ -2174,13 +2170,14 @@ CREATE TABLE notification_t (
     process_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
     is_processed              BOOLEAN NOT NULL,
     error                     VARCHAR(1024) NULL,
-    PRIMARY KEY (id),
+    PRIMARY KEY (host_id, id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
 );
 
 
 CREATE TABLE message_t (
+    host_id    UUID NOT NULL,
     from_id    VARCHAR(64) NOT NULL,
     nonce      BIGINT NOT NULL,
     to_email   VARCHAR(64) NOT NULL,
@@ -2189,7 +2186,8 @@ CREATE TABLE message_t (
     send_time  TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY ( from_id, nonce );
+ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY (host_id, from_id, nonce );
+ALTER TABLE message_t ADD CONSTRAINT message_host_fk FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE;
 
 CREATE INDEX message_idx ON message_t (to_email, send_time);
 

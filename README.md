@@ -120,7 +120,7 @@ docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f dock
 ```
 ### Update /etc/hosts
 
-Update /etc/hosts to add the following line. Please change the IP address  to your desktop IP. 
+Update /etc/hosts to add the following line. Please change the IP address to your desktop IP.
 
 ```
 192.168.5.85  local.lightapi.net locsignin.lightapi.net
