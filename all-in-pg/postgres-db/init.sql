@@ -264,7 +264,7 @@ DROP TABLE IF EXISTS dead_letter_queue CASCADE;
 CREATE TABLE event_store_t (
     id UUID PRIMARY KEY,                   -- Unique ID for the event itself
     host_id UUID NOT NULL,                 -- host_id will be the Kafka key for multi-tenancy
-    user_id UUID NOT NULL,                 -- user_id will be the Kafka key for single-tenancy
+    user_id UUID NOT NULL,                 -- user_id will be the Kafka key for single-tenancy  
     nonce BIGINT NOT NULL,                 -- The nonce per user sequence number
     aggregate_id VARCHAR(255) NOT NULL,    -- The ID of the aggregate (e.g., customer-123)
     aggregate_version BIGINT DEFAULT 1 NOT NULL,     -- Monotonically increasing sequence number per aggregate
@@ -356,7 +356,7 @@ CREATE TABLE schedule_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(schedule_id)
+    PRIMARY KEY(host_id, schedule_id)
 );
 
 CREATE INDEX idx_schedule_host_id ON schedule_t (host_id);
@@ -485,7 +485,7 @@ CREATE TABLE schema_t (
     schema_source        VARCHAR(126) NOT NULL,  -- which api or app owns the schema
     schema_name          VARCHAR(126) NOT NULL,  -- schema name
     schema_desc          VARCHAR(1024),          -- description of the schema
-    schema_body          VARCHAR(65535) NOT NULL,-- schema body
+    schema_body          VARCHAR(65535) NOT NULL,-- schema body 
     schema_owner         UUID NOT NULL,          -- schema owner
     schema_status        CHAR(1) DEFAULT 'P' NOT NULL,  -- D draft P published R retired
     example              VARCHAR(65535),         -- json example
@@ -705,7 +705,7 @@ ALTER TABLE api_endpoint_scope_t ADD CONSTRAINT api_endpoint_scope_pk PRIMARY KE
 CREATE TABLE app_api_t (
     host_id                 UUID NOT NULL,
     app_id                  VARCHAR(512) NOT NULL,
-    endpoint_id             UUID NOT NULL,
+    endpoint_id             UUID NOT NULL,        
     scope                   VARCHAR(128) NOT NULL,
     aggregate_version       BIGINT DEFAULT 1 NOT NULL,
     active                  BOOLEAN NOT NULL DEFAULT TRUE,
@@ -785,7 +785,7 @@ ALTER TABLE config_t ADD CONSTRAINT config_uk UNIQUE (config_name);
 
 
 
--- each config file will have a config_id reference and this table contains all the properties including default.
+-- each config file will have a config_id reference and this table contains all the properties including default. 
 CREATE TABLE config_property_t (
     config_id                 UUID NOT NULL,
     property_id               UUID NOT NULL,
@@ -803,7 +803,7 @@ CREATE TABLE config_property_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR(255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
     PRIMARY KEY(property_id)
 );
 
@@ -839,7 +839,7 @@ CREATE TABLE environment_property_t (
 );
 
 
--- for each platform like jenkins, ansible etc.
+-- for each platform like jenkins, ansible etc. 
 CREATE TABLE platform_t (
     host_id                     UUID NOT NULL,
     platform_id                 UUID NOT NULL,
@@ -850,8 +850,8 @@ CREATE TABLE platform_t (
     credentials                 VARCHAR(255) NOT NULL,
     proxy_url                   VARCHAR(255),
     proxy_port                  INTEGER,
-    handler_class               VARCHAR(1024) NOT NULL, -- The handler class in light-portal to interact with the platform.
-    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs.
+    handler_class               VARCHAR(1024) NOT NULL, -- The handler class in light-portal to interact with the platform. 
+    console_url                 VARCHAR(255), -- the url pattern that we can access the console logs. 
     environment                 VARCHAR(16),
     zone                        VARCHAR(16),
     region                      VARCHAR(16),
@@ -867,7 +867,7 @@ CREATE TABLE platform_t (
 
 ALTER TABLE platform_t ADD CONSTRAINT platform_uk UNIQUE(host_id, platform_name, platform_version);
 
---  each platform will have multiple pipelines.
+--  each platform will have multiple pipelines. 
 CREATE TABLE pipeline_t (
     host_id                     UUID NOT NULL,
     pipeline_id                 UUID NOT NULL,
@@ -877,7 +877,7 @@ CREATE TABLE pipeline_t (
     current                     BOOLEAN DEFAULT false,    -- The current pipeline for the platform_id if it is true.
     endpoint                    VARCHAR(1024) NOT NULL,
     version_status              VARCHAR(16) NOT NULL,     -- from ref table pipeline_version_status. Supported, Outdated, Deprecated, Removed
-    system_env                  VARCHAR(16) NOT NULL,     -- a pipeline must be
+    system_env                  VARCHAR(16) NOT NULL,     -- a pipeline must be 
     runtime_env                 VARCHAR(16),
     request_schema              TEXT NOT NULL,
     response_schema             TEXT NOT NULL,
@@ -901,13 +901,13 @@ CREATE TABLE instance_t (
     product_version_id   UUID NOT NULL,
     service_id           VARCHAR(512) NOT NULL, -- for a standalone product, use service_id for query.
     current              BOOLEAN DEFAULT false, -- for this service_id, the current product version
-    readonly             BOOLEAN DEFAULT false, -- lock the instance level configuration customization.
+    readonly             BOOLEAN DEFAULT false, -- lock the instance level configuration customization. 
     environment          VARCHAR(16),
     service_desc         VARCHAR(4096),         -- service description and it should be the same for all instances
     instance_desc        VARCHAR(1024),         -- instance description and it is related to the specific prod version
     zone                 VARCHAR(16),
     region               VARCHAR(16),
-    lob                  VARCHAR(16),
+    lob                  VARCHAR(16), 
     resource_name        VARCHAR(126),          -- identify the resource, host, or namespace.
     business_name        VARCHAR(126),
     env_tag              VARCHAR(16),           -- envirnment tag along with service_id for service lookup and configuration.
@@ -936,13 +936,13 @@ COMMENT ON COLUMN instance_t.service_id IS
 
 
 -- Allow only one record with NULL env_tag per combination
-CREATE UNIQUE INDEX instance_uk_null_env
-ON instance_t (host_id, service_id, product_version_id)
+CREATE UNIQUE INDEX instance_uk_null_env 
+ON instance_t (host_id, service_id, product_version_id) 
 WHERE env_tag IS NULL;
 
 -- Allow multiple records with different non-NULL env_tags
-CREATE UNIQUE INDEX instance_uk_with_env
-ON instance_t (host_id, service_id, env_tag, product_version_id)
+CREATE UNIQUE INDEX instance_uk_with_env 
+ON instance_t (host_id, service_id, env_tag, product_version_id) 
 WHERE env_tag IS NOT NULL;
 
 
@@ -989,7 +989,7 @@ CREATE TABLE deployment_instance_property_t (
 );
 
 
--- one gateway instance can have multiple APIs managed by it.
+-- one gateway instance can have multiple APIs managed by it. 
 CREATE TABLE instance_api_t (
     host_id              UUID NOT NULL,
     instance_api_id      UUID NOT NULL,
@@ -1081,7 +1081,7 @@ CREATE TABLE instance_app_property_t (
 
 -- add instance api and app association relation, there is no instance_id in the table because both instance api
 -- and instance app will have an associated instance id. The two instance app and api should related to the same
--- instance. For example, light-gateway instance that link both client application to api microservice.
+-- instance. For example, light-gateway instance that link both client application to api microservice. 
 CREATE TABLE instance_app_api_t (
     host_id              UUID NOT NULL,
     instance_app_id      UUID NOT NULL,
@@ -1097,7 +1097,6 @@ CREATE TABLE instance_app_api_t (
     FOREIGN KEY(host_id, instance_api_id) REFERENCES instance_api_t(host_id, instance_api_id) ON DELETE CASCADE
 );
 
-ALTER TABLE instance_app_api_t ADD CONSTRAINT instance_app_api_uk UNIQUE ( instance_app_id, instance_api_id );
 
 CREATE TABLE instance_app_api_property_t (
     host_id              UUID NOT NULL,
@@ -1113,10 +1112,6 @@ CREATE TABLE instance_app_api_property_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, instance_app_id, instance_api_id, property_id)
 );
-
-ALTER TABLE instance_app_api_property_t
-    ADD CONSTRAINT instance_app_api_property_uk
-        UNIQUE ( instance_app_id, instance_api_id, property_id );
 
 ALTER TABLE instance_app_api_property_t
     ADD CONSTRAINT instance_app_api_property_fk FOREIGN KEY (host_id, instance_app_id, instance_api_id)
@@ -1172,9 +1167,9 @@ ALTER TABLE instance_file_t ADD v_file_name VARCHAR(126) GENERATED ALWAYS AS ( L
 ALTER TABLE instance_file_t
     ADD CHECK ( file_type IN ( 'Cert', 'File' ) );
 
-ALTER TABLE instance_file_t
-    ADD CONSTRAINT instance_file_uk
-        UNIQUE (instance_id, v_file_name);
+ALTER TABLE instance_file_t 
+    ADD CONSTRAINT instance_file_uk 
+        UNIQUE (host_id, instance_id, v_file_name);
 
 ALTER TABLE instance_file_t
   ADD CONSTRAINT instance_file_fk FOREIGN KEY (host_id, instance_id)
@@ -1182,7 +1177,7 @@ ALTER TABLE instance_file_t
       ON DELETE CASCADE;
 
 
--- product level customized properties which is generic or common for the product.
+-- product level customized properties which is generic or common for the product. 
 CREATE TABLE product_property_t (
     product_id           VARCHAR(8) NOT NULL,
     property_id          UUID NOT NULL,
@@ -1202,10 +1197,10 @@ CREATE TABLE product_version_t (
     host_id              UUID NOT NULL,
     product_version_id   UUID NOT NULL,
     product_id           VARCHAR(8) NOT NULL,
-    product_version      VARCHAR(12) NOT NULL, -- internal product version
+    product_version      VARCHAR(12) NOT NULL, -- internal product version 
     light4j_version      VARCHAR(12) NOT NULL, -- open source release version
     break_code           BOOLEAN DEFAULT false, -- breaking code change to upgrade to this version.
-    break_config         BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version.
+    break_config         BOOLEAN DEFAULT false, -- config server need this to decide if clone is allowed for this version. 
     release_note         TEXT,
     version_desc         VARCHAR(1024),
     release_type         VARCHAR(24) NOT NULL, -- Alpha Version, Beta Version, Release Candidate, General Availability, Production Release
@@ -1236,7 +1231,7 @@ CREATE TABLE product_version_environment_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, system_env, runtime_env),
-    FOREIGN KEY(host_id, product_version_id)
+    FOREIGN KEY(host_id, product_version_id) 
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE
 );
 
@@ -1253,9 +1248,9 @@ CREATE TABLE product_version_config_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, config_id),
-    FOREIGN KEY(host_id, product_version_id)
+    FOREIGN KEY(host_id, product_version_id) 
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
-    FOREIGN KEY(config_id)
+    FOREIGN KEY(config_id) 
         REFERENCES config_t(config_id) ON DELETE CASCADE
 );
 
@@ -1271,9 +1266,9 @@ CREATE TABLE product_version_config_property_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, product_version_id, property_id),
-    FOREIGN KEY(host_id, product_version_id)
+    FOREIGN KEY(host_id, product_version_id) 
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
-    FOREIGN KEY(property_id)
+    FOREIGN KEY(property_id) 
         REFERENCES config_property_t(property_id) ON DELETE CASCADE
 );
 
@@ -1312,12 +1307,12 @@ CREATE TABLE product_version_pipeline_t (
     FOREIGN KEY(host_id, pipeline_id) REFERENCES pipeline_t (host_id, pipeline_id) ON DELETE CASCADE
 );
 
---
+-- 
 CREATE TABLE deployment_t (
     host_id                  UUID NOT NULL,
     deployment_id            UUID NOT NULL,
     deployment_instance_id   UUID NOT NULL,   -- since deployment is per leg, we need to link to deployment instance.
-    deployment_status        VARCHAR(16) NOT NULL, --
+    deployment_status        VARCHAR(16) NOT NULL, -- 
     deployment_type          VARCHAR(16) NOT NULL,
     schedule_ts              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     platform_job_id          VARCHAR(126),           -- update by the executor once it is started
@@ -1344,8 +1339,8 @@ CREATE TABLE runtime_instance_t (
     env_tag                  VARCHAR(16) NOT NULL DEFAULT '',  -- if there is no envTag, then '' is used
     protocol                 VARCHAR(16) NOT NULL DEFAULT 'https',  -- the transport protocol: http, https, ws, wss
     ip_address               VARCHAR(30) NOT NULL,  -- detected from the server instance and registered on the control pane.
-    port_number              INT NOT NULL,          -- registered on control pane.
-    instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting
+    port_number              INT NOT NULL,          -- registered on control pane.         
+    instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting 
     aggregate_version        BIGINT DEFAULT 1 NOT NULL,
     active                   BOOLEAN NOT NULL DEFAULT TRUE,
     delete_user              VARCHAR (255),
@@ -1408,7 +1403,7 @@ CREATE TABLE ref_table_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
     PRIMARY KEY(table_id)
 );
 
@@ -1422,7 +1417,7 @@ CREATE TABLE ref_value_t (
     value_id             UUID NOT NULL,
     table_id             UUID NOT NULL,
     value_code           VARCHAR(80) NOT NULL, -- The dropdown value
-    value_desc           TEXT NULL,            -- Optional detailed description
+    value_desc           TEXT NULL,            -- Optional detailed description  
     start_ts             TIMESTAMP WITH TIME ZONE NULL,
     end_ts               TIMESTAMP WITH TIME ZONE NULL,
     display_order        INT DEFAULT 0,        -- for editor and dropdown list.
@@ -1481,7 +1476,7 @@ CREATE TABLE relation_t (
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,  
     PRIMARY KEY (relation_id, value_id_from, value_id_to),
     FOREIGN KEY (relation_id) REFERENCES relation_type_t (relation_id) ON DELETE CASCADE,
     FOREIGN KEY (value_id_from) REFERENCES ref_value_t (value_id) ON DELETE CASCADE,
@@ -1925,7 +1920,7 @@ CREATE TABLE attribute_user_t (
 CREATE TABLE attribute_permission_t (
     host_id              UUID NOT NULL,
     attribute_id         VARCHAR(128) NOT NULL,
-    endpoint_id          UUID NOT NULL,
+    endpoint_id          UUID NOT NULL,    
     attribute_value      VARCHAR(1024) NOT NULL,
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1989,15 +1984,13 @@ CREATE TABLE auth_provider_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (provider_id),
+    PRIMARY KEY (host_id, provider_id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
-ALTER TABLE auth_provider_t
-    ADD CONSTRAINT auth_provider_uk UNIQUE (host_id, provider_name);
-
 
 CREATE TABLE auth_provider_key_t (
+    host_id              UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     kid                  VARCHAR(22) NOT NULL,
     public_key           VARCHAR(65535) NOT NULL,
@@ -2007,11 +2000,11 @@ CREATE TABLE auth_provider_key_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY(provider_id, kid),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE
+    PRIMARY KEY(host_id, provider_id, kid),
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE
 );
 
--- multiple apis can share the same auth provider.
+-- multiple apis can share the same auth provider. 
 CREATE TABLE auth_provider_api_t(
     host_id              UUID NOT NULL,
     api_id               VARCHAR(16) NOT NULL,
@@ -2023,7 +2016,7 @@ CREATE TABLE auth_provider_api_t(
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, api_id, provider_id),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, api_id) REFERENCES api_t(host_id, api_id) ON DELETE CASCADE
 );
 
@@ -2090,7 +2083,7 @@ CREATE TABLE auth_provider_client_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY(host_id, client_id, provider_id),
-    FOREIGN KEY(provider_id) REFERENCES auth_provider_t (provider_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, provider_id) REFERENCES auth_provider_t (host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
 
@@ -2116,9 +2109,9 @@ CREATE TABLE auth_code_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (auth_code),
+    PRIMARY KEY (host_id, auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES auth_provider_t(provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, provider_id) REFERENCES auth_provider_t(host_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
@@ -2129,7 +2122,7 @@ CREATE TABLE auth_refresh_token_t (
     user_id              UUID NOT NULL,
     entity_id            VARCHAR(50) NOT NULL,
     user_type            CHAR(1) NOT NULL,
-    email                VARCHAR(126) NOT NULL,
+    email                VARCHAR(126) NOT NULL,    
     roles                VARCHAR(4096),
     groups               VARCHAR(4096),
     positions            VARCHAR(4096),
@@ -2143,7 +2136,7 @@ CREATE TABLE auth_refresh_token_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (refresh_token),
+    PRIMARY KEY (host_id, refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
@@ -2159,7 +2152,7 @@ CREATE TABLE auth_ref_token_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (ref_token),
+    PRIMARY KEY (host_id, ref_token),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
@@ -2174,13 +2167,14 @@ CREATE TABLE notification_t (
     process_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
     is_processed              BOOLEAN NOT NULL,
     error                     VARCHAR(1024) NULL,
-    PRIMARY KEY (id),
+    PRIMARY KEY (host_id, id),
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
 );
 
 
 CREATE TABLE message_t (
+    host_id    UUID NOT NULL,
     from_id    VARCHAR(64) NOT NULL,
     nonce      BIGINT NOT NULL,
     to_email   VARCHAR(64) NOT NULL,
@@ -2189,7 +2183,7 @@ CREATE TABLE message_t (
     send_time  TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY ( from_id, nonce );
+ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY (host_id, from_id, nonce );
 
 CREATE INDEX message_idx ON message_t (to_email, send_time);
 
@@ -2199,7 +2193,7 @@ CREATE TABLE config_snapshot_t (
     snapshot_ts                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     snapshot_type               VARCHAR(32) NOT NULL, -- e.g., 'DEPLOYMENT', 'USER_SAVE', 'SCHEDULED_BACKUP'
     host_id                     UUID NOT NULL,        -- The hostId of the instance.
-    instance_id                 UUID NOT NULL,        -- The instance id for the configuration.
+    instance_id                 UUID NOT NULL,        -- The instance id for the configuration. 
     description                 TEXT,                 -- User-provided description or system-generated info
     current                     BOOLEAN NOT NULL DEFAULT FALSE,     -- Current config snapshot for the hostId and instanceId
     user_id                     UUID,                 -- User who triggered it (if applicable)
@@ -2211,7 +2205,7 @@ CREATE TABLE config_snapshot_t (
     service_id            VARCHAR(512),       -- Service id context
     api_id                VARCHAR(16),        -- Api id context
     api_version           VARCHAR(16),        -- Api version context
-    -- tag,
+    -- tag, 
     PRIMARY KEY(snapshot_id),
     FOREIGN KEY(host_id, deployment_id) REFERENCES deployment_t(host_id, deployment_id) ON DELETE SET NULL,
     FOREIGN KEY(user_id) REFERENCES user_t(user_id) ON DELETE SET NULL,
@@ -2220,7 +2214,7 @@ CREATE TABLE config_snapshot_t (
 );
 
 -- Index for finding snapshots by type or scope
-CREATE INDEX idx_config_snapshot_scope ON config_snapshot_t (host_id, environment, product_id,
+CREATE INDEX idx_config_snapshot_scope ON config_snapshot_t (host_id, environment, product_id, 
     product_version, service_id, api_id, api_version, snapshot_type, snapshot_ts);
 CREATE INDEX idx_config_snapshot_deployment ON config_snapshot_t (deployment_id);
 
@@ -2230,7 +2224,7 @@ CREATE TABLE config_snapshot_property_t (
     snapshot_id                 UUID NOT NULL,         -- FK to config_snapshot_t
     config_phase                CHAR(1) NOT NULL,      -- Move config phase to this table so that one snapshot can cover all phases
     config_id                   UUID NOT NULL,         -- The config id
-    property_id                 UUID NOT NULL,         -- The final property id
+    property_id                 UUID NOT NULL,         -- The final property id 
     property_name               VARCHAR(64) NOT NULL,  -- The final property name
     property_type               VARCHAR(32) NOT NULL,  -- The property type
     property_value              TEXT,                  -- The effective property value at snapshot time
@@ -2517,7 +2511,7 @@ CREATE TABLE task_info_t
     process_id          UUID NOT NULL,
     wf_instance_id      VARCHAR(126) NOT NULL,
     wf_task_id          VARCHAR(126) NOT NULL,
-    status_code         CHAR(1)       NOT NULL, -- U, A, C
+    status_code         CHAR(1)       NOT NULL, -- U, A, C 
     started_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     locked              CHAR(1)       NOT NULL,
     priority            INTEGER        NOT NULL,
@@ -2538,7 +2532,7 @@ CREATE TABLE task_info_t
     FOREIGN KEY (host_id, process_id) REFERENCES process_info_t(host_id, process_id) ON DELETE CASCADE
 );
 
-CREATE TABLE task_asst_t
+CREATE TABLE task_asst_t 
 (
     host_id             UUID NOT NULL,
     task_asst_id         UUID NOT NULL,
@@ -2557,7 +2551,7 @@ CREATE TABLE task_asst_t
     FOREIGN KEY(host_id, task_id) REFERENCES task_info_t(host_id, task_id) ON DELETE CASCADE
 );
 
-CREATE TABLE audit_log_t
+CREATE TABLE audit_log_t 
 (
     host_id             UUID NOT NULL,
     audit_log_id        UUID NOT NULL,
@@ -2604,7 +2598,7 @@ CREATE TABLE skill_t (
     name                VARCHAR(126) NOT NULL,
     description         VARCHAR(500),          -- High-level description for the initial LLM prompt
     content_markdown    TEXT NOT NULL,         -- The actual instructions/prompts
-
+    
     description_embedding VECTOR(384),          -- For semantic lookup/discovery
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
@@ -2624,7 +2618,7 @@ CREATE TABLE tool_t (
     tool_id             UUID NOT NULL,
     name                VARCHAR(126) NOT NULL,
     description         TEXT NOT NULL,         -- Instructions for LLM on when/how to use this tool
-
+    
     -- Implementation specifics
     implementation_type VARCHAR(50),           -- 'java', 'mcp_server', 'rest', 'python', 'javascript'
     implementation_class VARCHAR(500),         -- FQCN if 'java'
@@ -2632,7 +2626,7 @@ CREATE TABLE tool_t (
     api_endpoint        VARCHAR(1024),         -- URL if 'rest'
     api_method          VARCHAR(10),           -- HTTP Method if 'rest'
     script_content      TEXT,                  -- Source code if 'python'/'javascript'
-
+    
     description_embedding VECTOR(384),          -- For semantic lookup/discovery
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
@@ -2650,13 +2644,13 @@ CREATE TABLE tool_param_t (
     host_id             UUID NOT NULL,
     param_id            UUID NOT NULL,
     tool_id             UUID NOT NULL,
-    name                VARCHAR(255) NOT NULL,
+    name                VARCHAR(255) NOT NULL,     
     param_type          VARCHAR(50) NOT NULL,      -- 'string', 'number', 'boolean', 'object', 'array'
     required            BOOLEAN DEFAULT true,
     default_value       JSONB,
     description         TEXT,                      -- Helps LLM understand what value to extract
     validation_schema   JSONB,                     -- JSON Schema for complex validation
-    order_index         INTEGER DEFAULT 0,
+    order_index         INTEGER DEFAULT 0,         
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -2685,11 +2679,11 @@ CREATE TABLE agent_skill_t (
     host_id             UUID NOT NULL,
     agent_def_id        UUID NOT NULL,
     skill_id            UUID NOT NULL,
-
+    
     config              JSONB DEFAULT '{}',
     priority            INTEGER DEFAULT 0,
     sequence_id         INTEGER DEFAULT 0,     -- Order in which skills are concatenated
-
+    
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -2705,10 +2699,10 @@ CREATE TABLE skill_tool_t (
     host_id             UUID NOT NULL,
     skill_id            UUID NOT NULL,
     tool_id             UUID NOT NULL,
-
+    
     config              JSONB DEFAULT '{}',
     access_level        VARCHAR(20) DEFAULT 'read', -- e.g., 'read', 'write', 'execute'
-
+    
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -2730,7 +2724,7 @@ CREATE TABLE agent_session_history_t (
     content             TEXT NOT NULL,         -- The message text
     tool_call_id        VARCHAR(126),          -- If the message is a tool call
     create_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    create_user         VARCHAR(126) DEFAULT SESSION_USER,
+    create_user         VARCHAR(126) DEFAULT SESSION_USER,  
     active              BOOLEAN DEFAULT true,
     PRIMARY KEY(host_id, session_history_id),
     FOREIGN KEY(host_id, process_id) REFERENCES process_info_t(host_id, process_id) ON DELETE CASCADE
@@ -2769,7 +2763,7 @@ CREATE TABLE user_memory_t (
     host_id             UUID NOT NULL,
     mem_id              UUID NOT NULL,
     user_id             UUID NOT NULL,
-    agent_def_id        UUID,     -- the memory is collocted with which agent.
+    agent_def_id        UUID,     -- the memory is collocted with which agent. 
     content             TEXT NOT NULL, -- e.g., "User prefers Java over Python"
     embedding           VECTOR(384),
     memory_type         VARCHAR(50), -- 'fact', 'preference', 'summary'
@@ -2831,15 +2825,15 @@ CREATE INDEX idx_session_memory_embedding ON session_memory_t
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX idx_session_metadata ON session_memory_t USING GIN (metadata);
 
-CREATE INDEX idx_user_memory_embedding ON user_memory_t
+CREATE INDEX idx_user_memory_embedding ON user_memory_t 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX idx_user_metadata ON user_memory_t USING GIN (metadata);
 
-CREATE INDEX idx_agent_memory_embedding ON agent_memory_t
+CREATE INDEX idx_agent_memory_embedding ON agent_memory_t 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX idx_agent_metadata ON agent_memory_t USING GIN (metadata);
 
-CREATE INDEX idx_org_memory_embedding ON org_memory_t
+CREATE INDEX idx_org_memory_embedding ON org_memory_t 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX idx_org_metadata ON org_memory_t USING GIN (metadata);
 
