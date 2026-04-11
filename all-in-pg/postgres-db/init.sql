@@ -2184,6 +2184,7 @@ CREATE TABLE message_t (
 );
 
 ALTER TABLE message_t ADD CONSTRAINT message_pk PRIMARY KEY (host_id, from_id, nonce );
+ALTER TABLE message_t ADD CONSTRAINT message_host_fk FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE;
 
 CREATE INDEX message_idx ON message_t (to_email, send_time);
 
