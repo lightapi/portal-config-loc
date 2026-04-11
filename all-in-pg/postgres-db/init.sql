@@ -1991,7 +1991,7 @@ CREATE TABLE auth_provider_t (
 ALTER TABLE auth_provider_t
     ADD CONSTRAINT auth_provider_uk UNIQUE (host_id, provider_name);
 
-    
+
 CREATE TABLE auth_provider_key_t (
     host_id              UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
