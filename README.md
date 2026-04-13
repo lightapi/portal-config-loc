@@ -114,8 +114,8 @@ Start the portal view in Nodejs to UI development.
 cd ~/lightapi
 git clone git@github.com:lightapi/portal-view.git
 cd portal-view
-yarn install
-yarn dev
+npm install
+npm run dev
 ```
 
 click the user profile icon on the top right corner to login with
