@@ -60,7 +60,6 @@ pathPrefixService.mapping:
   /config-server: com.networknt.config-server-1.0.0
   /services: com.networknt.controller-1.0.0
   /schedulers: com.networknt.scheduler-1.0.0
-  /chat: com.networknt.llmchat-1.0.0
   /ctrl/mcp: com.networknt.controller-1.0.0
 
 # direct-registry.yml
@@ -75,6 +74,9 @@ direct-registry.directUrls:
   com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
   com.networknt.petstore-1.0.0: https://192.168.5.85:9443
   com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
+  com.networknt.agent.tech-support-1.0.0: http://192.168.5.85:8082
+  com.networknt.agent.account-1.0.0: http://192.168.5.85:8083
+  com.networknt.agent.advisor-1.0.0: http://192.168.5.85:8084
 
 # handler.yml
 handler.handlers:
@@ -163,7 +165,6 @@ handler.chains:
   chat:
     - exception
     - stateless
-    - prefix
     - security
     - websocket
 
@@ -574,8 +575,10 @@ virtual-host.hosts:
 
 # websocket-router.yml
 websocket-router.pathPrefixService:
-  /chat: com.networknt.llmchat-1.0.0
-  /ctrl/mcp: com.networknt.controller-1.0.0
+  /ctrl/mcp: 
+    serviceId: com.networknt.controller-1.0.0
+    protocol: https
+    envTag: DEV
 
 # rule.yml
 rule.endpointRules:
