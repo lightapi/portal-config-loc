@@ -575,7 +575,7 @@ virtual-host.hosts:
 
 # websocket-router.yml
 websocket-router.pathPrefixService:
-  /ctrl/mcp: 
+  /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0
     protocol: https
     envTag: DEV
