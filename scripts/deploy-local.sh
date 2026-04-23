@@ -317,11 +317,6 @@ main() {
 
     log_success "Deployment completed successfully!"
     log_info "To view logs: docker compose ${DOCKER_COMPOSE_FILES[*]} logs -f"
-
-    cd "$DOCKER_COMPOSE_DIR" || return 1
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f light-gateway light-oauth portal-service hybrid-query1 hybrid-query2 hybrid-query3 hybrid-command > output.log &
-    ./log-monitor output.log
-
 }
 
 # Handle script arguments
