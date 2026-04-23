@@ -18,14 +18,14 @@ if [[ "$1" == "kafka" ]]; then
 elif [[ "$1" == "pg" ]]; then
     DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-pg"
     shift
-elif [[ "$1" == "light" ]]; then
-    DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-light"
+elif [[ "$1" == "lt" ]]; then
+    DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-lt"
     shift
 fi
 
 DOCKER_COMPOSE_FILES=(-f "$DOCKER_COMPOSE_DIR/docker-compose.yml")
 
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
+if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]] || [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
     CONTROLLER_TYPE="${1:-java}"
 
     case "$CONTROLLER_TYPE" in
@@ -40,7 +40,7 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
         *)
             if [[ -n "$CONTROLLER_TYPE" ]] && [[ ! "$CONTROLLER_TYPE" =~ ^(stop|start|restart|status|logs|help|-h|--help)$ ]]; then
                 echo "Invalid controller type: $CONTROLLER_TYPE"
-                echo "Usage: $0 [kafka|pg|light] [java|rust] [command]"
+                echo "Usage: $0 [kafka|pg|lt] [java|rust] [command]"
                 exit 1
             fi
 
@@ -344,7 +344,7 @@ case "${1:-}" in
         echo "Config (optional):"
         echo "  kafka           Use Kafka configuration (default)"
         echo "  pg              Use Postgres configuration"
-        echo "  light           Use Light configuration"
+        echo "  lt              Use Light Postgres configuration (one hybrid-query)"
         echo ""
         echo "Service type (optional, pg only):"
         echo "  java            Use Java controller and OAuth services (default for pg)"

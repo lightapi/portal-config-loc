@@ -219,8 +219,8 @@ if [ ${#QUERY_PROJECTS_BUILT[@]} -gt 0 ] || [ ${#COMMAND_PROJECTS_BUILT[@]} -gt 
     find "$DEST_DIR/all-in-pg/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
     find "$DEST_DIR/all-in-pg/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
-    find "$DEST_DIR/all-in-light/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-    find "$DEST_DIR/all-in-light/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-lt/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
+    find "$DEST_DIR/all-in-lt/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
     if [ -d "$SERVICE_ASSET_DIR" ]; then
         mkdir -p "$SERVICE_ASSET_DIR/hybrid-query" "$SERVICE_ASSET_DIR/hybrid-command"
@@ -272,7 +272,7 @@ copy_to_service_asset_repo() {
 for project in "${QUERY_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "query" "$DEST_DIR/all-in-one/hybrid-query/service"
     copy_jar "$project" "query" "$DEST_DIR/all-in-pg/hybrid-query/service"
-    copy_jar "$project" "query" "$DEST_DIR/all-in-light/hybrid-query/service"
+    copy_jar "$project" "query" "$DEST_DIR/all-in-lt/hybrid-query/service"
     copy_to_service_asset_repo "$project" "query"
 done
 
@@ -280,7 +280,7 @@ done
 for project in "${COMMAND_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "command" "$DEST_DIR/all-in-one/hybrid-command/service"
     copy_jar "$project" "command" "$DEST_DIR/all-in-pg/hybrid-command/service"
-    copy_jar "$project" "command" "$DEST_DIR/all-in-light/hybrid-command/service"
+    copy_jar "$project" "command" "$DEST_DIR/all-in-lt/hybrid-command/service"
     copy_to_service_asset_repo "$project" "command"
 done
 

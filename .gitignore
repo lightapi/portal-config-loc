@@ -28,7 +28,7 @@ all-in-one/postgres-db/data
 all-in-one/kafka-data/data
 all-in-one/log-monitor
 
-all-in-light/postgres-db/data/
+all-in-lt/postgres-db/data/
 
 all-in-pg/postgres-db/data/
 dist/

@@ -1,0 +1,10 @@
+# Server configuration
+dbUrl: ${db_url}
+port: ${server_port}
+hostId: ${host_id}
+tlsCertPath: ${tls_cert_path}
+tlsKeyPath: ${tls_key_path}
+jwksUrl: ${jwks_url}
+jwksAcceptInvalidCerts: ${jwks_accept_invalid_certs}
+jwtExpectedIssuer: ${jwt_expected_issuer}
+jwtExpectedAudience: ${jwt_expected_audience}

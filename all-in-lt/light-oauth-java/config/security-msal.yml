@@ -1,0 +1,21 @@
+# to support msal token exchange to verify the msal token.
+---
+enableVerifyJwt: true
+enableVerifySwt: false
+enableExtractScopeToken: true
+enableVerifyScope: false
+skipVerifyScopeWithoutSpec: true
+ignoreJwtExpiry: true
+enableH2c: false
+enableMockJwt: false
+enableRelaxedKeyValidation: false
+
+jwt:
+  clockSkewInSeconds: 60
+  keyResolver: JsonWebKeySet
+
+logJwtToken: true
+logClientUserScope: false
+enableJwtCache: true
+jwtCacheFullSize: 100
+bootstrapFromKeyService: false

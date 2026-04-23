@@ -1,0 +1,107 @@
+---
+services:
+
+  controller:
+    image: networknt/controller-rs:latest
+    ports:
+      - 8438:8438
+    volumes:
+      - ./light-controller-rust:/keystore:ro
+    environment:
+      CONTROLLER_ADDR: 0.0.0.0:8438
+      CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
+      CONTROLLER_USER_ID: 01964b05-5532-7c79-8cde-191dcbd421b8
+      CONTROLLER_TLS_CERT_PATH: /keystore/server.pem
+      CONTROLLER_TLS_KEY_PATH: /keystore/server.key
+      CONTROLLER_TLS_TRUST_CERT_PATH: /keystore/server.pem
+      DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
+      DATABASE_MAXIMUM_POOL_SIZE: 3
+      MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
+      MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
+      MICROSERVICE_JWT_AUDIENCE: urn:com.networknt
+    hostname: controller
+    container_name: controller
+    depends_on:
+      postgres:
+        condition: service_healthy
+      light-oauth:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -f https://localhost:8438/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  light-oauth:
+    image: ${LIGHT_OAUTH_IMAGE:-networknt/light-oauth:2.2.1}
+    ports:
+      - 6881:6881
+      # - 5005:5005
+    volumes:
+      - ./light-oauth-rust/config:/config
+    environment:
+      LIGHT_RS_CONFIG_DIR: /config
+      # The following environment variable will enable the debug in the container.
+      # RUST_LOG: debug
+    # restart: on-failure
+    hostname: light-oauth
+    container_name: light-oauth
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  config-server:
+    image: ${CONFIG_SERVER_IMAGE:-networknt/config-server:2.2.1}
+    ports:
+      - 8435:8435
+    volumes:
+      - ./config-server-rust/config:/config
+    environment:
+      LIGHT_RS_CONFIG_DIR: /config
+      # The following environment variable will enable the debug in the container.
+      # RUST_LOG: debug
+    # restart: on-failure
+    hostname: config-server
+    container_name: config-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      controller:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  portal-service:
+    image: ${PORTAL_SERVICE_IMAGE:-networknt/portal-service:2.2.1}
+    ports:
+      - 2498:2498
+    volumes:
+      - ./portal-service-rust/config:/config
+      - /home/steve/data:/data
+    environment:
+      LIGHT_RS_CONFIG_DIR: /config
+      # The following environment variable will enable the debug in the container.
+      # RUST_LOG: debug
+    # restart: on-failure
+    hostname: portal-service
+    container_name: portal-service
+    networks:
+      default:
+        aliases:
+          - reference
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
