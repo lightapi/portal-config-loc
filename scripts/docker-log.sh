@@ -2,6 +2,7 @@
 rm query1.txt
 rm query2.txt
 rm query3.txt
+rm query.txt
 rm command.txt
 rm oauth.txt
 rm postgres.txt
@@ -15,6 +16,7 @@ rm controller.txt
 docker logs hybrid-query1 > query1.txt
 docker logs hybrid-query2 > query2.txt
 docker logs hybrid-query3 > query3.txt
+docker logs hybrid-query > query.txt
 docker logs hybrid-command > command.txt
 docker logs light-oauth > oauth.txt
 docker logs postgres > postgres.txt
