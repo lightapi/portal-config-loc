@@ -102,7 +102,7 @@ services:
     ports:
       - 6881:6881
     volumes:
-      - ./oauth-kafka/config:/config
+      - ./light-oauth-java/config:/config
     hostname: oauth-kafka
     container_name: oauth-kafka
     depends_on:
@@ -120,7 +120,7 @@ services:
     ports:
       - 8435:8435
     volumes:
-      - ./config-server/config:/config
+      - ./config-server-java/config:/config
     hostname: config-server
     container_name: config-server
     depends_on:
@@ -138,7 +138,7 @@ services:
   controller:
     image: networknt/light-controller:2.2.1-native
     volumes:
-      - ./light-controller/config:/config
+      - ./light-controller-java/config:/config
     ports:
       - 8438:8438
     hostname: controller
@@ -155,15 +155,19 @@ services:
       retries: 10
       start_period: 10s
 
-  reference:
+  portal-service:
     image: networknt/light-reference:2.2.1-native
     ports:
       - 2498:2498
     volumes:
-      - ./light-reference/config:/config
+      - ./portal-service-java/config:/config
       - /home/steve/data:/data
-    hostname: reference
-    container_name: reference
+    hostname: portal-service
+    container_name: portal-service
+    networks:
+      default:
+        aliases:
+          - reference
     depends_on:
       postgres:
         condition: service_healthy

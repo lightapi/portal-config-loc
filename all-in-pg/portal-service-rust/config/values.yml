@@ -1,0 +1,6 @@
+# Default configuration values for portal-service
+db_url: "postgres://postgres:secret@postgres:5432/configserver"
+server_port: 2498
+host_id: "01964b05-552a-7c4b-9184-6857e7f3dc5f"
+tls_cert_path: "cert.pem"
+tls_key_path: "key.pem"
