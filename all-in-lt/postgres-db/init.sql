@@ -1,7 +1,6 @@
 CREATE DATABASE configserver;
 \c configserver;
 
--- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS session_memory_t CASCADE;
@@ -1991,7 +1990,7 @@ CREATE TABLE auth_provider_t (
 ALTER TABLE auth_provider_t
     ADD CONSTRAINT auth_provider_uk UNIQUE (host_id, provider_name);
 
-
+    
 CREATE TABLE auth_provider_key_t (
     host_id              UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
@@ -2049,6 +2048,7 @@ CREATE TABLE auth_client_t (
     PRIMARY KEY (host_id, client_id),
     FOREIGN KEY(host_id, app_id) REFERENCES app_t(host_id, app_id) ON DELETE CASCADE,
     FOREIGN KEY(host_id, api_version_id) REFERENCES api_version_t(host_id, api_version_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
     CHECK ((app_id IS NOT NULL) <> (api_version_id IS NOT NULL))
 );
 
@@ -2071,7 +2071,8 @@ CREATE TABLE auth_client_token_t (
     delete_ts            TIMESTAMP WITH TIME ZONE,
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (host_id, client_id, token_id)   -- All three should be part the portal token
+    PRIMARY KEY (host_id, client_id, token_id),   -- All three should be part the portal token
+    FOREIGN KEY(host_id, client_id) REFERENCES auth_client_t(host_id, client_id) ON DELETE CASCADE
 );
 
 
@@ -2093,6 +2094,7 @@ CREATE TABLE auth_provider_client_t (
 CREATE TABLE auth_code_t (
     auth_code            VARCHAR(22) NOT NULL,
     host_id              UUID NOT NULL,
+    client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
     entity_id            VARCHAR(50) NOT NULL,
@@ -2110,17 +2112,18 @@ CREATE TABLE auth_code_t (
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
-    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, provider_id) REFERENCES auth_provider_t(host_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_refresh_token_t (
     refresh_token        UUID NOT NULL,
     host_id              UUID NOT NULL,
+    client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
     entity_id            VARCHAR(50) NOT NULL,
@@ -2130,19 +2133,22 @@ CREATE TABLE auth_refresh_token_t (
     groups               VARCHAR(4096),
     positions            VARCHAR(4096),
     attributes           VARCHAR(4096),
-    client_id            UUID NOT NULL,
     scope                VARCHAR(1024),
     csrf                 VARCHAR(36),
     custom_claim         VARCHAR(2000),
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     delete_user          VARCHAR (255),
     delete_ts            TIMESTAMP WITH TIME ZONE,
-    update_user               VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
-    update_ts                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_auth_code_t_host_client_provider ON auth_code_t(host_id, client_id, provider_id);
+CREATE INDEX idx_auth_refresh_token_t_host_client_provider ON auth_refresh_token_t(host_id, client_id, provider_id);
 
 CREATE TABLE auth_ref_token_t (
     host_id              UUID NOT NULL,
@@ -2595,6 +2601,8 @@ CREATE TABLE agent_definition_t (
 
 
 -- Skills: Stores Instructions and Domain Knowledge (The "Expertise")
+-- Note: Use entity_tag_t and entity_category_t with entity_type = 'skill' 
+-- for flat tagging and hierarchical folder structure of skills.
 CREATE TABLE skill_t (
     host_id             UUID NOT NULL,
     skill_id            UUID NOT NULL,
@@ -2629,7 +2637,9 @@ CREATE TABLE tool_t (
     mcp_server_name      VARCHAR(126),         -- MCP server name if 'mcp_server'
     api_endpoint        VARCHAR(1024),         -- URL if 'rest'
     api_method          VARCHAR(10),           -- HTTP Method if 'rest'
+    endpoint_id         UUID,                  -- Reference to fine-grained auth endpoint
     script_content      TEXT,                  -- Source code if 'python'/'javascript'
+    response_schema     JSONB,                 -- Strict output schema for tool results
 
     description_embedding VECTOR(384),          -- For semantic lookup/discovery
     version             VARCHAR(20) DEFAULT '1.0.0',
@@ -2637,9 +2647,11 @@ CREATE TABLE tool_t (
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
-    PRIMARY KEY(host_id, tool_id)
+    PRIMARY KEY(host_id, tool_id),
+    FOREIGN KEY(host_id, endpoint_id) REFERENCES api_endpoint_t(host_id, endpoint_id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_tool_host_endpoint ON tool_t(host_id, endpoint_id);
 CREATE INDEX idx_tool_active ON tool_t(active);
 CREATE INDEX idx_tool_name ON tool_t(name);
 
@@ -2717,129 +2729,191 @@ CREATE TABLE skill_tool_t (
 );
 CREATE INDEX idx_skill_tool_skill ON skill_tool_t(skill_id);
 
--- Agent Memory: Stores the conversation thread for a specific process/task
--- This is critical for maintaining context in the cloud.
-CREATE TABLE agent_session_history_t (
+-- -- Hindsight Advanced Memory System
+-- Transitioned from flat logs to biomimetic memory banks (World, Experiences, Mental Models)
+
+-- Memory bank profiles (Personality & Disposition)
+CREATE TABLE agent_memory_bank_t (
     host_id             UUID NOT NULL,
-    session_history_id  UUID NOT NULL,
-    process_id          UUID NOT NULL,         -- Link to your process_info_t
-    task_id             UUID,                  -- Link to task_info_t (optional)
-    role                VARCHAR(20) NOT NULL,  -- 'system', 'user', 'assistant', 'tool'
-    content             TEXT NOT NULL,         -- The message text
-    tool_call_id        VARCHAR(126),          -- If the message is a tool call
-    create_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    create_user         VARCHAR(126) DEFAULT SESSION_USER,
-    active              BOOLEAN DEFAULT true,
-    PRIMARY KEY(host_id, session_history_id),
-    FOREIGN KEY(host_id, process_id) REFERENCES process_info_t(host_id, process_id) ON DELETE CASCADE
-);
-
--- Index for fast retrieval of chat history in chronological order
-CREATE INDEX agent_session_idx1 ON agent_session_history_t (process_id, create_ts);
-
-
-
-
--- Session Memory (Short-term)
--- Stores in-flight conversation context. Auto-expires via TTL.
-CREATE TABLE session_memory_t (
-    host_id             UUID NOT NULL,
-    mem_id              UUID NOT NULL,
-    session_id          UUID NOT NULL,
-    agent_def_id        UUID NOT NULL,
-    user_id             UUID, -- NULL allowed for anonymous sessions or background system tasks
-    content             TEXT NOT NULL,
-    embedding           VECTOR(384),
-    importance_score    FLOAT DEFAULT 1.0,
-    expires_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP + INTERVAL '1 hour', -- TTL
-    metadata            JSONB, -- Rich filtering (e.g., {"topic": "debug", "turn": 5})
+    bank_id             UUID NOT NULL,
+    agent_def_id        UUID,                  -- NULL if bank is shared across agents
+    user_id             UUID,                  -- NULL if bank is global for the host/agent
+    bank_name           VARCHAR(126) NOT NULL,
+    disposition         JSONB NOT NULL DEFAULT '{"skepticism": 3, "literalism": 3, "empathy": 3}'::jsonb,
+    background          TEXT,
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
-    PRIMARY KEY(host_id, mem_id),
-    FOREIGN KEY(host_id, agent_def_id) REFERENCES agent_definition_t(host_id, agent_def_id) ON DELETE CASCADE
-);
-
--- User Memory (Long-term)
--- Stores persistent facts/preferences about a user. Manual or inferred.
-CREATE TABLE user_memory_t (
-    host_id             UUID NOT NULL,
-    mem_id              UUID NOT NULL,
-    user_id             UUID NOT NULL,
-    agent_def_id        UUID,     -- the memory is collocted with which agent.
-    content             TEXT NOT NULL, -- e.g., "User prefers Java over Python"
-    embedding           VECTOR(384),
-    memory_type         VARCHAR(50), -- 'fact', 'preference', 'summary'
-    importance_score    FLOAT DEFAULT 1.0,
-    access_count        INTEGER DEFAULT 0,
-    last_accessed       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    metadata            JSONB, -- e.g., {"confidence": 0.9, "source": "conversation_123"}
-    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
-    active              BOOLEAN DEFAULT true,
-    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    update_user         VARCHAR(126) DEFAULT SESSION_USER,
-    PRIMARY KEY(host_id, mem_id),
+    PRIMARY KEY(host_id, bank_id),
+    FOREIGN KEY(host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, agent_def_id) REFERENCES agent_definition_t(host_id, agent_def_id) ON DELETE CASCADE,
     FOREIGN KEY(user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
 );
 
--- Agent Memory (Private/Operational)
--- Stores agent-specific learning, state, or persistent persona data.
--- Scope: Private to the agent, typically across multiple users or sessions.
-CREATE TABLE agent_memory_t (
+-- Source documents for memory units
+CREATE TABLE agent_memory_doc_t (
     host_id             UUID NOT NULL,
-    mem_id              UUID NOT NULL,
-    agent_def_id        UUID NOT NULL,
-    -- NO user_id: This is agent-centric knowledge
-    content             TEXT NOT NULL,
-    embedding           VECTOR(384),
-    memory_type         VARCHAR(50), -- 'learning', 'state', 'persona', 'scratchpad'
-    metadata            JSONB,
+    doc_id              UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    original_text       TEXT,
+    content_hash        TEXT,
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
-    PRIMARY KEY(host_id, mem_id),
-    FOREIGN KEY(host_id, agent_def_id) REFERENCES agent_definition_t(host_id, agent_def_id) ON DELETE CASCADE
+    PRIMARY KEY (host_id, bank_id, doc_id),
+    FOREIGN KEY (host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE
 );
 
--- Organizational Memory (Knowledge Base)
--- Stores global, shared knowledge available to all agents/users.
-CREATE TABLE org_memory_t (
+-- Individual sentence-level memories (The "Atoms" of thought)
+CREATE TABLE agent_memory_unit_t (
     host_id             UUID NOT NULL,
-    mem_id              UUID NOT NULL,
-    domain              VARCHAR(64) NOT NULL,
-    source              VARCHAR(255), -- Document source/name
+    unit_id             UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    doc_id              UUID,
     content             TEXT NOT NULL,
-    embedding           VECTOR(384),
-    chunk_index         INTEGER, -- For large documents split into chunks
-    document_id         UUID, -- Reference to parent document
-    metadata            JSONB, -- e.g., {"department": "HR", "version": "1.0"}
+    embedding           vector(384),
+    context             TEXT,
+    event_date          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    occurred_start      TIMESTAMP WITH TIME ZONE,
+    occurred_end        TIMESTAMP WITH TIME ZONE,
+    mentioned_at        TIMESTAMP WITH TIME ZONE,
+    fact_type           VARCHAR(32) NOT NULL DEFAULT 'world' CHECK (fact_type IN ('world', 'experience', 'opinion', 'observation', 'mental_model')),
+    metadata            JSONB DEFAULT '{}'::jsonb,
+    proof_count         INT DEFAULT 1,
+    source_memory_ids   UUID[] DEFAULT ARRAY[]::UUID[],
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
-    PRIMARY KEY(host_id, mem_id),
-    FOREIGN KEY(domain) REFERENCES org_t(domain) ON DELETE CASCADE
+    PRIMARY KEY(host_id, bank_id, unit_id),
+    FOREIGN KEY(host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, bank_id, doc_id) REFERENCES agent_memory_doc_t(host_id, bank_id, doc_id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_mem_unit_bank ON agent_memory_unit_t(bank_id);
+CREATE INDEX idx_mem_unit_embedding ON agent_memory_unit_t USING hnsw (embedding vector_cosine_ops);
 
--- Indexes for similarity search and metadata filtering
-CREATE INDEX idx_session_memory_embedding ON session_memory_t
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX idx_session_metadata ON session_memory_t USING GIN (metadata);
+-- Resolved entities (Knowledge Graph Nodes)
+CREATE TABLE agent_memory_entity_t (
+    host_id             UUID NOT NULL,
+    entity_id           UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    user_id             UUID,                  -- Link to user_t if this entity is a platform user
+    canonical_name      TEXT NOT NULL,
+    mention_count       INT DEFAULT 1,
+    metadata            JSONB DEFAULT '{}'::jsonb,
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY (host_id, bank_id, entity_id),
+    FOREIGN KEY (host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
+);
 
-CREATE INDEX idx_user_memory_embedding ON user_memory_t
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX idx_user_metadata ON user_memory_t USING GIN (metadata);
+-- Association between memory units and entities
+CREATE TABLE agent_memory_unit_entity_t (
+    host_id             UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    unit_id             UUID NOT NULL,
+    entity_id           UUID NOT NULL,
+    PRIMARY KEY (host_id, bank_id, unit_id, entity_id),
+    FOREIGN KEY (host_id, bank_id, unit_id) REFERENCES agent_memory_unit_t(host_id, bank_id, unit_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, bank_id, entity_id) REFERENCES agent_memory_entity_t(host_id, bank_id, entity_id) ON DELETE CASCADE
+);
 
-CREATE INDEX idx_agent_memory_embedding ON agent_memory_t
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX idx_agent_metadata ON agent_memory_t USING GIN (metadata);
+-- Cache of entity co-occurrences (Concept Relationship Graph)
+CREATE TABLE agent_memory_entity_cooccur_t (
+    host_id             UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    entity_id_1         UUID NOT NULL,
+    entity_id_2         UUID NOT NULL,
+    cooccur_count       INT DEFAULT 1,
+    last_cooccurred     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY (host_id, bank_id, entity_id_1, entity_id_2),
+    CONSTRAINT entity_cooccur_order_check CHECK (entity_id_1 < entity_id_2),
+    FOREIGN KEY (host_id, bank_id, entity_id_1) REFERENCES agent_memory_entity_t(host_id, bank_id, entity_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, bank_id, entity_id_2) REFERENCES agent_memory_entity_t(host_id, bank_id, entity_id) ON DELETE CASCADE
+);
 
-CREATE INDEX idx_org_memory_embedding ON org_memory_t
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX idx_org_metadata ON org_memory_t USING GIN (metadata);
+CREATE INDEX idx_mem_cooccur_e1 ON agent_memory_entity_cooccur_t(host_id, entity_id_1);
+CREATE INDEX idx_mem_cooccur_e2 ON agent_memory_entity_cooccur_t(host_id, entity_id_2);
+
+-- Links between memory units (Semantic & Causal relationships)
+CREATE TABLE agent_memory_link_t (
+    host_id             UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    from_unit_id        UUID NOT NULL,
+    to_unit_id          UUID NOT NULL,
+    link_type           VARCHAR(32) NOT NULL,
+    weight              FLOAT NOT NULL DEFAULT 1.0,
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY (host_id, bank_id, from_unit_id, to_unit_id, link_type),
+    CONSTRAINT memory_links_type_check CHECK (link_type IN ('temporal', 'semantic', 'entity', 'causes', 'caused_by', 'enables', 'prevents')),
+    FOREIGN KEY (host_id, bank_id, from_unit_id) REFERENCES agent_memory_unit_t(host_id, bank_id, unit_id) ON DELETE CASCADE,
+    FOREIGN KEY (host_id, bank_id, to_unit_id) REFERENCES agent_memory_unit_t(host_id, bank_id, unit_id) ON DELETE CASCADE
+);
+
+-- Directives (Hard rules that override probabilistic learning)
+CREATE TABLE agent_memory_directive_t (
+    host_id             UUID NOT NULL,
+    directive_id        UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    name                VARCHAR(256) NOT NULL,
+    content             TEXT NOT NULL,
+    priority            INT NOT NULL DEFAULT 0,
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, bank_id, directive_id),
+    FOREIGN KEY(host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE
+);
+
+-- Reflections (Synthesized knowledge and high-level observations)
+CREATE TABLE agent_memory_reflection_t (
+    host_id             UUID NOT NULL,
+    reflection_id       UUID NOT NULL,
+    bank_id             UUID NOT NULL,
+    content             TEXT NOT NULL,
+    embedding           vector(384),
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, bank_id, reflection_id),
+    FOREIGN KEY(host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_mem_reflection_embedding ON agent_memory_reflection_t USING hnsw (embedding vector_cosine_ops);
+
+-- Raw Session History (The source of Truth for active conversations)
+CREATE TABLE agent_session_history_t (
+    host_id             UUID NOT NULL,
+    session_id          UUID NOT NULL,
+    bank_id             UUID NOT NULL,         -- Links the session to a Hindsight bank
+    messages            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metadata            JSONB DEFAULT '{}'::jsonb,
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, bank_id, session_id),
+    FOREIGN KEY(host_id, bank_id) REFERENCES agent_memory_bank_t(host_id, bank_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_session_bank ON agent_session_history_t(host_id, bank_id);
+
+
 
 
 
@@ -2947,34 +3021,34 @@ SELECT
     fd.constraint_name,
     -- Human readable mapping
     string_agg(
-        format('%I → %I',
-            (SELECT attname FROM pg_attribute
+        format('%I → %I', 
+            (SELECT attname FROM pg_attribute 
              WHERE attrelid = fd.parent_table_oid
                AND attnum = fd.parent_col),
-            (SELECT attname FROM pg_attribute
+            (SELECT attname FROM pg_attribute 
              WHERE attrelid = fd.child_table_oid
                AND attnum = fd.child_col)
-        ),
+        ), 
         ', ' ORDER BY fd.ord
     ) AS foreign_key_mapping,
     -- Structured data for trigger
     jsonb_object_agg(
-        (SELECT attname FROM pg_attribute
+        (SELECT attname FROM pg_attribute 
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col),
-        (SELECT attname FROM pg_attribute
+        (SELECT attname FROM pg_attribute 
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
     ) AS foreign_key_json,
     -- Arrays for easier processing
     array_agg(
-        (SELECT attname FROM pg_attribute
+        (SELECT attname FROM pg_attribute 
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col)
         ORDER BY fd.ord
     ) AS parent_columns,
     array_agg(
-        (SELECT attname FROM pg_attribute
+        (SELECT attname FROM pg_attribute 
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
         ORDER BY fd.ord
@@ -3020,10 +3094,10 @@ WHERE EXISTS (
       AND a.attname = 'delete_ts'
       AND NOT a.attisdropped
 )
-GROUP BY
+GROUP BY 
     fd.parent_schema, fd.parent_table,
     fd.child_schema, fd.child_table,
-    fd.constraint_name, fd.constraint_id,
+    fd.constraint_name, fd.constraint_id, 
     fd.child_table_oid, fd.parent_table_oid
 ORDER BY fd.parent_schema, fd.parent_table, fd.child_schema, fd.child_table;
 
@@ -3041,41 +3115,41 @@ DECLARE
 BEGIN
     -- Get current user
     current_user_name := current_user;
-
+    
     -- Handle SOFT DELETE (active = false)
     IF NEW.active = FALSE AND OLD.active = TRUE THEN
         -- Generate deletion timestamp
         delete_timestamp := CURRENT_TIMESTAMP;
-
+        
         -- Set deletion context
-        deletion_context := format('PARENT_CASCADE_%s_%s',
-            TG_TABLE_NAME,
+        deletion_context := format('PARENT_CASCADE_%s_%s', 
+            TG_TABLE_NAME, 
             to_char(delete_timestamp, 'YYYYMMDD_HH24MISSMS')
         );
-
+        
         -- Update parent with deletion context if columns exist
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = TG_TABLE_SCHEMA
-              AND table_name = TG_TABLE_NAME
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = TG_TABLE_SCHEMA 
+              AND table_name = TG_TABLE_NAME 
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := deletion_context;
         END IF;
-
+        
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = TG_TABLE_SCHEMA
-              AND table_name = TG_TABLE_NAME
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = TG_TABLE_SCHEMA 
+              AND table_name = TG_TABLE_NAME 
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := delete_timestamp;
         END IF;
-
+        
         -- Update parent's update columns
         NEW.update_ts := delete_timestamp;
         NEW.update_user := current_user_name;
-
+        
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -3094,15 +3168,15 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-
+            
             -- Add condition to only update currently active records
             where_clause := where_clause || ' AND active = TRUE';
-
+            
             -- Cascade the soft delete with context
             query_text := format(
-                'UPDATE %I.%I
+                'UPDATE %I.%I 
                  SET active = FALSE,
-                     delete_ts = $2,
+                     delete_ts = $2, 
                      delete_user = $3,
                      update_ts = $2,
                      update_user = $4
@@ -3111,14 +3185,14 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-
+            
             EXECUTE query_text USING OLD, delete_timestamp, deletion_context, current_user_name;
         END LOOP;
-
+        
     -- Handle RESTORE (active = true)
     ELSIF NEW.active = TRUE AND OLD.active = FALSE THEN
         -- Only restore children that were deleted by parent cascade
-
+        
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -3127,7 +3201,7 @@ BEGIN
         LOOP
             -- Pattern to match cascade deletions
             deletion_context_pattern := format('PARENT_CASCADE_%s_%%', TG_TABLE_NAME);
-
+            
             -- Build WHERE clause
             where_clause := '';
             FOR column_index IN 1..fk_record.column_count LOOP
@@ -3140,16 +3214,16 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-
+            
             -- Only restore cascade-deleted records
-            where_clause := where_clause ||
+            where_clause := where_clause || 
                 ' AND delete_user LIKE $2 AND active = FALSE';
-
+            
             -- Restore the records
             query_text := format(
-                'UPDATE %I.%I
+                'UPDATE %I.%I 
                  SET active = TRUE,
-                     delete_ts = NULL,
+                     delete_ts = NULL, 
                      delete_user = NULL,
                      update_ts = CURRENT_TIMESTAMP,
                      update_user = $3
@@ -3158,34 +3232,34 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-
+            
             EXECUTE query_text USING OLD, deletion_context_pattern, current_user_name;
         END LOOP;
-
+        
         -- Clear parent's deletion context
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = TG_TABLE_SCHEMA
-              AND table_name = TG_TABLE_NAME
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = TG_TABLE_SCHEMA 
+              AND table_name = TG_TABLE_NAME 
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := NULL;
         END IF;
-
+        
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = TG_TABLE_SCHEMA
-              AND table_name = TG_TABLE_NAME
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = TG_TABLE_SCHEMA 
+              AND table_name = TG_TABLE_NAME 
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := NULL;
         END IF;
-
+        
         -- Update parent's update columns
         NEW.update_ts := CURRENT_TIMESTAMP;
         NEW.update_user := current_user_name;
     END IF;
-
+    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -3200,7 +3274,7 @@ DECLARE
     has_delete_ts_column BOOLEAN;
 BEGIN
     FOR table_record IN
-        SELECT
+        SELECT 
             n.nspname AS schema_name,
             c.relname AS table_name,
             c.oid AS table_oid
@@ -3222,27 +3296,27 @@ BEGIN
               AND a.attname = 'active'
               AND NOT a.attisdropped
         ) INTO has_active_column;
-
+        
         SELECT EXISTS (
             SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = table_record.table_oid
               AND a.attname = 'delete_ts'
               AND NOT a.attisdropped
         ) INTO has_delete_ts_column;
-
+        
         IF NOT (has_active_column AND has_delete_ts_column) THEN
-            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)',
+            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)', 
                 table_record.schema_name, table_record.table_name,
                 has_active_column, has_delete_ts_column;
             CONTINUE;
         END IF;
-
+        
         -- Drop existing trigger if it exists
         EXECUTE format(
             'DROP TRIGGER IF EXISTS trg_cascade_soft_ops ON %I.%I',
             table_record.schema_name, table_record.table_name
         );
-
+        
         -- Create new trigger
         EXECUTE format(
             'CREATE TRIGGER trg_cascade_soft_ops
@@ -3251,8 +3325,8 @@ BEGIN
              EXECUTE FUNCTION smart_cascade_soft_delete()',
             table_record.schema_name, table_record.table_name
         );
-
-        RAISE NOTICE 'Created cascade trigger on %.%',
+        
+        RAISE NOTICE 'Created cascade trigger on %.%', 
             table_record.schema_name, table_record.table_name;
     END LOOP;
 END $$;
@@ -3308,7 +3382,7 @@ BEGIN
     FROM deployment_instance_t
     WHERE host_id = p_host_id AND instance_id = p_instance_id AND active = TRUE
     LIMIT 1;
-
+    
     -- Get product_id (Needed for product_property_t)
     SELECT product_id INTO v_product_id
     FROM product_version_t
@@ -3336,12 +3410,18 @@ BEGIN
         environment, product_id, product_version, service_id
     ) VALUES (
         p_snapshot_id, p_snapshot_type, p_host_id, p_instance_id, p_description, p_user_id, p_deployment_id,
-        v_environment, v_product_id, (SELECT product_version FROM product_version_t WHERE product_version_id = v_product_version_id), v_service_id
+        v_environment, v_product_id, (
+            SELECT product_version
+            FROM product_version_t
+            WHERE product_version_id = v_product_version_id
+              AND host_id = p_host_id
+              AND active = TRUE
+        ), v_service_id
     );
 
     -- 4. Copy data to all relevant RAW snapshot tables (STEPS A-I)
     -- This data will be used by the MERGE step (Step J)
-
+    
     -- A. snapshot_instance_property_t (Instance Overrides)
     INSERT INTO snapshot_instance_property_t (
         snapshot_id, host_id, instance_id, property_id, property_value,
@@ -3505,7 +3585,7 @@ BEGIN
         value_type,
         source_level
     )
-    WITH
+    WITH 
     -- 1. Deployment Override (Highest Priority - No Merge)
     DeploymentOverride AS (
         SELECT t.property_id, t.property_value, 1 AS priority_rank, 'deployment_instance' AS source_level
@@ -3525,7 +3605,7 @@ BEGIN
     ),
     -- Perform the Merge for the Instance Pool
     MergedInstanceLevel AS (
-        SELECT
+        SELECT 
             ip.property_id,
             CASE cp.value_type
                 WHEN 'list' THEN (
@@ -3538,7 +3618,7 @@ BEGIN
                         WHERE sub.property_value ~ '^\s*\[.*\]\s*$'
                         UNION ALL
                         SELECT to_jsonb(sub.property_value) AS elem
-                        WHERE sub.property_value !~ '^\s*\[.*\]\s*$'
+                        WHERE sub.property_value !~ '^\s*\[.*\]\s*$' 
                           AND sub.property_value != ''
                     ) q
                     WHERE sub.property_id = ip.property_id
@@ -3641,6 +3721,7 @@ CREATE TRIGGER event_trigger
 AFTER INSERT ON outbox_message_t
 FOR EACH STATEMENT
 EXECUTE FUNCTION notify_event();
+
 
 INSERT INTO user_t (user_id, language, first_name, last_name, email, user_type, verified, password)
 VALUES ('01964b05-5532-7c79-8cde-191dcbd421b8', 'en', 'Steve', 'Hu', 'steve.hu@lightapi.net', 'E', true, '1000:5b39342c202d37372c203132302c202d3132302c2034372c2032332c2034352c202d34342c202d31362c2034372c202d35392c202d35362c2039302c202d352c202d38322c202d32385d:949e6fcf9c4bb8a3d6a8c141a3a9182a572fb95fe8ccdc93b54ba53df8ef2e930f7b0348590df0d53f242ccceeae03aef6d273a34638b49c559ada110ec06992');
