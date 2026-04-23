@@ -30,11 +30,11 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
 
     case "$CONTROLLER_TYPE" in
         java)
-            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose.controller-java.yml")
+            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose-java.yml")
             shift
             ;;
         rust)
-            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose.controller-rs.yml")
+            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose-rust.yml")
             shift
             ;;
         *)
@@ -45,7 +45,7 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
             fi
 
             CONTROLLER_TYPE="java"
-            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose.controller-java.yml")
+            DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose-java.yml")
             ;;
     esac
 fi
@@ -294,7 +294,7 @@ main() {
     log_info "Starting full deployment process"
     log_info "Logging to: $LOG_FILE"
     if [ -n "$CONTROLLER_TYPE" ]; then
-        log_info "Selected controller type: $CONTROLLER_TYPE"
+        log_info "Selected pg service type: $CONTROLLER_TYPE"
     fi
 
     # Step 1: Check prerequisites
@@ -319,7 +319,7 @@ main() {
     log_info "To view logs: docker compose ${DOCKER_COMPOSE_FILES[*]} logs -f"
 
     cd "$DOCKER_COMPOSE_DIR" || return 1
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f light-gateway oauth-kafka hybrid-query1 hybrid-query2 hybrid-query3 hybrid-command > output.log &
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f light-gateway light-oauth portal-service hybrid-query1 hybrid-query2 hybrid-query3 hybrid-command > output.log &
     ./log-monitor output.log
 
 }
@@ -351,9 +351,9 @@ case "${1:-}" in
         echo "  pg              Use Postgres configuration"
         echo "  light           Use Light configuration"
         echo ""
-        echo "Controller (optional, pg only):"
-        echo "  java            Use Java controller (default for pg)"
-        echo "  rust            Use Rust controller"
+        echo "Service type (optional, pg only):"
+        echo "  java            Use Java controller and OAuth services (default for pg)"
+        echo "  rust            Use Rust controller and OAuth services"
         echo ""
         echo "Commands:"
         echo "  (no command)    Full deployment (stop, build, start)"

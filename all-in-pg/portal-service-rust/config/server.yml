@@ -1,0 +1,6 @@
+# Server configuration
+dbUrl: ${db_url}
+port: ${server_port}
+hostId: ${host_id}
+tlsCertPath: ${tls_cert_path}
+tlsKeyPath: ${tls_key_path}

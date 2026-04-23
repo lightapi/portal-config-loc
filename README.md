@@ -70,14 +70,14 @@ If you want Docker to use locally built baked-in images instead of the published
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.image-local.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
 ```
 
 If you want Docker to use the host service folders directly instead of baked-in jars, add the service-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose -f docker-compose.yml -f docker-compose.controller-rs.yml -f docker-compose.service-local.yml up -d
+docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.service-local.yml up -d
 ```
 
 
