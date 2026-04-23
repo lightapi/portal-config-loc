@@ -41,7 +41,7 @@ cors.allowedMethods:
 direct-registry.directUrls:
   com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440
   com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
-  com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
+  com.networknt.light-oauth-1.0.0: https://oauth-kafka:6881
   com.networknt.reference-1.0.0: https://reference:2498
 
 # service.yml

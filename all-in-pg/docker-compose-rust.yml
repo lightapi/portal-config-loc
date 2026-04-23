@@ -47,10 +47,6 @@ services:
     # restart: on-failure
     hostname: light-oauth
     container_name: light-oauth
-    networks:
-      default:
-        aliases:
-          - oauth-kafka
     depends_on:
       postgres:
         condition: service_healthy

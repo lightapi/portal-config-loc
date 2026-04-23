@@ -16,9 +16,9 @@ docker logs hybrid-query1 > query1.txt
 docker logs hybrid-query2 > query2.txt
 docker logs hybrid-query3 > query3.txt
 docker logs hybrid-command > command.txt
-docker logs oauth-kafka > oauth.txt
+docker logs light-oauth > oauth.txt
 docker logs postgres > postgres.txt
-docker logs reference > reference.txt
+docker logs portal-service > reference.txt
 docker logs light-gateway > gateway.txt
 docker logs broker > broker.txt
 docker logs connect > connect.txt

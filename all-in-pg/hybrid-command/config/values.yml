@@ -1,4 +1,3 @@
-# server.yml
 server.httpsPort: 8439
 server.serviceId: com.networknt.portal.hybrid.command-1.0.0
 # overwrite environment tag to simplify the service discovery.
@@ -6,10 +5,10 @@ server.environment: null
 
 # client.yml
 client.verifyHostname: false
-client.tokenServerUrl: https://oauth-kafka:6881
+client.tokenServerUrl: https://light-oauth:6881
 client.tokenAcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
 client.tokenCcClientId: f7d42348-c647-4efb-a52d-4c5787421e72
-client.tokenKeyServerUrl: https://oauth-kafka:6881
+client.tokenKeyServerUrl: https://light-oauth:6881
 client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 # Client Credential
 client.tokenCcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
@@ -49,7 +48,7 @@ cors.allowedMethods:
 direct-registry.directUrls:
   com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query1:8440,https://hybrid-query2:8441,https://hybrid-query3:8442
   com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
-  com.networknt.oauth-kafka-1.0.0: https://oauth-kafka:6881
+  com.networknt.light-oauth-1.0.0: https://light-oauth:6881
   com.networknt.reference-1.0.0: https://reference:2498
 
 # service.yml

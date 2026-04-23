@@ -1,6 +1,6 @@
 # controller.yml
 controller.listenAddress: 0.0.0.0:8438
-controller.microserviceJwksUrl: https://oauth-kafka:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
+controller.microserviceJwksUrl: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 controller.jwksVerifyHostname: false
 controller.databaseDriverClassName: org.postgresql.Driver
 controller.databaseUrl: jdbc:postgresql://postgres:5432/configserver

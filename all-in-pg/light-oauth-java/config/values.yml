@@ -1,11 +1,10 @@
 # server.yml
-server.serviceId: com.networknt.oauth-kafka-1.0.0
+server.serviceId: com.networknt.light-oauth-1.0.0
 server.httpsPort: 6881
 
 # client.yml
 client.timeout: 3000
 client.verifyHostname: false
-
 client.tokenKeyServerUrl: https://localhost:6881
 client.tokenKeyUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/keys
 

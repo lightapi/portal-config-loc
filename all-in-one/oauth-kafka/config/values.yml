@@ -1,5 +1,5 @@
 # server.yml
-server.serviceId: com.networknt.oauth-kafka-1.0.0
+server.serviceId: com.networknt.light-oauth-1.0.0
 server.httpsPort: 6881
 
 # client.yml
