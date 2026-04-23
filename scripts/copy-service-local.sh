@@ -2,6 +2,46 @@
 
 shopt -s extglob
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+DEFAULT_DEST_DIR="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+
+detect_base_dir() {
+    if [ -n "${PORTAL_BASE_DIR:-}" ]; then
+        echo "$PORTAL_BASE_DIR"
+        return 0
+    fi
+
+    if [ -n "${BASE_DIR:-}" ]; then
+        echo "$BASE_DIR"
+        return 0
+    fi
+
+    if [ -n "${WORKSPACE_DIR:-}" ]; then
+        echo "$WORKSPACE_DIR"
+        return 0
+    fi
+
+    local candidate
+    candidate="$(cd "$DEFAULT_DEST_DIR/.." && pwd -P)"
+    if [ -d "$candidate/portal-config-loc" ]; then
+        echo "$candidate"
+        return 0
+    fi
+
+    if [ -d "$HOME/workspace/portal-config-loc" ]; then
+        echo "$HOME/workspace"
+        return 0
+    fi
+
+    if [ -d "$HOME/lightapi/portal-config-loc" ]; then
+        echo "$HOME/lightapi"
+        return 0
+    fi
+
+    echo "Error: Cannot detect base directory. Set PORTAL_BASE_DIR, BASE_DIR, or WORKSPACE_DIR." >&2
+    return 1
+}
+
 # Check for force switch
 FORCE_BUILD=false
 if [[ "$1" == "-f" ]] || [[ "$1" == "--force" ]]; then
@@ -9,11 +49,21 @@ if [[ "$1" == "-f" ]] || [[ "$1" == "--force" ]]; then
     echo "Force build enabled: Compiling all projects regardless of status."
 fi
 
-# Base directory
-BASE_DIR=~/lightapi
-DEST_DIR=~/lightapi/portal-config-loc
-SERVICE_ASSET_DIR="$BASE_DIR/service-asset"
+if ! BASE_DIR="$(detect_base_dir)"; then
+    exit 1
+fi
+DEST_DIR="${DEST_DIR:-$BASE_DIR/portal-config-loc}"
+SERVICE_ASSET_DIR="${SERVICE_ASSET_DIR:-$BASE_DIR/service-asset}"
+
+if [ ! -d "$DEST_DIR" ]; then
+    echo "Error: portal-config-loc repository not found at $DEST_DIR"
+    exit 1
+fi
+
 cd "$BASE_DIR" || { echo "Error: Cannot cd to $BASE_DIR"; exit 1; }
+
+echo "Using base directory: $BASE_DIR"
+echo "Using destination directory: $DEST_DIR"
 
 echo "Checking repository statuses with mgitstatus..."
 REPO_CHANGES_RAW=$(mgitstatus)
