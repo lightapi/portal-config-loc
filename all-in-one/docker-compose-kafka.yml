@@ -70,14 +70,35 @@ services:
       kafka-topics --bootstrap-server broker:29092 --list
       "
 
+  connect:
+    image: quay.io/debezium/connect:2.7
+    ports:
+      - 8083:8083
+    depends_on:
+      broker:
+        condition: service_started
+      init-kafka:
+        condition: service_completed_successfully
+    container_name: connect
+    environment:
+      BOOTSTRAP_SERVERS: broker:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+
   kafka-ui:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
     ports:
       - 8080:8080
     depends_on:
-      - broker
-      - schema-registry
+      broker:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+      connect:
+        condition: service_started
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'broker:29092'
