@@ -521,10 +521,10 @@ cache.caches:
 # cors.yml
 cors.enabled: true
 cors.allowedOrigins:
-  - https://devsignin.lightapi.net
-  - https://locsignin.lightapi.net
-  - https://dev.lightapi.net
   - https://localhost:3000
+  - https://local.localhost
+  - https://signin.localhost
+  - https://oauth.localhost
   - http://localhost:5173
   - http://0.0.0.0:6274
   - https://localhost:8443
@@ -560,13 +560,13 @@ token.appliedPathPrefixes:
 
 # virtual host
 virtual-host.hosts:
-  - domain: local.lightapi.net
+  - domain: local.localhost
     path: /
     #base: /home/steve/light-chain/light-config-test/light-router/local-direct/lightapi/build
     base: /lightapi/dist
     transferMinSize: 10245760
     directoryListingEnabled: false
-  - domain: locsignin.lightapi.net
+  - domain: signin.localhost
     path: /
     #base: /home/steve/light-chain/light-config-test/light-router/local-direct/signin/build
     base: /signin/dist
