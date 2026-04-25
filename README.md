@@ -98,14 +98,6 @@ cd ~/lightapi/service-asset
 ./importer.sh -f events.json
 ```
 
-## Update /etc/hosts
-
-Update /etc/hosts to add the following line. Please change the IP address to your desktop IP. On my linux desktop, I use the following:
-
-```
-192.168.5.85  local.lightapi.net locsignin.lightapi.net
-```
-
 ## Start portal-view
 
 Start the portal view in Nodejs to UI development.

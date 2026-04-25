@@ -29,7 +29,9 @@ db-provider.maximumPoolSize: 3
 cors.enabled: true
 cors.allowedOrigins:
   - https://localhost:3000
-  - https://dev.lightapi.net
+  - https://local.localhost
+  - https://signin.localhost
+  - https://oauth.localhost
 cors.allowedMethods:
   - GET
   - POST

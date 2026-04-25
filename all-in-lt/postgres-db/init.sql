@@ -1990,7 +1990,7 @@ CREATE TABLE auth_provider_t (
 ALTER TABLE auth_provider_t
     ADD CONSTRAINT auth_provider_uk UNIQUE (host_id, provider_name);
 
-    
+
 CREATE TABLE auth_provider_key_t (
     host_id              UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
@@ -2601,7 +2601,7 @@ CREATE TABLE agent_definition_t (
 
 
 -- Skills: Stores Instructions and Domain Knowledge (The "Expertise")
--- Note: Use entity_tag_t and entity_category_t with entity_type = 'skill' 
+-- Note: Use entity_tag_t and entity_category_t with entity_type = 'skill'
 -- for flat tagging and hierarchical folder structure of skills.
 CREATE TABLE skill_t (
     host_id             UUID NOT NULL,
@@ -3021,34 +3021,34 @@ SELECT
     fd.constraint_name,
     -- Human readable mapping
     string_agg(
-        format('%I → %I', 
-            (SELECT attname FROM pg_attribute 
+        format('%I → %I',
+            (SELECT attname FROM pg_attribute
              WHERE attrelid = fd.parent_table_oid
                AND attnum = fd.parent_col),
-            (SELECT attname FROM pg_attribute 
+            (SELECT attname FROM pg_attribute
              WHERE attrelid = fd.child_table_oid
                AND attnum = fd.child_col)
-        ), 
+        ),
         ', ' ORDER BY fd.ord
     ) AS foreign_key_mapping,
     -- Structured data for trigger
     jsonb_object_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col),
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
     ) AS foreign_key_json,
     -- Arrays for easier processing
     array_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.parent_table_oid
            AND attnum = fd.parent_col)
         ORDER BY fd.ord
     ) AS parent_columns,
     array_agg(
-        (SELECT attname FROM pg_attribute 
+        (SELECT attname FROM pg_attribute
          WHERE attrelid = fd.child_table_oid
            AND attnum = fd.child_col)
         ORDER BY fd.ord
@@ -3094,10 +3094,10 @@ WHERE EXISTS (
       AND a.attname = 'delete_ts'
       AND NOT a.attisdropped
 )
-GROUP BY 
+GROUP BY
     fd.parent_schema, fd.parent_table,
     fd.child_schema, fd.child_table,
-    fd.constraint_name, fd.constraint_id, 
+    fd.constraint_name, fd.constraint_id,
     fd.child_table_oid, fd.parent_table_oid
 ORDER BY fd.parent_schema, fd.parent_table, fd.child_schema, fd.child_table;
 
@@ -3115,41 +3115,41 @@ DECLARE
 BEGIN
     -- Get current user
     current_user_name := current_user;
-    
+
     -- Handle SOFT DELETE (active = false)
     IF NEW.active = FALSE AND OLD.active = TRUE THEN
         -- Generate deletion timestamp
         delete_timestamp := CURRENT_TIMESTAMP;
-        
+
         -- Set deletion context
-        deletion_context := format('PARENT_CASCADE_%s_%s', 
-            TG_TABLE_NAME, 
+        deletion_context := format('PARENT_CASCADE_%s_%s',
+            TG_TABLE_NAME,
             to_char(delete_timestamp, 'YYYYMMDD_HH24MISSMS')
         );
-        
+
         -- Update parent with deletion context if columns exist
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := deletion_context;
         END IF;
-        
+
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := delete_timestamp;
         END IF;
-        
+
         -- Update parent's update columns
         NEW.update_ts := delete_timestamp;
         NEW.update_user := current_user_name;
-        
+
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -3168,15 +3168,15 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-            
+
             -- Add condition to only update currently active records
             where_clause := where_clause || ' AND active = TRUE';
-            
+
             -- Cascade the soft delete with context
             query_text := format(
-                'UPDATE %I.%I 
+                'UPDATE %I.%I
                  SET active = FALSE,
-                     delete_ts = $2, 
+                     delete_ts = $2,
                      delete_user = $3,
                      update_ts = $2,
                      update_user = $4
@@ -3185,14 +3185,14 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-            
+
             EXECUTE query_text USING OLD, delete_timestamp, deletion_context, current_user_name;
         END LOOP;
-        
+
     -- Handle RESTORE (active = true)
     ELSIF NEW.active = TRUE AND OLD.active = FALSE THEN
         -- Only restore children that were deleted by parent cascade
-        
+
         FOR fk_record IN
             SELECT *
             FROM cascade_relationships_v
@@ -3201,7 +3201,7 @@ BEGIN
         LOOP
             -- Pattern to match cascade deletions
             deletion_context_pattern := format('PARENT_CASCADE_%s_%%', TG_TABLE_NAME);
-            
+
             -- Build WHERE clause
             where_clause := '';
             FOR column_index IN 1..fk_record.column_count LOOP
@@ -3214,16 +3214,16 @@ BEGIN
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
-            
+
             -- Only restore cascade-deleted records
-            where_clause := where_clause || 
+            where_clause := where_clause ||
                 ' AND delete_user LIKE $2 AND active = FALSE';
-            
+
             -- Restore the records
             query_text := format(
-                'UPDATE %I.%I 
+                'UPDATE %I.%I
                  SET active = TRUE,
-                     delete_ts = NULL, 
+                     delete_ts = NULL,
                      delete_user = NULL,
                      update_ts = CURRENT_TIMESTAMP,
                      update_user = $3
@@ -3232,34 +3232,34 @@ BEGIN
                 fk_record.child_table,
                 where_clause
             );
-            
+
             EXECUTE query_text USING OLD, deletion_context_pattern, current_user_name;
         END LOOP;
-        
+
         -- Clear parent's deletion context
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_user'
         ) THEN
             NEW.delete_user := NULL;
         END IF;
-        
+
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = TG_TABLE_SCHEMA 
-              AND table_name = TG_TABLE_NAME 
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = TG_TABLE_SCHEMA
+              AND table_name = TG_TABLE_NAME
               AND column_name = 'delete_ts'
         ) THEN
             NEW.delete_ts := NULL;
         END IF;
-        
+
         -- Update parent's update columns
         NEW.update_ts := CURRENT_TIMESTAMP;
         NEW.update_user := current_user_name;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -3274,7 +3274,7 @@ DECLARE
     has_delete_ts_column BOOLEAN;
 BEGIN
     FOR table_record IN
-        SELECT 
+        SELECT
             n.nspname AS schema_name,
             c.relname AS table_name,
             c.oid AS table_oid
@@ -3296,27 +3296,27 @@ BEGIN
               AND a.attname = 'active'
               AND NOT a.attisdropped
         ) INTO has_active_column;
-        
+
         SELECT EXISTS (
             SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = table_record.table_oid
               AND a.attname = 'delete_ts'
               AND NOT a.attisdropped
         ) INTO has_delete_ts_column;
-        
+
         IF NOT (has_active_column AND has_delete_ts_column) THEN
-            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)', 
+            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)',
                 table_record.schema_name, table_record.table_name,
                 has_active_column, has_delete_ts_column;
             CONTINUE;
         END IF;
-        
+
         -- Drop existing trigger if it exists
         EXECUTE format(
             'DROP TRIGGER IF EXISTS trg_cascade_soft_ops ON %I.%I',
             table_record.schema_name, table_record.table_name
         );
-        
+
         -- Create new trigger
         EXECUTE format(
             'CREATE TRIGGER trg_cascade_soft_ops
@@ -3325,8 +3325,8 @@ BEGIN
              EXECUTE FUNCTION smart_cascade_soft_delete()',
             table_record.schema_name, table_record.table_name
         );
-        
-        RAISE NOTICE 'Created cascade trigger on %.%', 
+
+        RAISE NOTICE 'Created cascade trigger on %.%',
             table_record.schema_name, table_record.table_name;
     END LOOP;
 END $$;
@@ -3382,7 +3382,7 @@ BEGIN
     FROM deployment_instance_t
     WHERE host_id = p_host_id AND instance_id = p_instance_id AND active = TRUE
     LIMIT 1;
-    
+
     -- Get product_id (Needed for product_property_t)
     SELECT product_id INTO v_product_id
     FROM product_version_t
@@ -3421,7 +3421,7 @@ BEGIN
 
     -- 4. Copy data to all relevant RAW snapshot tables (STEPS A-I)
     -- This data will be used by the MERGE step (Step J)
-    
+
     -- A. snapshot_instance_property_t (Instance Overrides)
     INSERT INTO snapshot_instance_property_t (
         snapshot_id, host_id, instance_id, property_id, property_value,
@@ -3585,7 +3585,7 @@ BEGIN
         value_type,
         source_level
     )
-    WITH 
+    WITH
     -- 1. Deployment Override (Highest Priority - No Merge)
     DeploymentOverride AS (
         SELECT t.property_id, t.property_value, 1 AS priority_rank, 'deployment_instance' AS source_level
@@ -3605,7 +3605,7 @@ BEGIN
     ),
     -- Perform the Merge for the Instance Pool
     MergedInstanceLevel AS (
-        SELECT 
+        SELECT
             ip.property_id,
             CASE cp.value_type
                 WHEN 'list' THEN (
@@ -3618,7 +3618,7 @@ BEGIN
                         WHERE sub.property_value ~ '^\s*\[.*\]\s*$'
                         UNION ALL
                         SELECT to_jsonb(sub.property_value) AS elem
-                        WHERE sub.property_value !~ '^\s*\[.*\]\s*$' 
+                        WHERE sub.property_value !~ '^\s*\[.*\]\s*$'
                           AND sub.property_value != ''
                     ) q
                     WHERE sub.property_id = ip.property_id

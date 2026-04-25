@@ -63,33 +63,42 @@ services:
   #     CONFLUENT_METRICS_TOPIC_REPLICATION: 1
   #     PORT: 9021
 
-  # init-kafka:
-  #   image: confluentinc/cp-kafka:7.9.0
-  #   depends_on:
-  #     - broker
-  #   entrypoint: ["/bin/sh", "-c"]
-  #   command: |
-  #     "
-  #     # blocks until kafka is reachable
-  #     kafka-topics --bootstrap-server broker:29092 --list
+  init-kafka:
+    image: confluentinc/cp-kafka:7.9.0
+    depends_on:
+      - broker
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker:29092 --list
 
-  #     echo -e 'Creating kafka topics'
+      echo -e 'Creating kafka topics'
 
-  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
-  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event.dql --config cleanup.policy=compact
-  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
-  #     kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic portal-event.dql --config cleanup.policy=compact
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic light-scheduler --config retention.ms=-1
 
-  #     echo -e 'Successfully created the following topics:'
-  #     kafka-topics --bootstrap-server broker:29092 --list
-  #     "
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-day-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-min-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-every-sec-tasks-store-changelog --config retention.ms=-1
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic hybrid-query-evey-hour-tasks-store-changelog --config retention.ms=-1
+
+      kafka-topics --create --if-not-exists --bootstrap-server broker:29092 --replication-factor 1 --partitions 3 --topic controller-health-check
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server broker:29092 --list
+      "
 
   connect:
     image: quay.io/debezium/connect:2.7
     ports:
      - 8083:8083
     depends_on:
-      - broker
+      broker:
+        condition: service_started
+      init-kafka:
+        condition: service_completed_successfully
     container_name: connect
     environment:
       BOOTSTRAP_SERVERS: broker:29092
@@ -104,8 +113,12 @@ services:
     ports:
       - 8080:8080
     depends_on:
-      - broker
-      - schema-registry
+      broker:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+      connect:
+        condition: service_started
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'broker:29092'
@@ -196,6 +209,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
 
   hybrid-query1:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -210,6 +225,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
 
   hybrid-query2:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -224,6 +241,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
 
   hybrid-query3:
     image: networknt/portal-hybrid-query:2.2.1-slim
@@ -238,6 +257,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
 
   oauth-kafka:
     # image: networknt/oauth-kafka:2.1.38

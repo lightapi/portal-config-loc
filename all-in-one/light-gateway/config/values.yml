@@ -163,9 +163,10 @@ cache.caches:
 # cors.yml
 cors.enabled: true
 cors.allowedOrigins:
-  - https://devsignin.lightapi.net
-  - https://dev.lightapi.net
   - https://localhost:3000
+  - https://local.localhost
+  - https://signin.localhost
+  - https://oauth.localhost
   - http://localhost:5173
 cors.allowedMethods:
   - GET

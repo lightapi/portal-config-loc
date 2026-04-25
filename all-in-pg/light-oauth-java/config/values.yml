@@ -23,12 +23,9 @@ security.enableVerifyJwt: false
 cors.enabled: true
 cors.allowedOrigins:
   - https://localhost:3000
-  - https://lightapi.net
-  - https://signin.lightapi.net
-  - https://dev.lightapi.net
-  - https://devsignin.lightapi.net
-  - https://locsignin.lightapi.net
-  - https://devoauth.lightapi.net
+  - https://local.localhost
+  - https://signin.localhost
+  - https://oauth.localhost
 allowedMethods:
   - GET
   - POST
