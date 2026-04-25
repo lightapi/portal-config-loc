@@ -19,6 +19,8 @@ services:
       MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
       MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
       MICROSERVICE_JWT_AUDIENCE: urn:com.networknt
+      RUST_LOG: debug
+      CONTROLLER_LOG_ANSI: "false"
     hostname: controller
     container_name: controller
     depends_on:
@@ -43,7 +45,8 @@ services:
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
-      # RUST_LOG: debug
+      RUST_LOG: debug
+      OAUTH_LOG_ANSI: "false"
     # restart: on-failure
     hostname: light-oauth
     container_name: light-oauth
@@ -60,7 +63,8 @@ services:
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
-      # RUST_LOG: debug
+      RUST_LOG: debug
+      CONFIG_LOG_ANSI: "false"
     # restart: on-failure
     hostname: config-server
     container_name: config-server
@@ -86,7 +90,8 @@ services:
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
-      # RUST_LOG: debug
+      RUST_LOG: debug
+      PORTAL_LOG_ANSI: "false"
     # restart: on-failure
     hostname: portal-service
     container_name: portal-service
