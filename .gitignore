@@ -32,3 +32,7 @@ all-in-lt/postgres-db/data/
 
 all-in-pg/postgres-db/data/
 dist/
+.gitnexus
+.claude/
+AGENTS.md
+CLAUDE.md
