@@ -63,6 +63,8 @@ services:
     ports:
       - 8440:8440
     # restart: on-failure
+    environment:
+      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query1
     container_name: hybrid-query1
     depends_on:
@@ -80,6 +82,8 @@ services:
     ports:
       - 8441:8441
     # restart: on-failure
+    environment:
+      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query2
     container_name: hybrid-query2
     depends_on:
@@ -97,6 +101,8 @@ services:
     ports:
       - 8442:8442
     # restart: on-failure
+    environment:
+      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query3
     container_name: hybrid-query3
     depends_on:
@@ -119,6 +125,7 @@ services:
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
       STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
       # JAVA_TOOL_OPTIONS: "-Djavax.net.debug=all"
