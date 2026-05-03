@@ -290,3 +290,4 @@ echo "Build and copy completed successfully!"
 echo "Query projects built: ${#QUERY_PROJECTS_BUILT[@]}"
 echo "Command projects built: ${#COMMAND_PROJECTS_BUILT[@]}"
 echo "========================================="
+

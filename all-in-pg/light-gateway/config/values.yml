@@ -578,7 +578,7 @@ websocket-router.pathPrefixService:
   /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0
     protocol: https
-    envTag: DEV
+    envTag: dev
 
 # rule.yml
 rule.endpointRules:
