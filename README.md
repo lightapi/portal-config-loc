@@ -91,6 +91,8 @@ cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
 
+The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Docker Compose or `deploy-local.sh`.
+
 ## Import Events
 
 ```

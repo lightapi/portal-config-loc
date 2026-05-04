@@ -40,7 +40,7 @@ services:
     volumes:
       - ./hybrid-command/config:/config
       - ./hybrid-command/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8439:8439
       # The debug port
@@ -59,7 +59,7 @@ services:
     volumes:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8440:8440
     # restart: on-failure

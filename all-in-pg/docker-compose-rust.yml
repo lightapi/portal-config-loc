@@ -86,7 +86,7 @@ services:
       - 2498:2498
     volumes:
       - ./portal-service-rust/config:/config
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
