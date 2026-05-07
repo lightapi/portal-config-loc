@@ -1,6 +1,7 @@
 CREATE DATABASE configserver;
 \c configserver;
 
+-- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS session_memory_t CASCADE;
@@ -12,6 +13,24 @@ DROP TABLE IF EXISTS agent_memory_t CASCADE;
 DROP TABLE IF EXISTS org_memory_t CASCADE;
 
 DROP TABLE IF EXISTS agent_session_history_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_link_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_unit_entity_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_entity_cooccur_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_reflection_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_directive_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_unit_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_entity_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_doc_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_bank_t CASCADE;
 
 DROP TABLE IF EXISTS agent_skill_t CASCADE;
 
@@ -232,6 +251,10 @@ DROP table IF EXISTS user_crypto_wallet_t CASCADE;
 DROP table IF EXISTS user_host_t CASCADE;
 
 DROP TABLE IF EXISTS user_t CASCADE;
+
+DROP TABLE IF EXISTS auth_session_audit_t CASCADE;
+
+DROP TABLE IF EXISTS auth_session_t CASCADE;
 
 DROP TABLE IF EXISTS auth_refresh_token_t CASCADE;
 
@@ -2801,7 +2824,7 @@ CREATE TABLE skill_t (
     description         VARCHAR(500),          -- High-level description for the initial LLM prompt
     content_markdown    TEXT NOT NULL,         -- The actual instructions/prompts
 
-    description_embedding VECTOR(384),          -- For semantic lookup/discovery
+    description_embedding public.vector(384),          -- For semantic lookup/discovery
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
@@ -2831,7 +2854,7 @@ CREATE TABLE tool_t (
     script_content      TEXT,                  -- Source code if 'python'/'javascript'
     response_schema     JSONB,                 -- Strict output schema for tool results
 
-    description_embedding VECTOR(384),          -- For semantic lookup/discovery
+    description_embedding public.vector(384),          -- For semantic lookup/discovery
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
@@ -2963,7 +2986,7 @@ CREATE TABLE agent_memory_unit_t (
     bank_id             UUID NOT NULL,
     doc_id              UUID,
     content             TEXT NOT NULL,
-    embedding           vector(384),
+    embedding           public.vector(384),
     context             TEXT,
     event_date          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     occurred_start      TIMESTAMP WITH TIME ZONE,
@@ -3075,7 +3098,7 @@ CREATE TABLE agent_memory_reflection_t (
     reflection_id       UUID NOT NULL,
     bank_id             UUID NOT NULL,
     content             TEXT NOT NULL,
-    embedding           vector(384),
+    embedding           public.vector(384),
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -3104,16 +3127,16 @@ CREATE TABLE agent_session_history_t (
 CREATE INDEX idx_session_bank ON agent_session_history_t(host_id, bank_id);
 
 CREATE OR REPLACE FUNCTION set_owner_user_id_from_update_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS '
 BEGIN
     IF NEW.owner_user_id IS NULL
        AND NEW.update_user IS NOT NULL
-       AND NEW.update_user ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+       AND NEW.update_user ~* ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'' THEN
         NEW.owner_user_id := NEW.update_user::UUID;
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+' LANGUAGE plpgsql;
 
 CREATE INDEX idx_schedule_owner_user ON schedule_t(host_id, owner_user_id);
 CREATE INDEX idx_schedule_owner_position ON schedule_t(host_id, owner_position_id);
@@ -3274,6 +3297,9 @@ ALTER TABLE instance_t
         REFERENCES product_version_t (host_id, product_version_id)
             ON DELETE CASCADE;
 
+
+-- Stored procedures, triggers, and functions from sp_tr_fn.sql
+
 -- create a view to simplify the foreign key relationship.
 
 DROP VIEW IF EXISTS cascade_relationships_v;
@@ -3394,7 +3420,7 @@ GROUP BY
 ORDER BY fd.parent_schema, fd.parent_table, fd.child_schema, fd.child_table;
 
 CREATE OR REPLACE FUNCTION smart_cascade_soft_delete()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS '
 DECLARE
     fk_record RECORD;
     where_clause TEXT;
@@ -3414,9 +3440,9 @@ BEGIN
         delete_timestamp := CURRENT_TIMESTAMP;
         
         -- Set deletion context
-        deletion_context := format('PARENT_CASCADE_%s_%s', 
+        deletion_context := format(''PARENT_CASCADE_%s_%s'', 
             TG_TABLE_NAME, 
-            to_char(delete_timestamp, 'YYYYMMDD_HH24MISSMS')
+            to_char(delete_timestamp, ''YYYYMMDD_HH24MISSMS'')
         );
         
         -- Update parent with deletion context if columns exist
@@ -3424,7 +3450,7 @@ BEGIN
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = TG_TABLE_SCHEMA 
               AND table_name = TG_TABLE_NAME 
-              AND column_name = 'delete_user'
+              AND column_name = ''delete_user''
         ) THEN
             NEW.delete_user := deletion_context;
         END IF;
@@ -3433,12 +3459,12 @@ BEGIN
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = TG_TABLE_SCHEMA 
               AND table_name = TG_TABLE_NAME 
-              AND column_name = 'delete_ts'
+              AND column_name = ''delete_ts''
         ) THEN
             NEW.delete_ts := delete_timestamp;
         END IF;
         
-        -- Update parent's update columns
+        -- Update parent''s update columns
         NEW.update_ts := delete_timestamp;
         NEW.update_user := current_user_name;
         
@@ -3449,30 +3475,30 @@ BEGIN
               AND parent_table = TG_TABLE_NAME
         LOOP
             -- Build WHERE clause
-            where_clause := '';
+            where_clause := '''';
             FOR column_index IN 1..fk_record.column_count LOOP
                 IF column_index > 1 THEN
-                    where_clause := where_clause || ' AND ';
+                    where_clause := where_clause || '' AND '';
                 END IF;
                 where_clause := where_clause || format(
-                    '%I = ($1).%I',
+                    ''%I = ($1).%I'',
                     fk_record.child_columns[column_index],
                     fk_record.parent_columns[column_index]
                 );
             END LOOP;
             
             -- Add condition to only update currently active records
-            where_clause := where_clause || ' AND active = TRUE';
+            where_clause := where_clause || '' AND active = TRUE'';
             
             -- Cascade the soft delete with context
             query_text := format(
-                'UPDATE %I.%I 
+                ''UPDATE %I.%I 
                  SET active = FALSE,
                      delete_ts = $2, 
                      delete_user = $3,
                      update_ts = $2,
                      update_user = $4
-                 WHERE %s',
+                 WHERE %s'',
                 fk_record.child_schema,
                 fk_record.child_table,
                 where_clause
@@ -3492,16 +3518,16 @@ BEGIN
               AND parent_table = TG_TABLE_NAME
         LOOP
             -- Pattern to match cascade deletions
-            deletion_context_pattern := format('PARENT_CASCADE_%s_%%', TG_TABLE_NAME);
+            deletion_context_pattern := format(''PARENT_CASCADE_%s_%%'', TG_TABLE_NAME);
             
             -- Build WHERE clause
-            where_clause := '';
+            where_clause := '''';
             FOR column_index IN 1..fk_record.column_count LOOP
                 IF column_index > 1 THEN
-                    where_clause := where_clause || ' AND ';
+                    where_clause := where_clause || '' AND '';
                 END IF;
                 where_clause := where_clause || format(
-                    '%I = ($1).%I',
+                    ''%I = ($1).%I'',
                     fk_record.child_columns[column_index],
                     fk_record.parent_columns[column_index]
                 );
@@ -3509,17 +3535,17 @@ BEGIN
             
             -- Only restore cascade-deleted records
             where_clause := where_clause || 
-                ' AND delete_user LIKE $2 AND active = FALSE';
+                '' AND delete_user LIKE $2 AND active = FALSE'';
             
             -- Restore the records
             query_text := format(
-                'UPDATE %I.%I 
+                ''UPDATE %I.%I 
                  SET active = TRUE,
                      delete_ts = NULL, 
                      delete_user = NULL,
                      update_ts = CURRENT_TIMESTAMP,
                      update_user = $3
-                 WHERE %s',
+                 WHERE %s'',
                 fk_record.child_schema,
                 fk_record.child_table,
                 where_clause
@@ -3528,12 +3554,12 @@ BEGIN
             EXECUTE query_text USING OLD, deletion_context_pattern, current_user_name;
         END LOOP;
         
-        -- Clear parent's deletion context
+        -- Clear parent''s deletion context
         IF EXISTS (
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = TG_TABLE_SCHEMA 
               AND table_name = TG_TABLE_NAME 
-              AND column_name = 'delete_user'
+              AND column_name = ''delete_user''
         ) THEN
             NEW.delete_user := NULL;
         END IF;
@@ -3542,24 +3568,24 @@ BEGIN
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = TG_TABLE_SCHEMA 
               AND table_name = TG_TABLE_NAME 
-              AND column_name = 'delete_ts'
+              AND column_name = ''delete_ts''
         ) THEN
             NEW.delete_ts := NULL;
         END IF;
         
-        -- Update parent's update columns
+        -- Update parent''s update columns
         NEW.update_ts := CURRENT_TIMESTAMP;
         NEW.update_user := current_user_name;
     END IF;
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+' LANGUAGE plpgsql;
 
 
 
 -- Apply cascade triggers only to tables that have BOTH active AND delete_ts columns
-DO $$
+DO '
 DECLARE
     table_record RECORD;
     has_active_column BOOLEAN;
@@ -3572,12 +3598,12 @@ BEGIN
             c.oid AS table_oid
         FROM pg_class c
         JOIN pg_namespace n ON c.relnamespace = n.oid
-        WHERE c.relkind = 'r'  -- Regular tables only
-          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        WHERE c.relkind = ''r''  -- Regular tables only
+          AND n.nspname NOT IN (''pg_catalog'', ''information_schema'')
           AND EXISTS (
               SELECT 1 FROM pg_constraint con
               JOIN pg_class ref ON con.confrelid = ref.oid
-              WHERE con.contype = 'f'
+              WHERE con.contype = ''f''
                 AND ref.oid = c.oid
           )
     LOOP
@@ -3585,19 +3611,19 @@ BEGIN
         SELECT EXISTS (
             SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = table_record.table_oid
-              AND a.attname = 'active'
+              AND a.attname = ''active''
               AND NOT a.attisdropped
         ) INTO has_active_column;
         
         SELECT EXISTS (
             SELECT 1 FROM pg_attribute a
             WHERE a.attrelid = table_record.table_oid
-              AND a.attname = 'delete_ts'
+              AND a.attname = ''delete_ts''
               AND NOT a.attisdropped
         ) INTO has_delete_ts_column;
         
         IF NOT (has_active_column AND has_delete_ts_column) THEN
-            RAISE NOTICE 'Skipping %.% - missing required columns (active: %, delete_ts: %)', 
+            RAISE NOTICE ''Skipping %.% - missing required columns (active: %, delete_ts: %)'', 
                 table_record.schema_name, table_record.table_name,
                 has_active_column, has_delete_ts_column;
             CONTINUE;
@@ -3605,23 +3631,23 @@ BEGIN
         
         -- Drop existing trigger if it exists
         EXECUTE format(
-            'DROP TRIGGER IF EXISTS trg_cascade_soft_ops ON %I.%I',
+            ''DROP TRIGGER IF EXISTS trg_cascade_soft_ops ON %I.%I'',
             table_record.schema_name, table_record.table_name
         );
         
         -- Create new trigger
         EXECUTE format(
-            'CREATE TRIGGER trg_cascade_soft_ops
+            ''CREATE TRIGGER trg_cascade_soft_ops
              AFTER UPDATE OF active ON %I.%I
              FOR EACH ROW
-             EXECUTE FUNCTION smart_cascade_soft_delete()',
+             EXECUTE FUNCTION smart_cascade_soft_delete()'',
             table_record.schema_name, table_record.table_name
         );
         
-        RAISE NOTICE 'Created cascade trigger on %.%', 
+        RAISE NOTICE ''Created cascade trigger on %.%'', 
             table_record.schema_name, table_record.table_name;
     END LOOP;
-END $$;
+END ';
 
 
 -- DDL for the Stored Procedure (Requires PostgreSQL 11+ for PROCEDURE support)
@@ -3635,7 +3661,7 @@ CREATE OR REPLACE PROCEDURE create_snapshot(
     p_snapshot_id UUID
 )
 LANGUAGE plpgsql
-AS $$
+AS '
 DECLARE
     -- Variables to hold scope data derived from instance_t
     v_product_version_id UUID;
@@ -3665,7 +3691,7 @@ BEGIN
 
     -- If instance not found or inactive, raise exception (or simply return if non-critical)
     IF v_product_version_id IS NULL THEN
-        RAISE EXCEPTION 'Instance with host_id % and instance_id % not found or is inactive.', p_host_id, p_instance_id;
+        RAISE EXCEPTION ''Instance with host_id % and instance_id % not found or is inactive.'', p_host_id, p_instance_id;
     END IF;
 
     -- 2. Get additional IDs for cascading copies
@@ -3691,9 +3717,9 @@ BEGIN
     FROM instance_api_t
     WHERE host_id = p_host_id AND instance_id = p_instance_id AND active = TRUE;
 
-    RAISE NOTICE 'Debugging Snapshot: host_id=%, instance_id=%', p_host_id, p_instance_id;
-    RAISE NOTICE 'Found instance_api_id count: %', array_length(v_instance_api_id_list, 1);
-    RAISE NOTICE 'instance_api_id list: %', v_instance_api_id_list;
+    RAISE NOTICE ''Debugging Snapshot: host_id=%, instance_id=%'', p_host_id, p_instance_id;
+    RAISE NOTICE ''Found instance_api_id count: %'', array_length(v_instance_api_id_list, 1);
+    RAISE NOTICE ''instance_api_id list: %'', v_instance_api_id_list;
 
 
     -- 3. Insert into config_snapshot_t (Snapshot Header)
@@ -3760,7 +3786,7 @@ BEGIN
 
     -- D. snapshot_instance_api_property_t (Instance API Overrides)
     IF v_instance_api_id_list IS NOT NULL AND array_length(v_instance_api_id_list, 1) > 0 THEN
-        RAISE NOTICE 'Step D: Copying % instance_api_property_t records...', array_length(v_instance_api_id_list, 1);
+        RAISE NOTICE ''Step D: Copying % instance_api_property_t records...'', array_length(v_instance_api_id_list, 1);
         INSERT INTO snapshot_instance_api_property_t (
             snapshot_id, host_id, instance_api_id, property_id, property_value,
             aggregate_version, update_user, update_ts
@@ -3773,13 +3799,13 @@ BEGIN
         WHERE
             t.host_id = p_host_id AND t.instance_api_id = ANY(v_instance_api_id_list) AND t.active = TRUE;
     ELSE
-        RAISE NOTICE 'Step D: Skipped (v_instance_api_id_list is empty or NULL)';
+        RAISE NOTICE ''Step D: Skipped (v_instance_api_id_list is empty or NULL)'';
     END IF;
 
 
     -- E. snapshot_instance_app_property_t (Instance App Overrides)
     IF v_instance_app_id_list IS NOT NULL AND array_length(v_instance_app_id_list, 1) > 0 THEN
-        RAISE NOTICE 'Step E: Copying % instance_app_property_t records...', array_length(v_instance_app_id_list, 1);
+        RAISE NOTICE ''Step E: Copying % instance_app_property_t records...'', array_length(v_instance_app_id_list, 1);
         INSERT INTO snapshot_instance_app_property_t (
             snapshot_id, host_id, instance_app_id, property_id, property_value,
             aggregate_version, update_user, update_ts
@@ -3792,13 +3818,13 @@ BEGIN
         WHERE
             t.host_id = p_host_id AND t.instance_app_id = ANY(v_instance_app_id_list) AND t.active = TRUE;
     ELSE
-        RAISE NOTICE 'Step E: Skipped (v_instance_app_id_list is empty or NULL)';
+        RAISE NOTICE ''Step E: Skipped (v_instance_app_id_list is empty or NULL)'';
     END IF;
 
 
     -- F. snapshot_instance_app_api_property_t (Instance App API Overrides)
     IF v_instance_app_id_list IS NOT NULL AND array_length(v_instance_app_id_list, 1) > 0 AND v_instance_api_id_list IS NOT NULL AND array_length(v_instance_api_id_list, 1) > 0 THEN
-        RAISE NOTICE 'Step F: Copying instance_app_api_property_t for % apps and % apis...', array_length(v_instance_app_id_list, 1), array_length(v_instance_api_id_list, 1);
+        RAISE NOTICE ''Step F: Copying instance_app_api_property_t for % apps and % apis...'', array_length(v_instance_app_id_list, 1), array_length(v_instance_api_id_list, 1);
         INSERT INTO snapshot_instance_app_api_property_t (
             snapshot_id, host_id, instance_app_id, instance_api_id, property_id, property_value,
             aggregate_version, update_user, update_ts
@@ -3814,7 +3840,7 @@ BEGIN
             AND t.instance_api_id = ANY(v_instance_api_id_list)
             AND t.active = TRUE;
     ELSE
-        RAISE NOTICE 'Step F: Skipped (v_instance_app_id_list or v_instance_api_id_list is empty or NULL)';
+        RAISE NOTICE ''Step F: Skipped (v_instance_app_id_list or v_instance_api_id_list is empty or NULL)'';
     END IF;
 
 
@@ -3880,7 +3906,7 @@ BEGIN
     WITH 
     -- 1. Deployment Override (Highest Priority - No Merge)
     DeploymentOverride AS (
-        SELECT t.property_id, t.property_value, 1 AS priority_rank, 'deployment_instance' AS source_level
+        SELECT t.property_id, t.property_value, 1 AS priority_rank, ''deployment_instance'' AS source_level
         FROM snapshot_deployment_instance_property_t t
         WHERE t.snapshot_id = p_snapshot_id
     ),
@@ -3900,32 +3926,32 @@ BEGIN
         SELECT 
             ip.property_id,
             CASE cp.value_type
-                WHEN 'list' THEN (
+                WHEN ''list'' THEN (
                     -- Explode arrays from all matching rows and re-aggregate into one list
                     -- Handles non-JSON strings gracefully by treating them as single-item lists
                     SELECT jsonb_agg(elem ORDER BY sub.update_ts ASC)
                     FROM InstancePool sub
                     CROSS JOIN LATERAL (
                         SELECT jsonb_array_elements(sub.property_value::jsonb) AS elem
-                        WHERE sub.property_value ~ '^\s*\[.*\]\s*$'
+                        WHERE sub.property_value ~ ''^\s*\[.*\]\s*$''
                         UNION ALL
                         SELECT to_jsonb(sub.property_value) AS elem
-                        WHERE sub.property_value !~ '^\s*\[.*\]\s*$' 
-                          AND sub.property_value != ''
+                        WHERE sub.property_value !~ ''^\s*\[.*\]\s*$'' 
+                          AND sub.property_value != ''''
                     ) q
                     WHERE sub.property_id = ip.property_id
                 )::text
-                WHEN 'map' THEN (
+                WHEN ''map'' THEN (
                     -- Explode objects from all matching rows and re-aggregate into one map
                     -- Ignores non-JSON strings to avoid crashing
                     SELECT jsonb_object_agg(kv.key, kv.value)
                     FROM InstancePool sub
                     CROSS JOIN LATERAL (
                         SELECT key, value FROM jsonb_each(sub.property_value::jsonb)
-                        WHERE sub.property_value ~ '^\s*\{.*\}\s*$'
+                        WHERE sub.property_value ~ ''^\s*\{.*\}\s*$''
                         UNION ALL
                         SELECT NULL, NULL
-                        WHERE sub.property_value !~ '^\s*\{.*\}\s*$' OR sub.property_value IS NULL
+                        WHERE sub.property_value !~ ''^\s*\{.*\}\s*$'' OR sub.property_value IS NULL
                     ) kv
                     WHERE sub.property_id = ip.property_id AND kv.key IS NOT NULL
                 )::text
@@ -3939,7 +3965,7 @@ BEGIN
                 )
             END AS property_value,
             2 AS priority_rank,
-            'instance_merged' AS source_level
+            ''instance_merged'' AS source_level
         FROM InstancePool ip
         JOIN config_property_t cp ON ip.property_id = cp.property_id
         GROUP BY ip.property_id, cp.value_type
@@ -3947,17 +3973,17 @@ BEGIN
     -- 3. Lower Priority Inheritance Layers
     InheritanceLayers AS (
         -- Product Version
-        SELECT t.property_id, t.property_value, 3 AS priority_rank, 'product_version' AS source_level
+        SELECT t.property_id, t.property_value, 3 AS priority_rank, ''product_version'' AS source_level
         FROM snapshot_product_version_property_t t
         WHERE t.snapshot_id = p_snapshot_id
         UNION ALL
         -- Environment
-        SELECT t.property_id, t.property_value, 4 AS priority_rank, 'environment' AS source_level
+        SELECT t.property_id, t.property_value, 4 AS priority_rank, ''environment'' AS source_level
         FROM snapshot_environment_property_t t
         WHERE t.snapshot_id = p_snapshot_id
         UNION ALL
         -- Product
-        SELECT t.property_id, t.property_value, 5 AS priority_rank, 'product' AS source_level
+        SELECT t.property_id, t.property_value, 5 AS priority_rank, ''product'' AS source_level
         FROM snapshot_product_property_t t
         WHERE t.snapshot_id = p_snapshot_id
     ),
@@ -3998,15 +4024,15 @@ BEGIN
     WHERE rp.rn = 1;
 
 END;
-$$;
+';
 
 -- LISTEN/NOTIFY for low-latency pub/sub
-CREATE OR REPLACE FUNCTION notify_event() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION notify_event() RETURNS TRIGGER AS '
 BEGIN
-  PERFORM pg_notify('event_channel', 'new_event');
+  PERFORM pg_notify(''event_channel'', ''new_event'');
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+' LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS event_trigger ON outbox_message_t;
 CREATE TRIGGER event_trigger
@@ -4019,7 +4045,7 @@ CREATE OR REPLACE FUNCTION revoke_auth_session_by_refresh_token(
     p_refresh_token UUID,
     p_admin_user VARCHAR,
     p_reason TEXT DEFAULT 'ADMIN_REVOKED'
-) RETURNS UUID AS $$
+) RETURNS UUID AS '
 DECLARE
     v_session_id UUID;
     v_user_id UUID;
@@ -4044,7 +4070,7 @@ BEGIN
        AND refresh_token = p_refresh_token;
 
     UPDATE auth_session_t
-       SET status = 'REVOKED',
+       SET status = ''REVOKED'',
            logout_ts = CURRENT_TIMESTAMP,
            end_reason = p_reason,
            update_user = COALESCE(p_admin_user, SESSION_USER),
@@ -4057,14 +4083,14 @@ BEGIN
         event_type, result, failure_reason, metadata, update_user
     ) VALUES (
         gen_random_uuid(), p_host_id, v_session_id, v_user_id, v_client_id, v_provider_id,
-        'SESSION_REVOKED', 'SUCCESS', p_reason,
-        jsonb_build_object('source', 'admin', 'refreshTokenId', p_refresh_token::text),
+        ''SESSION_REVOKED'', ''SUCCESS'', p_reason,
+        jsonb_build_object(''source'', ''admin'', ''refreshTokenId'', p_refresh_token::text),
         COALESCE(p_admin_user, SESSION_USER)
     );
 
     RETURN v_session_id;
 END;
-$$ LANGUAGE plpgsql;
+' LANGUAGE plpgsql;
 
 
 INSERT INTO user_t (user_id, language, first_name, last_name, email, user_type, verified, password)
