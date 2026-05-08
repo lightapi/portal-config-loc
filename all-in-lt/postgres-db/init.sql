@@ -1392,7 +1392,7 @@ CREATE TABLE runtime_instance_t (
     service_id               VARCHAR(512) NOT NULL, -- serviceId from the server.yml
     env_tag                  VARCHAR(16) NOT NULL DEFAULT '',  -- if there is no envTag, then '' is used
     protocol                 VARCHAR(16) NOT NULL DEFAULT 'https',  -- the transport protocol: http, https, ws, wss
-    ip_address               VARCHAR(30) NOT NULL,  -- detected from the server instance and registered on the control pane.
+    ip_address               VARCHAR(253) NOT NULL, -- detected host/IP from the server instance and registered on the control pane.
     port_number              INT NOT NULL,          -- registered on control pane.
     instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting
     owner_user_id            UUID,

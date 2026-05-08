@@ -32,7 +32,7 @@ db-provider.driverClassName: org.postgresql.Driver
 db-provider.jdbcUrl: jdbc:postgresql://postgres:5432/configserver
 db-provider.username: postgres
 db-provider.password: secret
-db-provider.maximumPoolSize: 3
+db-provider.maximumPoolSize: 8
 
 # cache.yml
 cache.caches:
