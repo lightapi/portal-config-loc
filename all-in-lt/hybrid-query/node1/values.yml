@@ -34,6 +34,18 @@ db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
 
+# operational-cleanup.yml
+operational-cleanup.enabled: true
+operational-cleanup.initialDelaySeconds: 60
+operational-cleanup.intervalSeconds: 86400
+operational-cleanup.batchSize: 500
+operational-cleanup.maxBatchesPerRun: 10
+operational-cleanup.lockEnabled: true
+operational-cleanup.lockKey: 20260508
+operational-cleanup.notificationSuccessRetentionDays: 90
+operational-cleanup.notificationFailureRetentionDays: 180
+operational-cleanup.privateMessageRetentionDays: 180
+
 # cache.yml
 cache.caches:
   - cacheName: jwt
@@ -79,12 +91,16 @@ service.singletons:
     - com.networknt.db.provider.SqlDbStartupHook
     # Postgres Pub/Sub event processor
     - net.lightapi.portal.db.DbEventConsumerStartupHook
+    # Operational cleanup startup hook
+    - net.lightapi.portal.db.OperationalCleanupStartupHook
     # Schedule Query Startup Hook
     - net.lightapi.portal.db.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
   - com.networknt.server.ShutdownHookProvider:
     # Postgres Pub/Sub event processor
     - net.lightapi.portal.db.DbEventConsumerShutdownHook
+    # Operational cleanup shutdown hook
+    - net.lightapi.portal.db.OperationalCleanupShutdownHook
     # Schedule Query Shutdown Hook
     - net.lightapi.portal.db.ScheduleQueryShutdown
 
