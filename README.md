@@ -44,9 +44,13 @@ cp service-asset/hybrid-query/*.jar portal-config-loc/all-in-pg/hybrid-query/ser
 cp service-asset/hybrid-command/*.jar portal-config-loc/all-in-pg/hybrid-command/service/
 cp -R service-asset/lightapi/dist portal-config-loc/all-in-pg/light-gateway/lightapi
 cp -R service-asset/signin/dist portal-config-loc/all-in-pg/light-gateway/signin
+cp -R service-asset/lightapi/dist portal-config-loc/all-in-lt/light-gateway-java/lightapi
+cp -R service-asset/signin/dist portal-config-loc/all-in-lt/light-gateway-java/signin
+cp -R service-asset/lightapi/dist portal-config-loc/all-in-lt/light-gateway-rust/lightapi
+cp -R service-asset/signin/dist portal-config-loc/all-in-lt/light-gateway-rust/signin
 ```
 
-This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks the hybrid service directories and the `light-gateway/lightapi/dist` and `light-gateway/signin/dist` UI asset directories under the currently selected compose directory. For example, with the `pg` setup shown above, that means `all-in-pg/hybrid-query/service`, `all-in-pg/hybrid-command/service`, `all-in-pg/light-gateway/lightapi/dist`, and `all-in-pg/light-gateway/signin/dist`. If any of them are missing, it automatically copies them from `~/lightapi/service-asset`. If the `service-asset` repo or the expected files are missing, the deploy script exits with an error.
+This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks the hybrid service directories and the gateway UI asset directories under the currently selected compose directory. For `all-in-pg`, that means `all-in-pg/light-gateway/lightapi/dist` and `all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates both `all-in-lt/light-gateway-java/...` and `all-in-lt/light-gateway-rust/...` so either gateway variant can be selected. If any of them are missing, it automatically copies them from `~/lightapi/service-asset`. If the `service-asset` repo or the expected files are missing, the deploy script exits with an error.
 
 ### Option 2: Copy locally built jars
 

@@ -3,10 +3,11 @@
 #   docker compose -f docker-compose.yml -f docker-compose-java.yml up -d
 #
 # Start with Rust services:
-#   CONTROLLER_RS_IMAGE=<rust-controller-image> docker compose -f docker-compose.yml -f docker-compose-rust.yml up -d
+#   LIGHT_GATEWAY_IMAGE=networknt/light-gateway:2.3.5 docker compose -f docker-compose.yml -f docker-compose-rust.yml up -d
 #
-# Keep the service names as "controller", "config-server", "light-oauth", and "portal-service"
-# so downstream services do not need to change.
+# Keep the service names as "controller", "config-server", "light-oauth",
+# "portal-service", and "light-gateway" so downstream services do not need to
+# change.
 services:
 
   postgres:
@@ -72,31 +73,3 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
-
-  light-gateway:
-    image: networknt/light-gateway:2.2.1
-    ports:
-      - 443:8443
-      # - 5005:5005
-    volumes:
-      - ./light-gateway/config:/config
-      - ./light-gateway/lightapi/dist:/lightapi/dist
-      - ./light-gateway/signin/dist:/signin/dist
-    environment:
-      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
-      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
-      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
-      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
-      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
-      # The following environment varialbe will enable the debug in the container.
-      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-      # JAVA_TOOL_OPTIONS: "-Djavax.net.debug=all"
-    hostname: light-gateway
-    container_name: light-gateway
-    depends_on:
-      postgres:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-
-    # network_mode: host

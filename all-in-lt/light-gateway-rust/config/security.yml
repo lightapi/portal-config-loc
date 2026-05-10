@@ -1,0 +1,11 @@
+enableVerifyJwt: ${security.enableVerifyJwt:true}
+enableVerifyScope: ${security.enableVerifyScope:false}
+ignoreJwtExpiry: ${security.ignoreJwtExpiry:true}
+enableRelaxedKeyValidation: ${security.enableRelaxedKeyValidation:false}
+issuer: ${security.issuer:}
+audience: ${security.audience:[]}
+skipPathPrefixes: ${security.skipPathPrefixes:[]}
+jwt:
+  certificate: ${security.jwt.certificate:{}}
+  clockSkewInSeconds: ${security.jwt.clockSkewInSeconds:60}
+  keyResolver: ${security.jwt.keyResolver:}

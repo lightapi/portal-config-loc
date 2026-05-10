@@ -39,7 +39,7 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]] || [[ 
             ;;
         *)
             if [[ -n "$CONTROLLER_TYPE" ]] && [[ ! "$CONTROLLER_TYPE" =~ ^(stop|start|restart|status|logs|help|-h|--help)$ ]]; then
-                echo "Invalid controller type: $CONTROLLER_TYPE"
+                echo "Invalid service type: $CONTROLLER_TYPE"
                 echo "Usage: $0 [kafka|pg|lt] [java|rust] [command]"
                 exit 1
             fi
@@ -128,13 +128,24 @@ copy_missing_dir_contents() {
 ensure_service_assets() {
     local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
-    local lightapi_target="$DOCKER_COMPOSE_DIR/light-gateway/lightapi/dist"
-    local signin_target="$DOCKER_COMPOSE_DIR/light-gateway/signin/dist"
+    local gateway_roots=()
 
     copy_missing_dir_contents "$query_target" "$SERVICE_ASSET_REPO/hybrid-query" "hybrid-query jars" "*.jar" || exit 1
     copy_missing_dir_contents "$command_target" "$SERVICE_ASSET_REPO/hybrid-command" "hybrid-command jars" "*.jar" || exit 1
-    copy_missing_dir_contents "$lightapi_target" "$SERVICE_ASSET_REPO/lightapi/dist" "lightapi UI assets" "*" "true" || exit 1
-    copy_missing_dir_contents "$signin_target" "$SERVICE_ASSET_REPO/signin/dist" "signin UI assets" "*" "true" || exit 1
+
+    if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] || [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
+        [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-java")
+        [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-rust")
+    else
+        gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway")
+    fi
+
+    for gateway_root in "${gateway_roots[@]}"; do
+        local gateway_name
+        gateway_name="$(basename "$gateway_root")"
+        copy_missing_dir_contents "$gateway_root/lightapi/dist" "$SERVICE_ASSET_REPO/lightapi/dist" "$gateway_name lightapi UI assets" "*" "true" || exit 1
+        copy_missing_dir_contents "$gateway_root/signin/dist" "$SERVICE_ASSET_REPO/signin/dist" "$gateway_name signin UI assets" "*" "true" || exit 1
+    done
 }
 
 # Check prerequisites
@@ -272,7 +283,7 @@ show_summary() {
     log_info "Log file: $LOG_FILE"
     log_info "Docker Compose directory: $DOCKER_COMPOSE_DIR"
     if [ -n "$CONTROLLER_TYPE" ]; then
-        log_info "Controller type: $CONTROLLER_TYPE"
+        log_info "Service type: $CONTROLLER_TYPE"
     fi
 
     cd "$DOCKER_COMPOSE_DIR" && {
@@ -294,7 +305,7 @@ main() {
     log_info "Starting full deployment process"
     log_info "Logging to: $LOG_FILE"
     if [ -n "$CONTROLLER_TYPE" ]; then
-        log_info "Selected pg service type: $CONTROLLER_TYPE"
+        log_info "Selected service type: $CONTROLLER_TYPE"
     fi
 
     # Step 1: Check prerequisites
@@ -339,16 +350,16 @@ case "${1:-}" in
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
         ;;
     "help"|"-h"|"--help")
-        echo "Usage: $0 [config] [controller] [command]"
+        echo "Usage: $0 [config] [service-type] [command]"
         echo ""
         echo "Config (optional):"
         echo "  kafka           Use Kafka configuration (default)"
         echo "  pg              Use Postgres configuration"
         echo "  lt              Use Light Postgres configuration (one hybrid-query)"
         echo ""
-        echo "Service type (optional, pg only):"
-        echo "  java            Use Java controller and OAuth services (default for pg)"
-        echo "  rust            Use Rust controller and OAuth services"
+        echo "Service type (optional, pg and lt only):"
+        echo "  java            Use Java service overrides (default for pg and lt)"
+        echo "  rust            Use Rust service overrides"
         echo ""
         echo "Commands:"
         echo "  (no command)    Full deployment (stop, build, start)"
