@@ -7,11 +7,13 @@ server.httpsPort: 8443
 server.tlsCertPath: config/cert.pem
 server.tlsKeyPath: config/key.pem
 server.enableRegistry: true
-
-portalRegistry.portalUrl: https://controller:8438
+server.startOnRegistryFailure: true
 
 # startup.yml
 startup.bootstrapCaCertPath: config/ca.pem
+
+# portal-registry.yml
+portalRegistry.portalUrl: https://controller:8438
 
 # router.yml
 router.maxRequestTime: 5000
@@ -84,20 +86,6 @@ direct-registry.directUrls:
   com.networknt.config-server-1.0.0: https://config-server:8435
   com.networknt.controller-1.0.0: https://controller:8438
   # com.networknt.controller-1.0.0: https://192.168.5.85:8438
-  com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
-  com.networknt.petstore-1.0.0: https://192.168.5.85:9443
-  com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
-  com.networknt.agent.tech-support-1.0.0: http://192.168.5.85:8082
-  com.networknt.agent.account-1.0.0: http://192.168.5.85:8083
-  com.networknt.agent.advisor-1.0.0: http://192.168.5.85:8084
-
-router.serviceTargets:
-  com.networknt.portal.hybrid.query-1.0.0: https://hybrid-query:8440
-  com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
-  com.networknt.light-oauth-1.0.0: https://light-oauth:6881
-  com.networknt.reference-1.0.0: https://reference:2498
-  com.networknt.config-server-1.0.0: https://config-server:8435
-  com.networknt.controller-1.0.0: https://controller:8438
   com.networknt.llmchat-1.0.0: http://192.168.5.85:8080
   com.networknt.petstore-1.0.0: https://192.168.5.85:9443
   com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
