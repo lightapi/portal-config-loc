@@ -6,7 +6,9 @@ server.enableHttps: true
 server.httpsPort: 8443
 server.tlsCertPath: config/cert.pem
 server.tlsKeyPath: config/key.pem
-server.enableRegistry: false
+server.enableRegistry: true
+
+portalRegistry.portalUrl: https://controller:8438
 
 # startup.yml
 startup.bootstrapCaCertPath: config/ca.pem
