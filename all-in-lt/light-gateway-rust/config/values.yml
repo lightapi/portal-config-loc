@@ -16,6 +16,7 @@ router.maxRequestTime: 5000
 
 # client.yml
 client.verifyHostname: false
+client.caCertPath: config/ca.pem
 client.tokenServerUrl: https://light-oauth:6881
 # Authorization Code
 client.tokenAcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
@@ -179,7 +180,7 @@ handler.chains:
     - security
     - websocket
 
-  mcp:
+  mcpChain:
     - exception
     - cors
     - security
@@ -200,7 +201,7 @@ handler.chains:
     - prefix
     - router
 
-  google:
+  googleAuth:
     - exception
     - correlation
     - cors
@@ -210,7 +211,7 @@ handler.chains:
     - prefix
     - router
 
-  facebook:
+  facebookAuth:
     - exception
     - correlation
     - cors
@@ -220,7 +221,7 @@ handler.chains:
     - prefix
     - router
 
-  github:
+  githubAuth:
     - exception
     - correlation
     - cors
@@ -273,17 +274,17 @@ handler.paths:
   - path: '/google'
     method: 'GET'
     exec:
-      - google
+      - googleAuth
 
   - path: '/facebook'
     method: 'GET'
     exec:
-      - facebook
+      - facebookAuth
 
   - path: '/github'
     method: 'GET'
     exec:
-      - github
+      - githubAuth
 
   - path: '/chat'
     method: 'GET'
@@ -293,12 +294,12 @@ handler.paths:
   - path: '/mcp'
     method: 'GET'
     exec:
-      - mcp
+      - mcpChain
 
   - path: '/mcp'
     method: 'POST'
     exec:
-      - mcp
+      - mcpChain
 
   - path: '/mcp'
     method: 'OPTIONS'
@@ -554,11 +555,11 @@ security.skipPathPrefixes: ["/adm/server/info"]
 security.enableVerifyScope: false
 security.ignoreJwtExpiry: true
 security.enableRelaxedKeyValidation: true
+security.bootstrapFromKeyService: true
 security.issuer: "urn:com:networknt:oauth2:v1"
 security.audience:
   - urn:com.networknt
-security.jwt.certificate:
-  "100": primary.crt
+security.jwt.certificate: {}
 
 # access-control.yml
 access-control.enabled: true
