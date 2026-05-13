@@ -583,6 +583,7 @@ virtual-host.hosts:
     directoryListingEnabled: false
 
 # websocket-router.yml
+websocket-router.idleTimeoutMs: 3600000
 websocket-router.pathPrefixService:
   /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0

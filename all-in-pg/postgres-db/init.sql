@@ -2797,8 +2797,7 @@ CREATE INDEX audit_log_idx1 ON audit_log_t (source_type_id, correlation_id, even
 -- Agent Definitions: Stores the "Brain" configuration
 CREATE TABLE agent_definition_t (
     host_id             UUID NOT NULL,
-    agent_def_id        UUID NOT NULL,
-    agent_name          VARCHAR(126) NOT NULL,
+    agent_def_id        UUID NOT NULL,         -- Same value as api_version_t.api_version_id
     model_provider      VARCHAR(64) NOT NULL,  -- 'openai', 'anthropic', etc.
     model_name          VARCHAR(126) NOT NULL, -- 'gpt-4o', 'claude-3-5-sonnet'
     api_key_ref         VARCHAR(126),          -- Reference to Secret Manager key
@@ -2809,7 +2808,7 @@ CREATE TABLE agent_definition_t (
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
     PRIMARY KEY(host_id, agent_def_id),
-    UNIQUE(host_id, agent_name)
+    CONSTRAINT agent_definition_api_version_fk FOREIGN KEY(host_id, agent_def_id) REFERENCES api_version_t(host_id, api_version_id) ON DELETE CASCADE
 );
 
 
