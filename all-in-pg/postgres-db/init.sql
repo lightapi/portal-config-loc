@@ -36,6 +36,8 @@ DROP TABLE IF EXISTS agent_skill_t CASCADE;
 
 DROP TABLE IF EXISTS skill_dependency_t CASCADE;
 
+DROP TABLE IF EXISTS skill_workflow_t CASCADE;
+
 DROP TABLE IF EXISTS skill_tool_t CASCADE;
 
 DROP TABLE IF EXISTS tool_param_t CASCADE;
@@ -2940,6 +2942,26 @@ CREATE TABLE skill_tool_t (
     FOREIGN KEY(host_id, tool_id) REFERENCES tool_t(host_id, tool_id) ON DELETE CASCADE
 );
 CREATE INDEX idx_skill_tool_skill ON skill_tool_t(skill_id);
+
+-- Skill-Workflow Mapping: Links skills to durable workflow definitions
+CREATE TABLE skill_workflow_t (
+    host_id             UUID NOT NULL,
+    skill_id            UUID NOT NULL,
+    wf_def_id           UUID NOT NULL,
+    workflow_role       VARCHAR(32) DEFAULT 'primary',
+    start_mode          VARCHAR(32) DEFAULT 'manual',
+    config              JSONB DEFAULT '{}',
+
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, skill_id, wf_def_id, workflow_role),
+    FOREIGN KEY(host_id, skill_id) REFERENCES skill_t(host_id, skill_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, wf_def_id) REFERENCES wf_definition_t(host_id, wf_def_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_skill_workflow_skill ON skill_workflow_t(host_id, skill_id);
+CREATE INDEX idx_skill_workflow_wf_def ON skill_workflow_t(host_id, wf_def_id);
 
 -- -- Hindsight Advanced Memory System
 -- Transitioned from flat logs to biomimetic memory banks (World, Experiences, Mental Models)
