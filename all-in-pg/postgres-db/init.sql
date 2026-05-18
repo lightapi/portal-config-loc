@@ -402,6 +402,10 @@ CREATE TABLE tag_t (
         tag_name ~ '^[a-z0-9_-]+$'
     ),  -- tag name must be lower case and url friendly.
     tag_desc             VARCHAR(1024),          -- decription
+    tag_group_code       VARCHAR(64),            -- optional group code for dropdown grouping.
+    tag_group_label      VARCHAR(128),           -- optional group label for dropdown grouping.
+    group_sort_order     INT,                    -- sort order for groups in dropdowns.
+    tag_sort_order       INT,                    -- sort order for tags within a group.
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
     delete_user          VARCHAR (255),
