@@ -1228,6 +1228,7 @@ CREATE TABLE instance_file_t (
     host_id              UUID NOT NULL,
     instance_file_id     UUID NOT NULL,
     instance_id          UUID NOT NULL,
+    config_phase         CHAR(1) DEFAULT 'R' NOT NULL,
     file_type            VARCHAR(32) DEFAULT 'File',
     file_name            VARCHAR (126) NOT NULL,
     file_value           TEXT NOT NULL,
@@ -1251,8 +1252,12 @@ ALTER TABLE instance_file_t
     ADD CHECK ( file_type IN ( 'Cert', 'File' ) );
 
 ALTER TABLE instance_file_t
+    ADD CONSTRAINT instance_file_config_phase_check
+        CHECK ( config_phase IN ( 'G', 'D', 'R' ) );
+
+ALTER TABLE instance_file_t
     ADD CONSTRAINT instance_file_uk
-        UNIQUE (host_id, instance_id, v_file_name);
+        UNIQUE (host_id, instance_id, config_phase, v_file_name);
 
 ALTER TABLE instance_file_t
   ADD CONSTRAINT instance_file_fk FOREIGN KEY (host_id, instance_id)
@@ -2384,19 +2389,33 @@ CREATE TABLE auth_ref_token_t (
 );
 
 CREATE TABLE notification_t (
-    id                        UUID NOT NULL,
-    host_id                   UUID NOT NULL,
-    user_id                   UUID NOT NULL,
-    nonce                     INTEGER NOT NULL,
-    event_class               VARCHAR(255) NOT NULL,
-    event_json                TEXT NOT NULL,
-    process_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
-    is_processed              BOOLEAN NOT NULL,
-    error                     VARCHAR(1024) NULL,
+    id                  UUID NOT NULL,
+    host_id             UUID NOT NULL,
+    user_id             UUID NOT NULL,
+    nonce               BIGINT NOT NULL,
+    event_class         VARCHAR(255) NOT NULL,
+    event_json          TEXT NOT NULL,
+    event_ts            TIMESTAMP WITH TIME ZONE NULL,
+    process_ts          TIMESTAMP WITH TIME ZONE NOT NULL,
+    status              VARCHAR(16) NOT NULL,
+    error               VARCHAR(2048) NULL,
+    aggregate_id        VARCHAR(255) NULL,
+    aggregate_type      VARCHAR(255) NULL,
+    aggregate_version   BIGINT NULL,
+    event_partition     INTEGER NULL,
+    event_offset        BIGINT NULL,
+    transaction_id      UUID NULL,
+    read_ts             TIMESTAMP WITH TIME ZONE NULL,
     PRIMARY KEY (host_id, id),
-    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_notification_user_process_ts ON notification_t (host_id, user_id, process_ts DESC);
+CREATE INDEX idx_notification_status_process_ts ON notification_t (host_id, status, process_ts DESC);
+CREATE INDEX idx_notification_transaction ON notification_t (host_id, transaction_id);
+CREATE INDEX idx_notification_event_position ON notification_t (host_id, event_partition, event_offset);
+CREATE INDEX idx_notification_unread_failure ON notification_t (host_id, user_id, process_ts DESC)
+    WHERE read_ts IS NULL AND status IN ('FAILED', 'DLQ');
 
 
 CREATE TABLE message_t (
@@ -2474,6 +2493,7 @@ CREATE TABLE snapshot_instance_file_t (
     host_id              UUID NOT NULL,
     instance_file_id     UUID NOT NULL,
     instance_id          UUID NOT NULL,
+    config_phase         CHAR(1) DEFAULT 'R' NOT NULL,
     file_type            VARCHAR(32) DEFAULT 'File',
     file_name            VARCHAR (126) NOT NULL,
     file_value           TEXT NOT NULL,
@@ -2488,7 +2508,11 @@ CREATE TABLE snapshot_instance_file_t (
     PRIMARY KEY(snapshot_id, host_id, instance_file_id),
     FOREIGN KEY(snapshot_id) REFERENCES config_snapshot_t(snapshot_id) ON DELETE CASCADE
 );
+ALTER TABLE snapshot_instance_file_t
+    ADD CONSTRAINT snapshot_instance_file_config_phase_check
+        CHECK ( config_phase IN ( 'G', 'D', 'R' ) );
 CREATE INDEX idx_snap_inst_file ON snapshot_instance_file_t (snapshot_id);
+CREATE INDEX idx_snap_inst_file_phase ON snapshot_instance_file_t (snapshot_id, config_phase, file_type, active);
 
 
 CREATE TABLE snapshot_deployment_instance_property_t (
@@ -3797,11 +3821,11 @@ BEGIN
 
     -- C. snapshot_instance_file_t (Instance Files)
     INSERT INTO snapshot_instance_file_t (
-        snapshot_id, host_id, instance_file_id, instance_id, file_type, file_name, file_value, file_desc, expiration_ts,
+        snapshot_id, host_id, instance_file_id, instance_id, config_phase, file_type, file_name, file_value, file_desc, expiration_ts,
         aggregate_version, active, update_user, update_ts
     )
     SELECT
-        p_snapshot_id, t.host_id, t.instance_file_id, t.instance_id, t.file_type, t.file_name, t.file_value, t.file_desc, t.expiration_ts,
+        p_snapshot_id, t.host_id, t.instance_file_id, t.instance_id, t.config_phase, t.file_type, t.file_name, t.file_value, t.file_desc, t.expiration_ts,
         t.aggregate_version, t.active, t.update_user, t.update_ts
     FROM
         instance_file_t t

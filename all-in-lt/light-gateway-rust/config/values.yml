@@ -4,13 +4,14 @@ server.advertisedAddress: light-gateway
 server.enableHttp: false
 server.enableHttps: true
 server.httpsPort: 8443
-server.tlsCertPath: config/cert.pem
-server.tlsKeyPath: config/key.pem
+server.tlsCertPath: /config/cert.pem
+server.tlsKeyPath: /config/key.pem
 server.enableRegistry: true
 server.startOnRegistryFailure: true
 
 # startup.yml
-startup.bootstrapCaCertPath: config/ca.pem
+startup.bootstrapCaCertPath: /config/ca.pem
+light-config-server-uri: https://config-server:8435
 
 # portal-registry.yml
 portalRegistry.portalUrl: https://controller:8438
@@ -20,7 +21,7 @@ router.maxRequestTime: 5000
 
 # client.yml
 client.verifyHostname: false
-client.caCertPath: config/ca.pem
+client.caCertPath: /config/ca.pem
 client.tokenServerUrl: https://light-oauth:6881
 # Authorization Code
 client.tokenAcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token

@@ -4,7 +4,9 @@
 set -e  # Exit on error
 
 # Configuration
-BASE_DIR=~/lightapi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BASE_DIR="$(cd "$REPO_DIR/.." && pwd)"
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
 SERVICE_ASSET_REPO="$BASE_DIR/service-asset"
 DOCKER_COMPOSE_FILES=()

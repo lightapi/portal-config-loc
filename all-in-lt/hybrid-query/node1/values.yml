@@ -112,5 +112,5 @@ rpc-router.handlerPackages: net.lightapi.portal
 rpc-router.jsonPath: /portal/query
 
 # db-event-consumer.yml
-db-event-consumer.totalPartitions: 3
+db-event-consumer.totalPartitions: 1
 db-event-consumer.partitionId: 0
