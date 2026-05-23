@@ -2792,6 +2792,8 @@ CREATE TABLE task_asst_t
     task_id              UUID NOT NULL,
     assigned_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     assignee_id          VARCHAR(126) NOT NULL,
+    assignment_type      VARCHAR(16) DEFAULT 'USER' NOT NULL,
+    assignment_id        VARCHAR(126) NOT NULL,
     reason_code          VARCHAR(126) NOT NULL,
     unassigned_ts        TIMESTAMP WITH TIME ZONE      NULL,
     unassigned_reason    VARCHAR(126)     NULL,
@@ -2805,10 +2807,13 @@ CREATE TABLE task_asst_t
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user          VARCHAR(126) DEFAULT SESSION_USER,
     PRIMARY KEY(host_id, task_asst_id),
+    CONSTRAINT chk_task_asst_assignment_type CHECK (assignment_type IN ('USER', 'ROLE')),
     FOREIGN KEY(host_id, task_id) REFERENCES task_info_t(host_id, task_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_task_asst_actionable ON task_asst_t (host_id, assignee_id, status_code, active, assigned_ts DESC);
+CREATE INDEX idx_task_asst_target_actionable ON task_asst_t (host_id, assignment_type, assignment_id, status_code, active, assigned_ts DESC);
+CREATE INDEX idx_task_asst_claimed_by ON task_asst_t (host_id, claimed_by, status_code, active, assigned_ts DESC);
 CREATE INDEX idx_task_asst_task ON task_asst_t (host_id, task_id, active);
 
 CREATE TABLE audit_log_t
