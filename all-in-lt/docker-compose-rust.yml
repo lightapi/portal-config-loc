@@ -1,4 +1,6 @@
 ---
+x-light-portal-authorization: &light-portal-authorization "${LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MjA5MzgyODQ3OSwianRpIjoibHlocVFvV2dSUnlnbHhpT2dRYmZfQSIsImlhdCI6MTc3ODQ2ODQ3OSwibmJmIjoxNzc4NDY4MzU5LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTllMTRmOS1lYjc4LTc0YzQtODBlNy1lYzZhYTY4MDBiMTUiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJob3N0IjoiMDE5NjRiMDUtNTUyYS03YzRiLTkxODQtNjg1N2U3ZjNkYzVmIiwic2lkIjoiY29tLm5ldHdvcmtudC5wb3J0YWwuZ2F0ZXdheS0xLjAuMCJ9.PWV4SV1RFNQnZ3Dl0BVJRJE_K-EdWtVzxXdoUBRVvieUdRmS270W0J3FKNKijamWNAsH9g198NISFjhBzh4W3F5lH3VkgvoGa9Og5izR0V2BN3FhvheVXhFIdgwEgMpx-O3LCqEQjlccOiifwqkNqBaBypo9sfKY2SqunbRtHkEyMFgH-cmOCXOOdS1yWzDJnVZD5Kjdq8SMWC_0DA8LktCxR1L3ZzdzndvQig4bkgQvZTCnNdlY6zSp2PeCcR12w3Vf0jsRfAkbAKOks60DJx98r6nfY91mSLtD5q2TXH-tEh6TP6ta-k6QLW4CfBktcDD7QbJCGqL6sAxWCgImcA}"
+
 services:
 
   controller:
@@ -111,6 +113,120 @@ services:
       retries: 10
       start_period: 10s
 
+  light-workflow:
+    image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:latest}
+    build:
+      context: ../../light-fabric
+      dockerfile: apps/light-workflow/docker/Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
+      LIGHT_WORKFLOW_HTTP_ADDR: 0.0.0.0:8080
+      RUST_LOG: light_workflow=debug,info
+      WORKFLOW_LOG_ANSI: "false"
+    hostname: light-workflow
+    container_name: light-workflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hybrid-command:
+        condition: service_started
+      hybrid-query:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  demo-customer-profile-api:
+    image: ${DEMO_CUSTOMER_PROFILE_API_IMAGE:-networknt/demo-customer-profile-api:latest}
+    build:
+      context: ../..
+      dockerfile: light-example-rs/docker/Dockerfile
+      args:
+        APP_NAME: demo-customer-profile-api
+        APP_DIR: apps/demo-customer-profile-api
+        PORT: 8085
+    ports:
+      - 8085:8085
+    volumes:
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro
+    environment:
+      LIGHT_CONFIG_SERVER_URI: ${DEMO_LIGHT_CONFIG_SERVER_URI:-https://config-server:8435}
+      LIGHT_PORTAL_AUTHORIZATION: *light-portal-authorization
+      STARTUP_BOOTSTRAPCACERTPATH: /keystore/ca.pem
+      CLIENT_VERIFYHOSTNAME: "false"
+      SERVER_SERVICEID: com.networknt.demo.customer-profile-1.0.0
+      SERVER_ENVIRONMENT: demo
+      SERVER_ADVERTISEDADDRESS: demo-customer-profile-api
+      SERVER_HTTPPORT: 8085
+      SERVER_ENABLEHTTP: "true"
+      SERVER_ENABLEHTTPS: "false"
+      SERVER_ENABLEREGISTRY: "true"
+      SERVER_STARTONREGISTRYFAILURE: "true"
+      PORTALREGISTRY_PORTALURL: https://controller:8438
+      RUST_LOG: debug
+      CUSTOMER_PROFILE_LOG_ANSI: "false"
+    hostname: demo-customer-profile-api
+    container_name: demo-customer-profile-api
+    depends_on:
+      controller:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  demo-offer-decision-api:
+    image: ${DEMO_OFFER_DECISION_API_IMAGE:-networknt/demo-offer-decision-api:latest}
+    build:
+      context: ../..
+      dockerfile: light-example-rs/docker/Dockerfile
+      args:
+        APP_NAME: demo-offer-decision-api
+        APP_DIR: apps/demo-offer-decision-api
+        PORT: 8086
+    ports:
+      - 8086:8086
+    volumes:
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro
+    environment:
+      LIGHT_CONFIG_SERVER_URI: ${DEMO_LIGHT_CONFIG_SERVER_URI:-https://config-server:8435}
+      LIGHT_PORTAL_AUTHORIZATION: *light-portal-authorization
+      STARTUP_BOOTSTRAPCACERTPATH: /keystore/ca.pem
+      CLIENT_VERIFYHOSTNAME: "false"
+      SERVER_SERVICEID: com.networknt.demo.offer-decision-1.0.0
+      SERVER_ENVIRONMENT: demo
+      SERVER_ADVERTISEDADDRESS: demo-offer-decision-api
+      SERVER_HTTPPORT: 8086
+      SERVER_ENABLEHTTP: "true"
+      SERVER_ENABLEHTTPS: "false"
+      SERVER_ENABLEREGISTRY: "true"
+      SERVER_STARTONREGISTRYFAILURE: "true"
+      PORTALREGISTRY_PORTALURL: https://controller:8438
+      RUST_LOG: debug
+      OFFER_DECISION_LOG_ANSI: "false"
+    hostname: demo-offer-decision-api
+    container_name: demo-offer-decision-api
+    depends_on:
+      controller:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   light-gateway:
     image: ${LIGHT_GATEWAY_IMAGE:-networknt/light-gateway:2.3.5}
     ports:
@@ -125,7 +241,7 @@ services:
       STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
       STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
       STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
-      LIGHT_PORTAL_AUTHORIZATION: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MjA5MzgyODQ3OSwianRpIjoibHlocVFvV2dSUnlnbHhpT2dRYmZfQSIsImlhdCI6MTc3ODQ2ODQ3OSwibmJmIjoxNzc4NDY4MzU5LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTllMTRmOS1lYjc4LTc0YzQtODBlNy1lYzZhYTY4MDBiMTUiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJob3N0IjoiMDE5NjRiMDUtNTUyYS03YzRiLTkxODQtNjg1N2U3ZjNkYzVmIiwic2lkIjoiY29tLm5ldHdvcmtudC5wb3J0YWwuZ2F0ZXdheS0xLjAuMCJ9.PWV4SV1RFNQnZ3Dl0BVJRJE_K-EdWtVzxXdoUBRVvieUdRmS270W0J3FKNKijamWNAsH9g198NISFjhBzh4W3F5lH3VkgvoGa9Og5izR0V2BN3FhvheVXhFIdgwEgMpx-O3LCqEQjlccOiifwqkNqBaBypo9sfKY2SqunbRtHkEyMFgH-cmOCXOOdS1yWzDJnVZD5Kjdq8SMWC_0DA8LktCxR1L3ZzdzndvQig4bkgQvZTCnNdlY6zSp2PeCcR12w3Vf0jsRfAkbAKOks60DJx98r6nfY91mSLtD5q2TXH-tEh6TP6ta-k6QLW4CfBktcDD7QbJCGqL6sAxWCgImcA
+      LIGHT_PORTAL_AUTHORIZATION: *light-portal-authorization
       RUST_LOG: debug
       GATEWAY_LOG_ANSI: "false"
     hostname: light-gateway
