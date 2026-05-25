@@ -115,16 +115,10 @@ services:
 
   light-workflow:
     image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:latest}
-    build:
-      context: ../../light-fabric
-      dockerfile: apps/light-workflow/docker/Dockerfile
     ports:
       - 8080:8080
-    environment:
-      DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
-      LIGHT_WORKFLOW_HTTP_ADDR: 0.0.0.0:8080
-      RUST_LOG: light_workflow=debug,info
-      WORKFLOW_LOG_ANSI: "false"
+    env_file:
+      - ./light-workflow-rust/config/light-workflow.env
     hostname: light-workflow
     container_name: light-workflow
     depends_on:
@@ -143,31 +137,15 @@ services:
 
   demo-customer-profile-api:
     image: ${DEMO_CUSTOMER_PROFILE_API_IMAGE:-networknt/demo-customer-profile-api:latest}
-    build:
-      context: ../..
-      dockerfile: light-example-rs/docker/Dockerfile
-      args:
-        APP_NAME: demo-customer-profile-api
-        APP_DIR: apps/demo-customer-profile-api
-        PORT: 8085
     ports:
       - 8085:8085
     volumes:
+      - ./demo-customer-profile-api-rust/config:/app/config:ro
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro
     environment:
-      LIGHT_CONFIG_SERVER_URI: ${DEMO_LIGHT_CONFIG_SERVER_URI:-https://config-server:8435}
+      CUSTOMER_PROFILE_CONFIG_DIR: /app/config
+      CUSTOMER_PROFILE_EXTERNAL_CONFIG_DIR: /app/config-cache
       LIGHT_PORTAL_AUTHORIZATION: *light-portal-authorization
-      STARTUP_BOOTSTRAPCACERTPATH: /keystore/ca.pem
-      CLIENT_VERIFYHOSTNAME: "false"
-      SERVER_SERVICEID: com.networknt.demo.customer-profile-1.0.0
-      SERVER_ENVIRONMENT: demo
-      SERVER_ADVERTISEDADDRESS: demo-customer-profile-api
-      SERVER_HTTPPORT: 8085
-      SERVER_ENABLEHTTP: "true"
-      SERVER_ENABLEHTTPS: "false"
-      SERVER_ENABLEREGISTRY: "true"
-      SERVER_STARTONREGISTRYFAILURE: "true"
-      PORTALREGISTRY_PORTALURL: https://controller:8438
       RUST_LOG: debug
       CUSTOMER_PROFILE_LOG_ANSI: "false"
     hostname: demo-customer-profile-api
@@ -186,31 +164,15 @@ services:
 
   demo-offer-decision-api:
     image: ${DEMO_OFFER_DECISION_API_IMAGE:-networknt/demo-offer-decision-api:latest}
-    build:
-      context: ../..
-      dockerfile: light-example-rs/docker/Dockerfile
-      args:
-        APP_NAME: demo-offer-decision-api
-        APP_DIR: apps/demo-offer-decision-api
-        PORT: 8086
     ports:
       - 8086:8086
     volumes:
+      - ./demo-offer-decision-api-rust/config:/app/config:ro
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro
     environment:
-      LIGHT_CONFIG_SERVER_URI: ${DEMO_LIGHT_CONFIG_SERVER_URI:-https://config-server:8435}
+      OFFER_DECISION_CONFIG_DIR: /app/config
+      OFFER_DECISION_EXTERNAL_CONFIG_DIR: /app/config-cache
       LIGHT_PORTAL_AUTHORIZATION: *light-portal-authorization
-      STARTUP_BOOTSTRAPCACERTPATH: /keystore/ca.pem
-      CLIENT_VERIFYHOSTNAME: "false"
-      SERVER_SERVICEID: com.networknt.demo.offer-decision-1.0.0
-      SERVER_ENVIRONMENT: demo
-      SERVER_ADVERTISEDADDRESS: demo-offer-decision-api
-      SERVER_HTTPPORT: 8086
-      SERVER_ENABLEHTTP: "true"
-      SERVER_ENABLEHTTPS: "false"
-      SERVER_ENABLEREGISTRY: "true"
-      SERVER_STARTONREGISTRYFAILURE: "true"
-      PORTALREGISTRY_PORTALURL: https://controller:8438
       RUST_LOG: debug
       OFFER_DECISION_LOG_ANSI: "false"
     hostname: demo-offer-decision-api

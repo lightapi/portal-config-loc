@@ -84,6 +84,29 @@ cd ~/lightapi/portal-config-loc/all-in-pg
 docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.service-local.yml up -d
 ```
 
+For the `all-in-lt` Rust stack, `docker-compose-rust.yml` uses published
+images for `light-workflow`, `demo-customer-profile-api`, and
+`demo-offer-decision-api`. Runtime configuration lives in service folders under
+`all-in-lt`, not in the source repositories:
+
+```text
+all-in-lt/light-workflow-rust/config
+all-in-lt/demo-customer-profile-api-rust/config
+all-in-lt/demo-offer-decision-api-rust/config
+```
+
+This keeps `./scripts/deploy-local.sh lt rust` working in a clean `~/lightapi`
+checkout without requiring sibling source repositories. If you are actively
+developing those Rust services, build the images from their source repositories
+first, then point compose at those image tags:
+
+```bash
+DEMO_CUSTOMER_PROFILE_API_IMAGE=networknt/demo-customer-profile-api:0.1.0 \
+DEMO_OFFER_DECISION_API_IMAGE=networknt/demo-offer-decision-api:0.1.0 \
+LIGHT_WORKFLOW_IMAGE=networknt/light-workflow:2.3.5 \
+./scripts/deploy-local.sh lt rust
+```
+
 
 ## Start services
 
