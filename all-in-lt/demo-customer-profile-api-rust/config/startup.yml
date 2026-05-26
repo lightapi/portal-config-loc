@@ -1,5 +1,5 @@
 host: ${startup.host:dev.lightapi.net}
-serviceId: ${server.serviceId:com.networknt.demo.customer-profile-1.0.0}
+serviceId: ${server.serviceId:com.networknt.customer.profile-1.0.0}
 envTag: ${server.environment:demo}
 acceptHeader: application/yaml
 timeout: ${startup.timeout:3000}

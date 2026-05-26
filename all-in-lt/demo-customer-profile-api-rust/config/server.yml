@@ -6,7 +6,7 @@ httpsPort: ${server.httpsPort:8443}
 enableHttps: ${server.enableHttps:false}
 tlsCertPath: ${server.tlsCertPath:}
 tlsKeyPath: ${server.tlsKeyPath:}
-serviceId: ${server.serviceId:com.networknt.demo.customer-profile-1.0.0}
+serviceId: ${server.serviceId:com.networknt.customer.profile-1.0.0}
 enableRegistry: ${server.enableRegistry:true}
 startOnRegistryFailure: ${server.startOnRegistryFailure:true}
 dynamicPort: ${server.dynamicPort:false}
