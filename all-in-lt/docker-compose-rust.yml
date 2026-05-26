@@ -137,7 +137,7 @@ services:
       start_period: 10s
 
   demo-customer-profile-api:
-    image: ${DEMO_CUSTOMER_PROFILE_API_IMAGE:-networknt/demo-customer-profile-api:latest}
+    image: ${DEMO_CUSTOMER_PROFILE_API_IMAGE:-networknt/demo-customer-profile-api:0.1.0}
     ports:
       - 8085:8085
     volumes:
@@ -164,7 +164,7 @@ services:
       start_period: 10s
 
   demo-offer-decision-api:
-    image: ${DEMO_OFFER_DECISION_API_IMAGE:-networknt/demo-offer-decision-api:latest}
+    image: ${DEMO_OFFER_DECISION_API_IMAGE:-networknt/demo-offer-decision-api:0.1.0}
     ports:
       - 8086:8086
     volumes:
