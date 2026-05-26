@@ -1,6 +1,7 @@
 CREATE DATABASE configserver;
 \c configserver;
 
+-- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS session_memory_t CASCADE;
