@@ -188,30 +188,49 @@ stop_docker_compose() {
         exit 1
     }
 
-    # Check if any containers are running
-    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; then
-        log_info "Stopping running containers..."
-        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30
+    local project_name
+    local project_containers
+    project_name="${COMPOSE_PROJECT_NAME:-$(basename "$DOCKER_COMPOSE_DIR")}"
 
-        # Wait for containers to stop
-        local max_wait=60
-        local wait_time=0
-
-        while "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services --filter "status=running" 2>/dev/null | grep -q .; do
-            if [ $wait_time -ge $max_wait ]; then
-                log_warning "Some containers are still running after $max_wait seconds"
-                log_info "Force stopping containers..."
-                "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 10
-                break
-            fi
-            sleep 5
-            wait_time=$((wait_time + 5))
-        done
-
-        log_success "Docker Compose services stopped"
-    else
-        log_info "No running Docker Compose services found"
+    # Check the project label so stop also handles services from another override.
+    if ! project_containers="$(docker ps --all --filter "label=com.docker.compose.project=$project_name" --format "{{.Names}}")"; then
+        log_error "Failed to inspect Docker containers for Compose project $project_name"
+        return 1
     fi
+
+    if [ -z "$project_containers" ]; then
+        log_info "No Docker Compose containers found"
+        return 0
+    fi
+
+    log_info "Stopping Docker Compose containers..."
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30 --remove-orphans
+
+    # Wait for containers to stop
+    local max_wait=60
+    local wait_time=0
+
+    while true; do
+        if ! project_containers="$(docker ps --filter "label=com.docker.compose.project=$project_name" --filter "status=running" --format "{{.Names}}")"; then
+            log_error "Failed to inspect Docker containers for Compose project $project_name"
+            return 1
+        fi
+
+        if [ -z "$project_containers" ]; then
+            break
+        fi
+
+        if [ $wait_time -ge $max_wait ]; then
+            log_warning "Some containers are still running after $max_wait seconds"
+            log_info "Force stopping containers..."
+            "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 10 --remove-orphans
+            break
+        fi
+        sleep 5
+        wait_time=$((wait_time + 5))
+    done
+
+    log_success "Docker Compose services stopped"
 }
 
 # Start Docker Compose
