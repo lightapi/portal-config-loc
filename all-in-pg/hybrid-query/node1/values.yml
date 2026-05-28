@@ -93,6 +93,8 @@ service.singletons:
     - net.lightapi.portal.db.DbEventConsumerStartupHook
     # Operational cleanup startup hook
     - net.lightapi.portal.db.OperationalCleanupStartupHook
+    # Embedding task worker startup hook
+    - net.lightapi.portal.db.EmbeddingTaskStartupHook
     # Schedule Query Startup Hook
     - net.lightapi.portal.db.ScheduleQueryStartup
   # ShutdownHookProvider implementations, there are one to many and they are called in the same sequence defined.
@@ -101,6 +103,8 @@ service.singletons:
     - net.lightapi.portal.db.DbEventConsumerShutdownHook
     # Operational cleanup shutdown hook
     - net.lightapi.portal.db.OperationalCleanupShutdownHook
+    # Embedding task worker shutdown hook
+    - net.lightapi.portal.db.EmbeddingTaskShutdownHook
     # Schedule Query Shutdown Hook
     - net.lightapi.portal.db.ScheduleQueryShutdown
 

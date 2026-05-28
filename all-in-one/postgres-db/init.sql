@@ -2861,6 +2861,10 @@ CREATE TABLE tool_t (
     tool_id             UUID NOT NULL,
     name                VARCHAR(126) NOT NULL,
     description         TEXT NOT NULL,         -- Instructions for LLM on when/how to use this tool
+    description_source  VARCHAR(32),           -- endpoint_sync, manual, or another source label
+    description_manual_override BOOLEAN DEFAULT FALSE NOT NULL,
+    description_override_ts TIMESTAMP WITH TIME ZONE,
+    description_override_user VARCHAR(126),
 
     -- Implementation specifics
     implementation_type VARCHAR(50),           -- 'java', 'mcp_server', 'rest', 'python', 'javascript'
@@ -2871,8 +2875,20 @@ CREATE TABLE tool_t (
     endpoint_id         UUID,                  -- Reference to fine-grained auth endpoint
     script_content      TEXT,                  -- Source code if 'python'/'javascript'
     response_schema     JSONB,                 -- Strict output schema for tool results
+    routing_domain      VARCHAR(128),          -- Macro-filtering domain for semantic routing
+    semantic_namespace  VARCHAR(128),          -- Semantic namespace/owner of the tool
+    sensitivity_tier    VARCHAR(64),           -- Safety/routing sensitivity tier
+    semantic_weight     REAL DEFAULT 1.0,      -- Search/routing weight
+    source_protocol     VARCHAR(50),           -- Source protocol such as openapi, mcp, or lightapi
+    target_personas     TEXT,                  -- JSON array or comma-separated persona hints
 
     description_embedding VECTOR(384),          -- For semantic lookup/discovery
+    description_embedding_model VARCHAR(128),
+    description_embedding_dimension INTEGER,
+    description_embedding_source_hash VARCHAR(64),
+    description_embedding_ts TIMESTAMP WITH TIME ZONE,
+    description_embedding_status VARCHAR(32),
+    description_embedding_error TEXT,
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
@@ -2885,6 +2901,32 @@ CREATE TABLE tool_t (
 CREATE INDEX idx_tool_host_endpoint ON tool_t(host_id, endpoint_id);
 CREATE INDEX idx_tool_active ON tool_t(active);
 CREATE INDEX idx_tool_name ON tool_t(name);
+CREATE INDEX idx_tool_routing ON tool_t(host_id, active, routing_domain, semantic_namespace, sensitivity_tier);
+CREATE INDEX idx_tool_source_protocol ON tool_t(host_id, source_protocol);
+CREATE INDEX idx_tool_description_embedding_status ON tool_t(host_id, active, description_embedding_status);
+CREATE INDEX idx_tool_description_embedding_source_hash ON tool_t(host_id, description_embedding_source_hash);
+
+CREATE TABLE embedding_task_t (
+    host_id             UUID NOT NULL,
+    task_id             UUID NOT NULL,
+    entity_type         VARCHAR(64) NOT NULL,
+    entity_id           UUID NOT NULL,
+    source_table        VARCHAR(128),
+    source_hash         VARCHAR(64) NOT NULL,
+    source_version      BIGINT,
+    status              VARCHAR(32) DEFAULT 'pending' NOT NULL,
+    attempt_count       INTEGER DEFAULT 0 NOT NULL,
+    next_attempt_ts     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_error          TEXT,
+    active              BOOLEAN DEFAULT TRUE,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, task_id),
+    UNIQUE(host_id, entity_type, entity_id, source_hash)
+);
+
+CREATE INDEX idx_embedding_task_due ON embedding_task_t(status, active, next_attempt_ts);
+CREATE INDEX idx_embedding_task_entity ON embedding_task_t(host_id, entity_type, entity_id);
 
 -- Tool Parameters: Defines the arguments for each tool
 CREATE TABLE tool_param_t (

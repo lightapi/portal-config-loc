@@ -92,6 +92,8 @@ service.singletons:
     # - com.networknt.jaeger.tracing.JaegerStartupHookProvider
     # Operational cleanup startup hook
     - net.lightapi.portal.db.OperationalCleanupStartupHook
+    # Embedding task worker startup hook
+    - net.lightapi.portal.db.EmbeddingTaskStartupHook
     # User Producer Startup Hook
     - net.lightapi.portal.user.query.DeadLetterProducerStartupHook
     # User Consumer Startup Hook
@@ -106,6 +108,8 @@ service.singletons:
     - net.lightapi.portal.user.query.DeadLetterProducerShutdownHook
     # Operational cleanup shutdown hook
     - net.lightapi.portal.db.OperationalCleanupShutdownHook
+    # Embedding task worker shutdown hook
+    - net.lightapi.portal.db.EmbeddingTaskShutdownHook
     # Schedule Query Shutdown Hook
     - net.lightapi.portal.db.ScheduleQueryShutdown
   - com.networknt.kafka.producer.NativeLightProducer:
