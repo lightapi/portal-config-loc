@@ -120,6 +120,45 @@ cd portal-config-loc
 
 The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Docker Compose or `deploy-local.sh`.
 
+### Rust Logging
+
+Rust services read `RUST_LOG` at startup. The supported base levels are:
+
+```text
+off
+error
+warn
+info
+debug
+trace
+```
+
+`error` is the quietest useful level, `info` is normally enough for local
+operation, `debug` is verbose, and `trace` is usually only useful for short,
+focused debugging sessions. Higher-volume levels include lower-volume messages;
+for example, `info` also includes `warn` and `error`.
+
+The Rust compose files default services to verbose debug-oriented logging. To
+reduce repeated logs, start or recreate the stack with a quieter level:
+
+```bash
+RUST_LOG=info ./scripts/deploy-local.sh pg rust
+RUST_LOG=info ./scripts/deploy-local.sh lt rust
+```
+
+To change one service after the stack is already running, recreate that service
+from the selected compose directory:
+
+```bash
+cd all-in-lt
+RUST_LOG=warn docker compose -f docker-compose.yml -f docker-compose-rust.yml up -d --force-recreate light-gateway
+```
+
+Use the same `RUST_LOG` value on later `docker compose up` or
+`deploy-local.sh` commands if you want to keep that rendered configuration.
+`RUST_LOG` affects Rust services only; Java services use their Java logging
+configuration.
+
 ## Import Events
 
 ```
