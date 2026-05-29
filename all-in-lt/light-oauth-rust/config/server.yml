@@ -6,6 +6,10 @@ tlsCertPath: ${tls_cert_path}
 tlsKeyPath: ${tls_key_path}
 jwtIssuer: ${jwt_issuer}
 jwtAudience: ${jwt_audience}
+oidcDiscoveryEnabled: ${oidc_discovery_enabled:true}
+publicIssuerBaseUrl: ${public_issuer_base_url:}
+defaultProviderId: ${default_provider_id:}
+oidcScopesSupported: ${oidc_scopes_supported:[]}
 msalJwksUrl: ${msal_jwks_url}
 msalJwksAcceptInvalidCerts: ${msal_jwks_accept_invalid_certs}
 msalJwtExpectedIssuer: ${msal_jwt_expected_issuer}
