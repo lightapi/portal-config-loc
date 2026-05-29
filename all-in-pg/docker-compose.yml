@@ -64,6 +64,12 @@ services:
       - 8440:8440
     # restart: on-failure
     environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query1
     container_name: hybrid-query1
@@ -83,6 +89,12 @@ services:
       - 8441:8441
     # restart: on-failure
     environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query2
     container_name: hybrid-query2
@@ -102,6 +114,12 @@ services:
       - 8442:8442
     # restart: on-failure
     environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query3
     container_name: hybrid-query3

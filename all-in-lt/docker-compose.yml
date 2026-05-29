@@ -65,6 +65,12 @@ services:
       - 8440:8440
     # restart: on-failure
     environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
     hostname: hybrid-query
     container_name: hybrid-query

@@ -107,6 +107,20 @@ LIGHT_WORKFLOW_IMAGE=networknt/light-workflow:2.3.5 \
 ./scripts/deploy-local.sh lt rust
 ```
 
+## Tool Embedding API Key
+
+`hybrid-query` can call the Gemini embedding API for tool description
+embeddings. Keep the API key outside git and pass it through the environment
+before starting Docker Compose:
+
+```bash
+export GEMINI_API_KEY=...
+export EMBEDDING_TASK_ENABLED=true
+export EMBEDDING_TASK_PROVIDER=http
+```
+
+The default endpoint is Google's OpenAI-compatible embeddings endpoint and the
+default model is `gemini-embedding-001` with 384 output dimensions.
 
 ## Start services
 
