@@ -2905,6 +2905,10 @@ CREATE INDEX idx_tool_routing ON tool_t(host_id, active, routing_domain, semanti
 CREATE INDEX idx_tool_source_protocol ON tool_t(host_id, source_protocol);
 CREATE INDEX idx_tool_description_embedding_status ON tool_t(host_id, active, description_embedding_status);
 CREATE INDEX idx_tool_description_embedding_source_hash ON tool_t(host_id, description_embedding_source_hash);
+CREATE INDEX idx_tool_description_embedding ON tool_t USING hnsw (description_embedding vector_cosine_ops)
+    WHERE active = TRUE
+      AND description_embedding IS NOT NULL
+      AND description_embedding_status = 'ready';
 
 CREATE TABLE embedding_task_t (
     host_id             UUID NOT NULL,
