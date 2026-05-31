@@ -122,6 +122,37 @@ export EMBEDDING_TASK_PROVIDER=http
 The default endpoint is Google's OpenAI-compatible embeddings endpoint and the
 default model is `gemini-embedding-001` with 384 output dimensions.
 
+## Light Agent Codex Settings
+
+The Rust compose stacks include `light-agent` for the account agent. It defaults
+to the Codex provider with `gpt-5.5` and low reasoning effort. The local
+development compose files include the account-agent portal token by default,
+matching the existing `light-gateway` local-token pattern. Keep Codex
+credentials outside git and pass them through the environment:
+
+```bash
+export CODEX_API_KEY=...
+export CODEX_ACCOUNT_ID=...
+```
+
+Optional overrides:
+
+```bash
+export LIGHT_AGENT_MODEL=gpt-5.5
+export CODEX_REASONING_EFFORT=low
+export LIGHT_AGENT_IMAGE=networknt/light-agent:latest
+export LIGHT_AGENT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
+```
+
+For a locally built image from `light-fabric`, build it there and point compose
+at the tag:
+
+```bash
+cd ~/lightapi/light-fabric
+./apps/light-agent/build.sh agent-local --local
+export LIGHT_AGENT_IMAGE=networknt/light-agent:agent-local
+```
+
 ## Start services
 
 ```
