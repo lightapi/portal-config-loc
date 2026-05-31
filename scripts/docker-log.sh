@@ -13,8 +13,10 @@ rm connect.txt
 rm config.txt
 rm controller.txt
 rm workflow.txt
+rm agent.txt
 rm customer-profile.txt
 rm offer-decision.txt
+
 
 docker logs hybrid-query1 > query1.txt
 docker logs hybrid-query2 > query2.txt
@@ -30,5 +32,6 @@ docker logs connect > connect.txt
 docker logs config-server > config.txt
 docker logs controller > controller.txt
 docker logs light-workflow > workflow.txt
+docker logs light-agent > agent.txt
 docker logs demo-customer-profile-api > customer-profile.txt
 docker logs demo-offer-decision-api > offer-decision.txt
