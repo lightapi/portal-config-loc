@@ -7,7 +7,7 @@ startup.externalConfigDir: /app/config-cache
 light-config-server-uri: https://config-server:8435
 
 server.serviceId: ${LIGHT_AGENT_SERVICE_ID:com.networknt.agent.account-1.0.0}
-server.environment: ${LIGHT_AGENT_ENVIRONMENT:dev}
+server.environment: ${LIGHT_AGENT_ENVIRONMENT:}
 server.ip: 0.0.0.0
 server.advertisedAddress: ${LIGHT_AGENT_ADVERTISED_ADDRESS:light-agent}
 server.httpPort: ${LIGHT_AGENT_HTTP_PORT:8083}
