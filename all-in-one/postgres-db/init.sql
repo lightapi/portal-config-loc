@@ -127,6 +127,14 @@ DROP TABLE IF EXISTS product_version_config_t CASCADE;
 
 DROP TABLE IF EXISTS product_version_config_property_t CASCADE;
 
+DROP TABLE IF EXISTS product_version_config_profile_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_property_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_config_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_t CASCADE;
+
 DROP TABLE IF EXISTS product_version_environment_t CASCADE;
 
 DROP TABLE IF EXISTS product_version_t CASCADE;
@@ -1301,6 +1309,61 @@ CREATE TABLE product_version_environment_t (
 );
 
 
+-- reusable config contract/profile shared by product versions.
+CREATE TABLE config_profile_t (
+    profile_id           UUID PRIMARY KEY,
+    profile_name         VARCHAR (255) NOT NULL,
+    runtime_family       VARCHAR (32) NOT NULL,
+    product_id           VARCHAR (8) NOT NULL,
+    light4j_version      VARCHAR (32),
+    contract_version     VARCHAR (64) NOT NULL,
+    profile_desc         VARCHAR (1024),
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX config_profile_unique_idx
+    ON config_profile_t(runtime_family, product_id, contract_version)
+    WHERE active = true;
+
+-- config files included in a reusable config profile.
+CREATE TABLE config_profile_config_t (
+    profile_id           UUID NOT NULL,
+    config_id            UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(profile_id, config_id),
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE CASCADE,
+    FOREIGN KEY(config_id)
+        REFERENCES config_t(config_id) ON DELETE CASCADE
+);
+
+-- config properties included in a reusable config profile.
+CREATE TABLE config_profile_property_t (
+    profile_id           UUID NOT NULL,
+    property_id          UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(profile_id, property_id),
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE CASCADE,
+    FOREIGN KEY(property_id)
+        REFERENCES config_property_t(property_id) ON DELETE CASCADE
+);
+
 -- config file and product version mapping (applicable config for pv)
 CREATE TABLE product_version_config_t (
     host_id              UUID NOT NULL,
@@ -1335,6 +1398,24 @@ CREATE TABLE product_version_config_property_t (
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
     FOREIGN KEY(property_id)
         REFERENCES config_property_t(property_id) ON DELETE CASCADE
+);
+
+-- product version link to the reusable config profile contract.
+CREATE TABLE product_version_config_profile_t (
+    host_id              UUID NOT NULL,
+    product_version_id   UUID NOT NULL,
+    profile_id           UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, product_version_id),
+    FOREIGN KEY(host_id, product_version_id)
+        REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE RESTRICT
 );
 
 -- customized property for product version within the host.
