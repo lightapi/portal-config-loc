@@ -3,7 +3,7 @@
 services:
 
   controller:
-    image: networknt/controller-rs:latest
+    image: ${CONTROLLER_RS_IMAGE:-networknt/controller-rs:latest}
     ports:
       - 8438:8438
     volumes:

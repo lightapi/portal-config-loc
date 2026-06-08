@@ -54,6 +54,12 @@ fi
 
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
+DEFAULT_RELEASE_IMAGE_ENV_FILE="$SERVICE_ASSET_REPO/docker-images.env"
+if [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "${HOME:-}/workspace/service-asset/docker-images.env" ]]; then
+    DEFAULT_RELEASE_IMAGE_ENV_FILE="${HOME:-}/workspace/service-asset/docker-images.env"
+fi
+RELEASE_IMAGE_ENV_FILE="${RELEASE_IMAGE_ENV_FILE:-$DEFAULT_RELEASE_IMAGE_ENV_FILE}"
+RELEASE_IMAGE_ENV_CONFIGURED=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -77,6 +83,20 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+configure_release_image_env() {
+    if [[ "$RELEASE_IMAGE_ENV_CONFIGURED" == "true" ]]; then
+        return 0
+    fi
+
+    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+       [[ "$CONTROLLER_TYPE" == "rust" ]] &&
+       [[ -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
+        DOCKER_COMPOSE_CMD+=(--env-file "$RELEASE_IMAGE_ENV_FILE")
+    fi
+
+    RELEASE_IMAGE_ENV_CONFIGURED=true
 }
 
 copy_missing_dir_contents() {
@@ -352,6 +372,8 @@ main() {
 }
 
 # Handle script arguments
+configure_release_image_env
+
 case "${1:-}" in
     "stop")
         stop_docker_compose

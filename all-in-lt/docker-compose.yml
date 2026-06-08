@@ -33,7 +33,7 @@ services:
       start_period: 5s
 
   hybrid-command:
-    image: networknt/portal-hybrid-command:2.2.1
+    image: ${PORTAL_HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.2.1}
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
       # The following environment varialbe will enable the debug in the container.
@@ -56,7 +56,7 @@ services:
         condition: service_healthy
 
   hybrid-query:
-    image: networknt/portal-hybrid-query:2.2.1
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1}
     volumes:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service

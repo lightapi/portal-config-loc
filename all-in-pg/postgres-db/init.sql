@@ -523,6 +523,12 @@ CREATE TABLE schema_t (
         schema_id ~ '^[a-z0-9_-]+$'
     ),  -- schema id, must be lower case and url friendly and uniquely identify a schema
     host_id              UUID,            -- null means global schema
+    schema_alias         VARCHAR(126) CHECK (
+        schema_alias IS NULL OR (
+            schema_alias = LOWER(schema_alias) AND
+            schema_alias ~ '^[a-z0-9_-]+$'
+        )
+    ),  -- optional url-friendly external schema alias
     schema_version       VARCHAR(12) NOT NULL,   -- the version of the schema
     schema_type          VARCHAR(16) NOT NULL,   -- schema type
     spec_version         VARCHAR(12) NOT NULL,   -- schema specification version
@@ -532,6 +538,7 @@ CREATE TABLE schema_t (
     schema_body          VARCHAR(65535) NOT NULL,-- schema body
     schema_owner         UUID NOT NULL,          -- schema owner
     schema_status        CHAR(1) DEFAULT 'P' NOT NULL,  -- D draft P published R retired
+    external_visible     BOOLEAN NOT NULL DEFAULT FALSE, -- whether /r/schema can expose this schema
     example              VARCHAR(65535),         -- json example
     comment_status       CHAR(1) DEFAULT 'O' NOT NULL, -- comment open or closed. O open C close
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
@@ -561,6 +568,22 @@ WHERE host_id IS NOT NULL;
 
 -- Add index on host_id for efficient tenant-specific lookups
 CREATE INDEX idx_schema_host_id ON schema_t (host_id);
+CREATE UNIQUE INDEX idx_schema_alias_global
+ON schema_t (schema_alias)
+WHERE host_id IS NULL AND schema_alias IS NOT NULL;
+
+CREATE UNIQUE INDEX idx_schema_alias_tenant
+ON schema_t (host_id, schema_alias)
+WHERE host_id IS NOT NULL AND schema_alias IS NOT NULL;
+
+CREATE INDEX idx_schema_external_alias_global
+ON schema_t (schema_alias, schema_version)
+WHERE host_id IS NULL AND external_visible = TRUE AND active = TRUE;
+
+CREATE INDEX idx_schema_external_alias_tenant
+ON schema_t (host_id, schema_alias, schema_version)
+WHERE host_id IS NOT NULL AND external_visible = TRUE AND active = TRUE;
+
 -- Add index on schema_name for lookups by name
 CREATE INDEX idx_schema_schema_name ON schema_t (schema_name);
 -- Add index on schema_type for filtering by schema type
@@ -577,6 +600,8 @@ CREATE TABLE rule_t (
     version              VARCHAR(32),           -- version that follows major.minor.patch pattern.
     author               VARCHAR(128),
     rule_desc            VARCHAR(1024),
+    condition_language   VARCHAR(16) DEFAULT 'native' NOT NULL,
+    condition_security_profile VARCHAR(32),
     rule_body            VARCHAR(65535) NOT NULL,
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
@@ -589,6 +614,12 @@ CREATE TABLE rule_t (
 
 ALTER TABLE rule_t
     ADD CHECK ( common IN ('Y', 'N'));
+
+ALTER TABLE rule_t
+    ADD CHECK ( condition_language IN ('native', 'cel'));
+
+ALTER TABLE rule_t
+    ADD CHECK ( condition_security_profile IS NULL OR condition_security_profile IN ('strict', 'standard', 'internal-admin'));
 
 -- Ensures uniqueness of (rule_id) ONLY when host_id is NULL
 CREATE UNIQUE INDEX idx_rule_unique_global
@@ -3605,6 +3636,8 @@ WHERE active = TRUE;
 CREATE INDEX pii_token_vault_expiry_idx
 ON pii_token_vault_t(expires_ts)
 WHERE expires_ts IS NOT NULL;
+
+
 -- create a view to simplify the foreign key relationship.
 
 DROP VIEW IF EXISTS cascade_relationships_v;
