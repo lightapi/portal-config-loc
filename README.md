@@ -475,7 +475,8 @@ runtime and `EVENT_IMPORTER_IMAGE` selects the image:
 For Podman, `deploy-local.sh` streams `service-asset/events.json` to the
 event-importer container over stdin instead of bind-mounting it. If you see
 `AccessDeniedException: /events/events.json`, pull the latest script and retry
-the import.
+the import. Fedora's Docker-compatible Podman wrapper is also detected, but
+setting `CONTAINER_CMD=podman` makes the selected runtime explicit.
 
 ```bash
 COMPOSE_CMD="podman compose" \

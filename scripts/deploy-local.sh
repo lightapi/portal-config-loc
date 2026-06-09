@@ -170,6 +170,17 @@ copy_missing_dir_contents() {
     fi
 }
 
+container_runtime_is_podman() {
+    local version_output
+
+    if [[ "$CONTAINER_RUNTIME_CMD" == *podman* ]]; then
+        return 0
+    fi
+
+    version_output="$("$CONTAINER_RUNTIME_CMD" --version 2>&1 || true)"
+    [[ "$version_output" == *podman* || "$version_output" == *Podman* ]]
+}
+
 ensure_service_assets() {
     local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
@@ -198,7 +209,7 @@ check_gateway_host_port() {
     local unprivileged_start
     local rootless
 
-    if [[ "$CONTAINER_RUNTIME_CMD" != *podman* ]] || [[ ! "$host_port" =~ ^[0-9]+$ ]] || [ "$host_port" -ge 1024 ]; then
+    if ! container_runtime_is_podman || [[ ! "$host_port" =~ ^[0-9]+$ ]] || [ "$host_port" -ge 1024 ]; then
         return 0
     fi
 
@@ -373,7 +384,7 @@ run_container_event_importer() {
     event_name="$(basename "$event_file")"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
-    if [[ "$CONTAINER_RUNTIME_CMD" == *podman* ]]; then
+    if container_runtime_is_podman; then
         log_info "Streaming $event_file to event-importer over stdin"
         "$CONTAINER_RUNTIME_CMD" run --rm -i \
             --network "$import_network" \
