@@ -194,7 +194,7 @@ services:
   light-gateway:
     image: ${LIGHT_GATEWAY_IMAGE:-networknt/light-gateway:2.3.5}
     ports:
-      - 443:8443
+      - "${LIGHT_GATEWAY_HOST_PORT:-443}:8443"
     volumes:
       - ./light-gateway-rust/config:/config
       - ./light-gateway-rust/lightapi/dist:/lightapi/dist

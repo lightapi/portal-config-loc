@@ -111,7 +111,7 @@ Platform notes:
 | Platform | Recommended path |
 | --- | --- |
 | Ubuntu | Docker Compose is the simplest path. Podman also works after installing a Compose provider. |
-| Fedora Silverblue | Podman is a good default; install `podman-compose` and allow rootless binding to port `443`. |
+| Fedora Silverblue | Podman is a good default; allow rootless binding to port `443` before starting the stack. |
 | macOS | Docker Desktop is the simplest path. Podman Desktop also works if the Podman machine is started. |
 | Windows | Use WSL2 Ubuntu and run the script inside the WSL shell. Enable Docker Desktop WSL integration or use a Podman machine. |
 
@@ -129,13 +129,25 @@ sudo rpm-ostree install podman-compose
 systemctl reboot
 ```
 
-Rootless Podman normally cannot bind host port `443`. The local gateway uses
-`443`, so allow unprivileged processes to bind from `443` upward:
+Rootless Podman normally cannot bind host port `443`. The local configuration
+expects `https://localhost`, so allow unprivileged processes to bind from `443`
+upward before starting the stack:
 
 ```bash
 printf 'net.ipv4.ip_unprivileged_port_start=443\n' | \
   sudo tee /etc/sysctl.d/99-rootless-low-ports.conf
 sudo sysctl --system
+```
+
+Then start the stack:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="podman compose" \
+CONTAINER_CMD=podman \
+IMPORT_EVENTS=auto \
+RUST_LOG=info \
+./scripts/deploy-local.sh lt rust
 ```
 
 ### Fedora Silverblue Postgres Permissions

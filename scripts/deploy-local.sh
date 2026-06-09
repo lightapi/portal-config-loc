@@ -193,6 +193,34 @@ ensure_service_assets() {
     done
 }
 
+check_gateway_host_port() {
+    local host_port="${LIGHT_GATEWAY_HOST_PORT:-443}"
+    local unprivileged_start
+    local rootless
+
+    if [[ "$CONTAINER_RUNTIME_CMD" != *podman* ]] || [[ ! "$host_port" =~ ^[0-9]+$ ]] || [ "$host_port" -ge 1024 ]; then
+        return 0
+    fi
+
+    rootless="$("$CONTAINER_RUNTIME_CMD" info --format '{{.Host.Security.Rootless}}' 2>/dev/null || true)"
+    if [[ "$rootless" != "true" ]] && [ "$(id -u)" -eq 0 ]; then
+        return 0
+    fi
+
+    if [ ! -r /proc/sys/net/ipv4/ip_unprivileged_port_start ]; then
+        return 0
+    fi
+
+    unprivileged_start="$(cat /proc/sys/net/ipv4/ip_unprivileged_port_start)"
+    if [[ "$unprivileged_start" =~ ^[0-9]+$ ]] && [ "$host_port" -lt "$unprivileged_start" ]; then
+        log_error "Rootless Podman cannot bind host port $host_port while net.ipv4.ip_unprivileged_port_start=$unprivileged_start."
+        log_error "To use https://localhost, run:"
+        log_error "  printf 'net.ipv4.ip_unprivileged_port_start=443\\n' | sudo tee /etc/sysctl.d/99-rootless-low-ports.conf"
+        log_error "  sudo sysctl --system"
+        return 1
+    fi
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
@@ -222,6 +250,7 @@ check_prerequisites() {
         fi
     fi
 
+    check_gateway_host_port
     ensure_service_assets
 
     log_success "All prerequisites met"
@@ -246,6 +275,7 @@ stop_docker_compose() {
 start_docker_compose() {
     log_info "Starting Compose services..."
 
+    check_gateway_host_port || exit 1
     ensure_service_assets || exit 1
 
     cd "$DOCKER_COMPOSE_DIR" || {
@@ -610,6 +640,7 @@ case "${1:-}" in
         echo "Environment:"
         echo "  COMPOSE_CMD=\"podman compose\"     Use Podman Compose instead of the default docker compose"
         echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
+        echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
         echo "  IMPORT_EVENTS=auto                Import service-asset/events.json only when event_store_t is empty"
         echo "  IMPORT_EVENTS=true                Import service-asset/events.json even when rows already exist"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"

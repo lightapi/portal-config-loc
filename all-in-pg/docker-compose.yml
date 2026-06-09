@@ -132,7 +132,7 @@ services:
   light-gateway:
     image: networknt/light-gateway:2.2.1
     ports:
-      - 443:8443
+      - "${LIGHT_GATEWAY_HOST_PORT:-443}:8443"
       # - 5005:5005
     volumes:
       - ./light-gateway/config:/config
