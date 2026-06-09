@@ -312,30 +312,6 @@ start_docker_compose() {
     fi
 }
 
-list_compose_services() {
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" config --services 2>/dev/null ||
-        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services
-}
-
-service_is_running() {
-    local service="$1"
-    local container_ids
-    local container_id
-    local running
-
-    container_ids="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps -q "$service" 2>/dev/null || true)"
-    [ -n "$container_ids" ] || return 1
-
-    for container_id in $container_ids; do
-        running="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
-        if [[ "$running" == "true" ]]; then
-            return 0
-        fi
-    done
-
-    return 1
-}
-
 get_event_store_count() {
     "$CONTAINER_RUNTIME_CMD" exec postgres psql -U postgres -d configserver -tAc "select count(*) from event_store_t;"
 }
@@ -519,54 +495,6 @@ import_events() {
     log_success "Event import completed"
 }
 
-# Verify Compose services are running
-verify_services() {
-    log_info "Verifying Compose services are running..."
-
-    cd "$DOCKER_COMPOSE_DIR" || return 1
-
-    local max_attempts=30
-    local attempt=1
-
-    local services=()
-    mapfile -t services < <(list_compose_services)
-
-    while [ $attempt -le $max_attempts ]; do
-        log_info "Service running check attempt $attempt of $max_attempts..."
-
-        local total_services="${#services[@]}"
-        local running_services=0
-        local pending_services=()
-
-        for service in "${services[@]}"; do
-            [ -n "$service" ] || continue
-            if service_is_running "$service"; then
-                running_services=$((running_services + 1))
-            else
-                pending_services+=("$service")
-            fi
-        done
-
-        if [ "$running_services" -eq "$total_services" ] && [ "$total_services" -gt 0 ]; then
-            log_success "All $total_services services are running"
-            return 0
-        fi
-
-        if [ "${#pending_services[@]}" -gt 0 ]; then
-            log_info "$running_services of $total_services services running; waiting for: ${pending_services[*]}"
-        else
-            log_info "$running_services of $total_services services running..."
-        fi
-        sleep 10
-        attempt=$((attempt + 1))
-    done
-
-    log_warning "Some services are not running after $max_attempts attempts"
-    log_info "Current service status:"
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
-    return 1
-}
-
 # Show deployment summary
 show_summary() {
     log_info "=== Deployment Summary ==="
@@ -579,19 +507,8 @@ show_summary() {
     fi
 
     cd "$DOCKER_COMPOSE_DIR" && {
-        log_info "Running containers:"
-        list_compose_services | while read -r service; do
-            if service_is_running "$service"; then
-                log_info "  - $service: running"
-            else
-                log_info "  - $service: not running"
-            fi
-        done
-
-        log_info "Service URLs (if applicable):"
-        # Add any specific service URL checks here
-        # Example:
-        # log_info "  - API Gateway: http://localhost:8080"
+        log_info "Compose status:"
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
     }
 }
 
@@ -616,17 +533,14 @@ main() {
     fi
 
     # Step 4: Import events if requested. Some services bootstrap config from
-    # imported events, so import before waiting for every service to stay up.
+    # imported events.
     if [[ -z "${IMPORT_EVENTS+x}" ]]; then
         log_info "IMPORT_EVENTS not set; defaulting to auto for full deployment."
         IMPORT_EVENTS=auto
     fi
     import_events
 
-    # Step 5: Verify services
-    verify_services
-
-    # Step 6: Show summary
+    # Step 5: Show summary
     show_summary
 
     log_success "Deployment completed successfully!"
@@ -653,9 +567,6 @@ case "${1:-}" in
     "status")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
         ;;
-    "verify")
-        verify_services
-        ;;
     "logs")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
         ;;
@@ -677,7 +588,6 @@ case "${1:-}" in
         echo "  start           Start Compose services"
         echo "  restart         Restart Compose services"
         echo "  status          Show Compose status"
-        echo "  verify          Wait until every Compose service has a running container"
         echo "  logs            Follow Compose logs"
         echo "  help            Show this help message"
         echo ""
