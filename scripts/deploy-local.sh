@@ -367,16 +367,21 @@ run_container_event_importer() {
     local event_name
     local import_network
     local db_jdbc_url
+    local event_mount
 
     event_dir="$(cd "$(dirname "$event_file")" && pwd)"
     event_name="$(basename "$event_file")"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
+    event_mount="$event_dir:/events:ro"
+    if [[ "$CONTAINER_RUNTIME_CMD" == *podman* ]]; then
+        event_mount="$event_dir:/events:ro,Z"
+    fi
 
     log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
     "$CONTAINER_RUNTIME_CMD" run --rm \
         --network "$import_network" \
-        -v "$event_dir:/events:ro" \
+        -v "$event_mount" \
         -e DB_JDBC_URL="$db_jdbc_url" \
         -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
         -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \

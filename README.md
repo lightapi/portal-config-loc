@@ -472,6 +472,10 @@ COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=true ./scripts/d
 Automatic import uses a container by default. `CONTAINER_CMD` selects the
 runtime and `EVENT_IMPORTER_IMAGE` selects the image:
 
+For Podman, `deploy-local.sh` relabels the `service-asset` bind mount for the
+event-importer container. If you see `AccessDeniedException: /events/events.json`,
+pull the latest script and retry the import.
+
 ```bash
 COMPOSE_CMD="podman compose" \
 CONTAINER_CMD=podman \
