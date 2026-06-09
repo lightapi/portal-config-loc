@@ -493,9 +493,9 @@ import_events() {
     log_success "Event import completed"
 }
 
-# Verify services are healthy
+# Verify Compose services are running
 verify_services() {
-    log_info "Verifying services are healthy..."
+    log_info "Verifying Compose services are running..."
 
     cd "$DOCKER_COMPOSE_DIR" || return 1
 
@@ -506,27 +506,36 @@ verify_services() {
     mapfile -t services < <(list_compose_services)
 
     while [ $attempt -le $max_attempts ]; do
-        log_info "Health check attempt $attempt of $max_attempts..."
+        log_info "Service running check attempt $attempt of $max_attempts..."
 
         local total_services="${#services[@]}"
-        local healthy_services
-        healthy_services=$(printf '%s\n' "${services[@]}" | while read -r service; do
-            if service_is_running "$service"; then
-                echo "1"
-            fi
-        done | wc -l)
+        local running_services=0
+        local pending_services=()
 
-        if [ "$healthy_services" -eq "$total_services" ] && [ "$total_services" -gt 0 ]; then
+        for service in "${services[@]}"; do
+            [ -n "$service" ] || continue
+            if service_is_running "$service"; then
+                running_services=$((running_services + 1))
+            else
+                pending_services+=("$service")
+            fi
+        done
+
+        if [ "$running_services" -eq "$total_services" ] && [ "$total_services" -gt 0 ]; then
             log_success "All $total_services services are running"
             return 0
         fi
 
-        log_info "$healthy_services of $total_services services running..."
+        if [ "${#pending_services[@]}" -gt 0 ]; then
+            log_info "$running_services of $total_services services running; waiting for: ${pending_services[*]}"
+        else
+            log_info "$running_services of $total_services services running..."
+        fi
         sleep 10
         attempt=$((attempt + 1))
     done
 
-    log_warning "Some services may not be fully healthy after $max_attempts attempts"
+    log_warning "Some services are not running after $max_attempts attempts"
     log_info "Current service status:"
     "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
     return 1
@@ -613,6 +622,9 @@ case "${1:-}" in
     "status")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
         ;;
+    "verify")
+        verify_services
+        ;;
     "logs")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
         ;;
@@ -634,6 +646,7 @@ case "${1:-}" in
         echo "  start           Start Compose services"
         echo "  restart         Restart Compose services"
         echo "  status          Show Compose status"
+        echo "  verify          Wait until every Compose service has a running container"
         echo "  logs            Follow Compose logs"
         echo "  help            Show this help message"
         echo ""
