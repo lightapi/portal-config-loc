@@ -386,8 +386,23 @@ The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, non
 
 Postgres uses a Compose named volume called `postgres-data` instead of the
 host bind directory `postgres-db/data`. This avoids rootless Podman permission
-and SELinux label issues on Fedora Silverblue. To reset Postgres for a selected
-stack, run Compose directly from that stack directory with `down -v`.
+and SELinux label issues on Fedora Silverblue. 
+
+To clean/recreate the Postgres database volume, you can either:
+- Set the `CLEAN_VOLUMES=true` environment variable when running the deploy script:
+  - **Full redeployment** (stop/wipe, start, and run event import for Rust):
+    ```bash
+    CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
+    ```
+  - **Stop and wipe only** (without restarting/importing for Rust):
+    ```bash
+    CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust stop
+    ```
+- Or run Compose directly from the selected stack directory:
+  ```bash
+  cd all-in-lt
+  docker compose down -v
+  ```
 
 ### Podman Compose
 
