@@ -41,7 +41,7 @@ services:
       - 6881:6881
       # - 5005:5005
     volumes:
-      - ./light-oauth-rust/config:/config
+      - ./light-oauth-rust/config:/config:Z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
@@ -59,7 +59,7 @@ services:
     ports:
       - 8435:8435
     volumes:
-      - ./config-server-rust/config:/config
+      - ./config-server-rust/config:/config:Z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
@@ -85,7 +85,7 @@ services:
     ports:
       - 2498:2498
     volumes:
-      - ./portal-service-rust/config:/config
+      - ./portal-service-rust/config:/config:Z
       - ${PORTAL_DATA_DIR:-./data}:/data
     environment:
       LIGHT_RS_CONFIG_DIR: /config
@@ -116,7 +116,7 @@ services:
     ports:
       - ${LIGHT_AGENT_PORT:-8083}:8083
     volumes:
-      - ./light-agent-rust/config:/config:ro
+      - ./light-agent-rust/config:/config:ro,Z
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config

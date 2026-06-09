@@ -199,6 +199,21 @@ git pull --rebase
 COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
 ```
 
+### Fedora Silverblue Agent Certificates
+
+If `light-agent` fails with a message like
+`config/ca.pem: no such file or directory`, use the latest Compose files and
+recreate the Rust stack. The agent config sets the CA path to
+`/keystore/ca.pem`; seeing `config/ca.pem` usually means the container did not
+read the mounted `/config/values.yml` because the config bind mount was not
+SELinux relabeled.
+
+```bash
+cd ~/lightapi/portal-config-loc
+git pull --rebase
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
+```
+
 ## Create a workspace
 
 ```
