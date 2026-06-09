@@ -277,7 +277,12 @@ stop_docker_compose() {
     }
 
     log_info "Stopping Compose containers..."
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30 --remove-orphans
+    local down_args=("--timeout" "30" "--remove-orphans")
+    if [[ "${CLEAN_VOLUMES:-false}" == "true" ]]; then
+        down_args+=("-v")
+        log_info "Volumes will be removed (-v)"
+    fi
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down "${down_args[@]}"
 
     log_success "Compose services stopped"
 }
