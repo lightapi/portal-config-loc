@@ -589,11 +589,12 @@ main() {
         exit 1
     fi
 
-    # Step 4: Verify services
-    verify_services
-
-    # Step 5: Import events if requested
+    # Step 4: Import events if requested. Some services bootstrap config from
+    # imported events, so import before waiting for every service to stay up.
     import_events
+
+    # Step 5: Verify services
+    verify_services
 
     # Step 6: Show summary
     show_summary
