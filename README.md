@@ -46,9 +46,23 @@ cp /path/to/your/events.json ~/lightapi/service-asset/events.json
 Do not use a different filename. `deploy-local.sh` rejects `EVENT_IMPORT_FILE`
 so every import path uses only `service-asset/events.json`. After the script has
 started and imported events into Postgres, replacing the file will not change
-the existing database. To reinitialize from a different file, stop the stack,
-remove the local Postgres data directory, replace `service-asset/events.json`,
-and then start the script again with `IMPORT_EVENTS=auto`.
+the existing database. To reinitialize from a different file, remove the
+Postgres named volume, replace `service-asset/events.json`, and then start the
+script again with `IMPORT_EVENTS=auto`.
+
+For Podman:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-lt
+podman compose -f docker-compose.yml -f docker-compose-rust.yml down -v
+```
+
+For Docker:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-lt
+docker compose -f docker-compose.yml -f docker-compose-rust.yml down -v
+```
 
 Docker Compose:
 
@@ -75,7 +89,7 @@ RUST_LOG=info \
 `IMPORT_EVENTS=auto` waits for Postgres, checks `event_store_t`, and imports
 `~/lightapi/service-asset/events.json` only when the event store is empty. This
 is the expected mode for a brand new environment or after removing the Postgres
-data directory. Leave `IMPORT_EVENTS` unset for normal restarts, or use
+named volume. Leave `IMPORT_EVENTS` unset for normal restarts, or use
 `IMPORT_EVENTS=true` only when you intentionally want to import again.
 
 The automatic import path uses the event-importer container image through the
@@ -122,6 +136,28 @@ Rootless Podman normally cannot bind host port `443`. The local gateway uses
 printf 'net.ipv4.ip_unprivileged_port_start=443\n' | \
   sudo tee /etc/sysctl.d/99-rootless-low-ports.conf
 sudo sysctl --system
+```
+
+### Fedora Silverblue Postgres Permissions
+
+Postgres data is stored in a Compose named volume, not in
+`postgres-db/data`. If you previously started the stack before this change and
+hit a permission error on the old bind-mounted data directory, pull the latest
+config and recreate the stack:
+
+```bash
+cd ~/lightapi/portal-config-loc
+git pull --rebase
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust stop
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=auto ./scripts/deploy-local.sh lt rust
+```
+
+If you need a completely fresh database after a failed first run, remove the
+Compose volume before starting again:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-lt
+podman compose -f docker-compose.yml -f docker-compose-rust.yml down -v
 ```
 
 ## Create a workspace
@@ -293,7 +329,12 @@ cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
 
-The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Compose or `deploy-local.sh`.
+The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, non-database data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Compose or `deploy-local.sh`.
+
+Postgres uses a Compose named volume called `postgres-data` instead of the
+host bind directory `postgres-db/data`. This avoids rootless Podman permission
+and SELinux label issues on Fedora Silverblue. To reset Postgres for a selected
+stack, run Compose directly from that stack directory with `down -v`.
 
 ### Podman Compose
 
