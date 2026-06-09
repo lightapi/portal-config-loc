@@ -70,7 +70,6 @@ Docker Compose:
 cd ~/lightapi/portal-config-loc
 COMPOSE_CMD="docker compose" \
 CONTAINER_CMD=docker \
-IMPORT_EVENTS=auto \
 RUST_LOG=info \
 ./scripts/deploy-local.sh lt rust
 ```
@@ -81,16 +80,16 @@ Podman Compose:
 cd ~/lightapi/portal-config-loc
 COMPOSE_CMD="podman compose" \
 CONTAINER_CMD=podman \
-IMPORT_EVENTS=auto \
 RUST_LOG=info \
 ./scripts/deploy-local.sh lt rust
 ```
 
-`IMPORT_EVENTS=auto` waits for Postgres, checks `event_store_t`, and imports
-`~/lightapi/service-asset/events.json` only when the event store is empty. This
-is the expected mode for a brand new environment or after removing the Postgres
-named volume. Leave `IMPORT_EVENTS` unset for normal restarts, or use
-`IMPORT_EVENTS=true` only when you intentionally want to import again.
+Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
+`event_store_t`, and imports `~/lightapi/service-asset/events.json` only when
+the event store is empty. This is the expected mode for a brand new environment
+or after removing the Postgres named volume. Explicit `start` and `restart`
+commands skip import unless `IMPORT_EVENTS=auto` or `IMPORT_EVENTS=true` is set.
+Use `IMPORT_EVENTS=true` only when you intentionally want to import again.
 
 The automatic import path uses the event-importer container image through the
 selected container runtime. Set `EVENT_IMPORT_RUNNER=local` only when you want
@@ -460,11 +459,11 @@ The preferred first-run path is automatic import through `deploy-local.sh`:
 
 ```bash
 cd ~/lightapi/portal-config-loc
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=auto ./scripts/deploy-local.sh lt rust
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust
 ```
 
-`IMPORT_EVENTS=auto` imports only when `event_store_t` is empty. To force an
-import, use:
+Full deployment defaults to `IMPORT_EVENTS=auto`, so it imports only when
+`event_store_t` is empty. To force an import, use:
 
 ```bash
 COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=true ./scripts/deploy-local.sh lt rust start

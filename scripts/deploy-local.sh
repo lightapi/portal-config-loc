@@ -591,6 +591,10 @@ main() {
 
     # Step 4: Import events if requested. Some services bootstrap config from
     # imported events, so import before waiting for every service to stay up.
+    if [[ -z "${IMPORT_EVENTS+x}" ]]; then
+        log_info "IMPORT_EVENTS not set; defaulting to auto for full deployment."
+        IMPORT_EVENTS=auto
+    fi
     import_events
 
     # Step 5: Verify services
@@ -655,7 +659,8 @@ case "${1:-}" in
         echo "  COMPOSE_CMD=\"podman compose\"     Use Podman Compose instead of the default docker compose"
         echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
-        echo "  IMPORT_EVENTS=auto                Import service-asset/events.json only when event_store_t is empty"
+        echo "  IMPORT_EVENTS=auto                Import service-asset/events.json only when event_store_t is empty (default for full deployment)"
+        echo "  IMPORT_EVENTS=false               Skip event import"
         echo "  IMPORT_EVENTS=true                Import service-asset/events.json even when rows already exist"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
