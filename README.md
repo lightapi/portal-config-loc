@@ -1,6 +1,129 @@
 # portal-config-loc
 Portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers. For pure UI developers, he/she can use the https://localhost:3000 to connect to the dev portal server.
 
+## Get Started Quickly
+
+Use the script first for a local Rust stack. It copies the checked-in assets
+from the sibling `service-asset` repository when the target asset directories
+are missing or empty, starts `all-in-lt`, and can import
+`service-asset/events.json` automatically for a new database.
+
+Clone or update the two runtime repositories under `~/lightapi`:
+
+```bash
+cd ~
+mkdir -p lightapi
+cd lightapi
+git clone git@github.com:lightapi/portal-config-loc.git
+git clone git@github.com:lightapi/service-asset.git
+```
+
+If both repositories are already cloned:
+
+```bash
+cd ~/lightapi/portal-config-loc
+git pull --rebase
+cd ~/lightapi/service-asset
+git pull --rebase
+```
+
+### Optional: Use Your Own Events
+
+The importer always reads this exact file:
+
+```text
+~/lightapi/service-asset/events.json
+```
+
+To initialize a new local database with your own snapshot, replace
+`~/lightapi/service-asset/events.json` before running `deploy-local.sh` for the
+first time:
+
+```bash
+cp /path/to/your/events.json ~/lightapi/service-asset/events.json
+```
+
+Do not use a different filename. `deploy-local.sh` rejects `EVENT_IMPORT_FILE`
+so every import path uses only `service-asset/events.json`. After the script has
+started and imported events into Postgres, replacing the file will not change
+the existing database. To reinitialize from a different file, stop the stack,
+remove the local Postgres data directory, replace `service-asset/events.json`,
+and then start the script again with `IMPORT_EVENTS=auto`.
+
+Docker Compose:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="docker compose" \
+CONTAINER_CMD=docker \
+IMPORT_EVENTS=auto \
+RUST_LOG=info \
+./scripts/deploy-local.sh lt rust
+```
+
+Podman Compose:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="podman compose" \
+CONTAINER_CMD=podman \
+IMPORT_EVENTS=auto \
+RUST_LOG=info \
+./scripts/deploy-local.sh lt rust
+```
+
+`IMPORT_EVENTS=auto` waits for Postgres, checks `event_store_t`, and imports
+`~/lightapi/service-asset/events.json` only when the event store is empty. This
+is the expected mode for a brand new environment or after removing the Postgres
+data directory. Leave `IMPORT_EVENTS` unset for normal restarts, or use
+`IMPORT_EVENTS=true` only when you intentionally want to import again.
+
+The automatic import path uses the event-importer container image through the
+selected container runtime. Set `EVENT_IMPORT_RUNNER=local` only when you want
+to use the host-side importer scripts from `service-asset`.
+
+After startup:
+
+```bash
+COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust status
+COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust logs
+```
+
+Open the portal at `https://localhost`. If you use configured hostnames such as
+`dev.lightapi.net`, point them to `127.0.0.1` in your hosts file.
+
+Platform notes:
+
+| Platform | Recommended path |
+| --- | --- |
+| Ubuntu | Docker Compose is the simplest path. Podman also works after installing a Compose provider. |
+| Fedora Silverblue | Podman is a good default; install `podman-compose` and allow rootless binding to port `443`. |
+| macOS | Docker Desktop is the simplest path. Podman Desktop also works if the Podman machine is started. |
+| Windows | Use WSL2 Ubuntu and run the script inside the WSL shell. Enable Docker Desktop WSL integration or use a Podman machine. |
+
+For detailed OS setup, see
+[Local Portal Setup](https://doc.lightapi.net/implementation/local-portal-setup.html)
+in the public Light Portal documentation.
+
+### Fedora Silverblue Port Setup
+
+Install the Compose provider once, then reboot into the new Silverblue
+deployment:
+
+```bash
+sudo rpm-ostree install podman-compose
+systemctl reboot
+```
+
+Rootless Podman normally cannot bind host port `443`. The local gateway uses
+`443`, so allow unprivileged processes to bind from `443` upward:
+
+```bash
+printf 'net.ipv4.ip_unprivileged_port_start=443\n' | \
+  sudo tee /etc/sysctl.d/99-rootless-low-ports.conf
+sudo sysctl --system
+```
+
 ## Create a workspace
 
 ```
@@ -70,14 +193,21 @@ cd ~/lightapi/portal-config-loc
 ./scripts/copy-service-local.sh -f
 ```
 
-If you want Docker to use locally built baked-in images instead of the published wrapper tags, add the image-local override compose file:
+If you want Compose to use locally built baked-in images instead of the published wrapper tags, add the image-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
 docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
 ```
 
-If you want Docker to use the host service folders directly instead of baked-in jars, add the service-local override compose file:
+For Podman, use the same files through `podman compose`:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-pg
+podman compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
+```
+
+If you want Compose to use the host service folders directly instead of baked-in jars, add the service-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
@@ -111,7 +241,7 @@ LIGHT_WORKFLOW_IMAGE=networknt/light-workflow:2.3.5 \
 
 `hybrid-query` can call the Gemini embedding API for tool description
 embeddings. Keep the API key outside git and pass it through the environment
-before starting Docker Compose:
+before starting Compose:
 
 ```bash
 export GEMINI_API_KEY=...
@@ -163,7 +293,32 @@ cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
 
-The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Docker Compose or `deploy-local.sh`.
+The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Compose or `deploy-local.sh`.
+
+### Podman Compose
+
+The deploy script defaults to Docker Compose for existing development machines.
+To use Podman Compose, set `COMPOSE_CMD`:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust
+```
+
+You can also run Compose directly from the selected stack directory:
+
+```bash
+cd ~/lightapi/portal-config-loc/all-in-lt
+podman compose -f docker-compose.yml -f docker-compose-rust.yml up -d
+```
+
+If `podman compose` cannot find a provider, verify `podman-compose` is installed
+and visible on `PATH`:
+
+```bash
+podman compose version
+podman-compose --version
+```
 
 ### Rust Logging
 
@@ -196,15 +351,55 @@ from the selected compose directory:
 
 ```bash
 cd all-in-lt
-RUST_LOG=warn docker compose -f docker-compose.yml -f docker-compose-rust.yml up -d --force-recreate light-gateway
+RUST_LOG=warn podman compose -f docker-compose.yml -f docker-compose-rust.yml up -d --force-recreate light-gateway
 ```
 
-Use the same `RUST_LOG` value on later `docker compose up` or
-`deploy-local.sh` commands if you want to keep that rendered configuration.
+Use the same `RUST_LOG` value on later `podman compose up`, `docker compose up`,
+or `deploy-local.sh` commands if you want to keep that rendered configuration.
 `RUST_LOG` affects Rust services only; Java services use their Java logging
 configuration.
 
 ## Import Events
+
+The preferred first-run path is automatic import through `deploy-local.sh`:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=auto ./scripts/deploy-local.sh lt rust
+```
+
+`IMPORT_EVENTS=auto` imports only when `event_store_t` is empty. To force an
+import, use:
+
+```bash
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=true ./scripts/deploy-local.sh lt rust start
+```
+
+Automatic import uses a container by default. `CONTAINER_CMD` selects the
+runtime and `EVENT_IMPORTER_IMAGE` selects the image:
+
+```bash
+COMPOSE_CMD="podman compose" \
+CONTAINER_CMD=podman \
+IMPORT_EVENTS=auto \
+EVENT_IMPORTER_IMAGE=networknt/event-importer:latest \
+./scripts/deploy-local.sh lt rust start
+```
+
+Manual local import is still available from `service-asset` by setting
+`EVENT_IMPORT_RUNNER=local`. The Rust importer is the best local option on
+Linux because it does not require a local JDK:
+
+```bash
+cd ~/lightapi/portal-config-loc
+COMPOSE_CMD="podman compose" \
+CONTAINER_CMD=podman \
+IMPORT_EVENTS=true \
+EVENT_IMPORT_RUNNER=local \
+./scripts/deploy-local.sh lt rust start
+```
+
+The Java importer is available if `JAVA_HOME` points to a local JDK:
 
 ```
 cd ~/lightapi/service-asset

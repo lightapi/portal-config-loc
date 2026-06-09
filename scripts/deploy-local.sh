@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy.sh - Full deployment script with Docker Compose management
+# deploy.sh - Full deployment script with Compose management
 
 set -e  # Exit on error
 
@@ -10,7 +10,16 @@ BASE_DIR="$(cd "$REPO_DIR/.." && pwd)"
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
 SERVICE_ASSET_REPO="$BASE_DIR/service-asset"
 DOCKER_COMPOSE_FILES=()
-DOCKER_COMPOSE_CMD=(docker compose)
+read -r -a DOCKER_COMPOSE_CMD <<< "${COMPOSE_CMD:-docker compose}"
+if [[ -n "${CONTAINER_CMD:-}" ]]; then
+    CONTAINER_RUNTIME_CMD="$CONTAINER_CMD"
+elif [[ "${DOCKER_COMPOSE_CMD[0]}" == "podman-compose" ]]; then
+    CONTAINER_RUNTIME_CMD="podman"
+elif [[ "${DOCKER_COMPOSE_CMD[0]}" == "docker-compose" ]]; then
+    CONTAINER_RUNTIME_CMD="docker"
+else
+    CONTAINER_RUNTIME_CMD="${DOCKER_COMPOSE_CMD[0]}"
+fi
 CONTROLLER_TYPE=""
 
 # Check for config argument
@@ -99,6 +108,20 @@ configure_release_image_env() {
     RELEASE_IMAGE_ENV_CONFIGURED=true
 }
 
+load_env_file_var() {
+    local name="$1"
+    local value=""
+
+    if [[ -n "${!name:-}" ]] || [[ ! -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
+        return 0
+    fi
+
+    value="$(awk -F= -v key="$name" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$RELEASE_IMAGE_ENV_FILE")"
+    if [[ -n "$value" ]]; then
+        export "$name=$value"
+    fi
+}
+
 copy_missing_dir_contents() {
     local target_dir="$1"
     local repo_dir="$2"
@@ -174,9 +197,14 @@ ensure_service_assets() {
 check_prerequisites() {
     log_info "Checking prerequisites..."
 
-    # Check if docker compose exists
-    if ! docker compose version &> /dev/null; then
-        log_error "docker compose not found. Please install Docker with Compose plugin support."
+    # Check if compose command exists
+    if ! "${DOCKER_COMPOSE_CMD[@]}" version &> /dev/null; then
+        log_error "${DOCKER_COMPOSE_CMD[*]} not found. Install Docker Compose, or set COMPOSE_CMD=\"podman compose\" after installing podman-compose."
+        exit 1
+    fi
+
+    if ! "$CONTAINER_RUNTIME_CMD" ps &> /dev/null; then
+        log_error "$CONTAINER_RUNTIME_CMD is not available or cannot list containers."
         exit 1
     fi
 
@@ -199,63 +227,24 @@ check_prerequisites() {
     log_success "All prerequisites met"
 }
 
-# Stop Docker Compose
+# Stop Compose
 stop_docker_compose() {
-    log_info "Stopping Docker Compose services..."
+    log_info "Stopping Compose services..."
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
         exit 1
     }
 
-    local project_name
-    local project_containers
-    project_name="${COMPOSE_PROJECT_NAME:-$(basename "$DOCKER_COMPOSE_DIR")}"
-
-    # Check the project label so stop also handles services from another override.
-    if ! project_containers="$(docker ps --all --filter "label=com.docker.compose.project=$project_name" --format "{{.Names}}")"; then
-        log_error "Failed to inspect Docker containers for Compose project $project_name"
-        return 1
-    fi
-
-    if [ -z "$project_containers" ]; then
-        log_info "No Docker Compose containers found"
-        return 0
-    fi
-
-    log_info "Stopping Docker Compose containers..."
+    log_info "Stopping Compose containers..."
     "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 30 --remove-orphans
 
-    # Wait for containers to stop
-    local max_wait=60
-    local wait_time=0
-
-    while true; do
-        if ! project_containers="$(docker ps --filter "label=com.docker.compose.project=$project_name" --filter "status=running" --format "{{.Names}}")"; then
-            log_error "Failed to inspect Docker containers for Compose project $project_name"
-            return 1
-        fi
-
-        if [ -z "$project_containers" ]; then
-            break
-        fi
-
-        if [ $wait_time -ge $max_wait ]; then
-            log_warning "Some containers are still running after $max_wait seconds"
-            log_info "Force stopping containers..."
-            "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" down --timeout 10 --remove-orphans
-            break
-        fi
-        sleep 5
-        wait_time=$((wait_time + 5))
-    done
-
-    log_success "Docker Compose services stopped"
+    log_success "Compose services stopped"
 }
 
-# Start Docker Compose
+# Start Compose
 start_docker_compose() {
-    log_info "Starting Docker Compose services..."
+    log_info "Starting Compose services..."
 
     ensure_service_assets || exit 1
 
@@ -267,7 +256,7 @@ start_docker_compose() {
     # Start services in detached mode
     log_info "Starting services..."
     if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
-        log_success "Docker Compose services started"
+        log_success "Compose services started"
 
         # Show status
         log_info "Current service status:"
@@ -277,9 +266,201 @@ start_docker_compose() {
         log_info "Showing startup logs (tail for 10 seconds)..."
         timeout 10 "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=10 2>/dev/null || true
     else
-        log_error "Failed to start Docker Compose services"
+        log_error "Failed to start Compose services"
         return 1
     fi
+}
+
+list_compose_services() {
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" config --services 2>/dev/null ||
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services
+}
+
+service_is_running() {
+    local service="$1"
+    local container_ids
+    local container_id
+    local running
+
+    container_ids="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps -q "$service" 2>/dev/null || true)"
+    [ -n "$container_ids" ] || return 1
+
+    for container_id in $container_ids; do
+        running="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
+        if [[ "$running" == "true" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+get_event_store_count() {
+    "$CONTAINER_RUNTIME_CMD" exec postgres psql -U postgres -d configserver -tAc "select count(*) from event_store_t;"
+}
+
+default_event_import_network() {
+    local network=""
+    network="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' postgres 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$network" ]]; then
+        printf '%s\n' "$network"
+    else
+        printf '%s_default\n' "${COMPOSE_PROJECT_NAME:-$(basename "$DOCKER_COMPOSE_DIR")}"
+    fi
+}
+
+wait_for_event_store_count() {
+    local max_attempts="${EVENT_IMPORT_DB_READY_ATTEMPTS:-30}"
+    local interval="${EVENT_IMPORT_DB_READY_INTERVAL:-5}"
+    local attempt=1
+    local count=""
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        count="$(get_event_store_count 2>/dev/null | tr -d '[:space:]' || true)"
+        if [[ "$count" =~ ^[0-9]+$ ]]; then
+            printf '%s\n' "$count"
+            return 0
+        fi
+
+        sleep "$interval"
+        attempt=$((attempt + 1))
+    done
+
+    return 1
+}
+
+run_container_event_importer() {
+    local event_file="$1"
+    local importer_image="$2"
+    shift 2
+    local event_dir
+    local event_name
+    local import_network
+    local db_jdbc_url
+
+    event_dir="$(cd "$(dirname "$event_file")" && pwd)"
+    event_name="$(basename "$event_file")"
+    import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
+    db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
+
+    log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
+    "$CONTAINER_RUNTIME_CMD" run --rm \
+        --network "$import_network" \
+        -v "$event_dir:/events:ro" \
+        -e DB_JDBC_URL="$db_jdbc_url" \
+        -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
+        -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
+        -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
+        "$importer_image" \
+        --filename "/events/$event_name" \
+        "$@"
+}
+
+run_local_event_importer() {
+    local event_file="$1"
+    local database_url="$2"
+    shift 2
+    local importer_cmd=()
+
+    if [[ -n "${EVENT_IMPORTER_CMD:-}" ]]; then
+        read -r -a importer_cmd <<< "$EVENT_IMPORTER_CMD"
+    elif [[ -x "$SERVICE_ASSET_REPO/importer-rust.sh" && -x "$SERVICE_ASSET_REPO/rust/linux/importer" ]]; then
+        importer_cmd=("./importer-rust.sh")
+    elif [[ -x "$SERVICE_ASSET_REPO/importer.sh" ]]; then
+        importer_cmd=("./importer.sh")
+    else
+        log_error "No executable importer found in $SERVICE_ASSET_REPO"
+        return 1
+    fi
+
+    log_info "Running local event importer: ${importer_cmd[*]}"
+    (
+        cd "$SERVICE_ASSET_REPO" || exit 1
+        export DATABASE_URL="$database_url"
+        "${importer_cmd[@]}" --filename "$event_file" "$@"
+    )
+}
+
+import_events() {
+    local import_mode="${IMPORT_EVENTS:-false}"
+    local import_mode_lower="${import_mode,,}"
+    local event_file="$SERVICE_ASSET_REPO/events.json"
+    local database_url="${EVENT_IMPORT_DATABASE_URL:-postgres://postgres:secret@localhost:5432/configserver}"
+    local import_runner="${EVENT_IMPORT_RUNNER:-container}"
+    local import_runner_lower
+    local importer_image
+    local extra_args=()
+    local event_count=""
+
+    case "$import_mode_lower" in
+        false|no|0|"")
+            log_info "Event import skipped. Set IMPORT_EVENTS=auto or IMPORT_EVENTS=true to import service-asset events."
+            return 0
+            ;;
+        auto|true|yes|1|force)
+            ;;
+        *)
+            log_error "Invalid IMPORT_EVENTS value: $import_mode. Use false, auto, true, or force."
+            return 1
+            ;;
+    esac
+
+    if [ ! -d "$SERVICE_ASSET_REPO" ]; then
+        log_error "service-asset repo not found at $SERVICE_ASSET_REPO"
+        return 1
+    fi
+
+    if [[ -n "${EVENT_IMPORT_FILE:-}" ]]; then
+        log_error "EVENT_IMPORT_FILE is not supported. Replace $event_file before starting deploy-local.sh if you need custom events."
+        return 1
+    fi
+
+    if [ ! -f "$event_file" ]; then
+        log_error "Event import file not found: $event_file"
+        return 1
+    fi
+
+    if event_count="$(wait_for_event_store_count)"; then
+        if [[ "$import_mode_lower" == "auto" && "$event_count" -gt 0 ]]; then
+            log_info "Event store already has $event_count rows; skipping automatic import."
+            return 0
+        fi
+    elif [[ "$import_mode_lower" == "auto" ]]; then
+        log_warning "Cannot read event_store_t count; skipping automatic event import."
+        return 0
+    else
+        log_error "Cannot read event_store_t count before event import."
+        return 1
+    fi
+
+    if [[ -n "${EVENT_IMPORT_ARGS:-}" ]]; then
+        read -r -a extra_args <<< "$EVENT_IMPORT_ARGS"
+    fi
+
+    import_runner_lower="${import_runner,,}"
+    load_env_file_var EVENT_IMPORTER_IMAGE
+    importer_image="${EVENT_IMPORTER_IMAGE:-networknt/event-importer:latest}"
+
+    log_info "Importing events from $event_file"
+    case "$import_runner_lower" in
+        container|docker|podman)
+            run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"
+            ;;
+        local|host)
+            run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"
+            ;;
+        auto)
+            if ! run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"; then
+                log_warning "Container event import failed; trying local importer fallback"
+                run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"
+            fi
+            ;;
+        *)
+            log_error "Invalid EVENT_IMPORT_RUNNER value: $import_runner. Use container, local, or auto."
+            return 1
+            ;;
+    esac
+    log_success "Event import completed"
 }
 
 # Verify services are healthy
@@ -291,13 +472,16 @@ verify_services() {
     local max_attempts=30
     local attempt=1
 
+    local services=()
+    mapfile -t services < <(list_compose_services)
+
     while [ $attempt -le $max_attempts ]; do
         log_info "Health check attempt $attempt of $max_attempts..."
 
-        # Count total services and healthy services
-        local total_services=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | wc -l)
-        local healthy_services=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
-            if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --filter "status=running" "$service" | grep -q "Up"; then
+        local total_services="${#services[@]}"
+        local healthy_services
+        healthy_services=$(printf '%s\n' "${services[@]}" | while read -r service; do
+            if service_is_running "$service"; then
                 echo "1"
             fi
         done | wc -l)
@@ -322,16 +506,21 @@ verify_services() {
 show_summary() {
     log_info "=== Deployment Summary ==="
     log_info "Log file: $LOG_FILE"
-    log_info "Docker Compose directory: $DOCKER_COMPOSE_DIR"
+    log_info "Compose command: ${DOCKER_COMPOSE_CMD[*]}"
+    log_info "Container command: $CONTAINER_RUNTIME_CMD"
+    log_info "Compose directory: $DOCKER_COMPOSE_DIR"
     if [ -n "$CONTROLLER_TYPE" ]; then
         log_info "Service type: $CONTROLLER_TYPE"
     fi
 
     cd "$DOCKER_COMPOSE_DIR" && {
         log_info "Running containers:"
-        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps --services | while read service; do
-            status=$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps "$service" | tail -1 | awk '{print $3}')
-            log_info "  - $service: $status"
+        list_compose_services | while read -r service; do
+            if service_is_running "$service"; then
+                log_info "  - $service: running"
+            else
+                log_info "  - $service: not running"
+            fi
         done
 
         log_info "Service URLs (if applicable):"
@@ -352,23 +541,26 @@ main() {
     # Step 1: Check prerequisites
     check_prerequisites
 
-    # Step 2: Stop Docker Compose
+    # Step 2: Stop Compose
     stop_docker_compose
 
-    # Step 3: Start Docker Compose
+    # Step 3: Start Compose
     if ! start_docker_compose; then
-        log_error "Failed to start Docker Compose"
+        log_error "Failed to start Compose"
         exit 1
     fi
 
     # Step 4: Verify services
     verify_services
 
-    # Step 5: Show summary
+    # Step 5: Import events if requested
+    import_events
+
+    # Step 6: Show summary
     show_summary
 
     log_success "Deployment completed successfully!"
-    log_info "To view logs: docker compose ${DOCKER_COMPOSE_FILES[*]} logs -f"
+    log_info "To view logs: ${DOCKER_COMPOSE_CMD[*]} ${DOCKER_COMPOSE_FILES[*]} logs -f"
 }
 
 # Handle script arguments
@@ -380,11 +572,13 @@ case "${1:-}" in
         ;;
     "start")
         start_docker_compose
+        import_events
         ;;
     "restart")
         stop_docker_compose
         sleep 2
         start_docker_compose
+        import_events
         ;;
     "status")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
@@ -405,14 +599,23 @@ case "${1:-}" in
         echo "  rust            Use Rust service overrides"
         echo ""
         echo "Commands:"
-        echo "  (no command)    Full deployment (stop, build, start)"
-        echo "  stop            Stop Docker Compose services"
-        echo "  start           Start Docker Compose services"
-        echo "  build           Build and copy JAR files only"
-        echo "  restart         Restart Docker Compose services"
-        echo "  status          Show Docker Compose status"
-        echo "  logs            Follow Docker Compose logs"
+        echo "  (no command)    Full deployment (stop, start, optional event import)"
+        echo "  stop            Stop Compose services"
+        echo "  start           Start Compose services"
+        echo "  restart         Restart Compose services"
+        echo "  status          Show Compose status"
+        echo "  logs            Follow Compose logs"
         echo "  help            Show this help message"
+        echo ""
+        echo "Environment:"
+        echo "  COMPOSE_CMD=\"podman compose\"     Use Podman Compose instead of the default docker compose"
+        echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
+        echo "  IMPORT_EVENTS=auto                Import service-asset/events.json only when event_store_t is empty"
+        echo "  IMPORT_EVENTS=true                Import service-asset/events.json even when rows already exist"
+        echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"
+        echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
+        echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
+        echo "  EVENT_IMPORTER_CMD=...            Override local importer command when EVENT_IMPORT_RUNNER=local"
         ;;
     *)
         main
