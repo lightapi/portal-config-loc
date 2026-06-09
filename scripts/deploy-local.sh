@@ -368,18 +368,27 @@ run_container_event_importer() {
     local import_network
     local db_jdbc_url
     local event_mount
+    local event_tmp_dir=""
+    local run_status=0
 
     event_dir="$(cd "$(dirname "$event_file")" && pwd)"
     event_name="$(basename "$event_file")"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
+    if [[ "$CONTAINER_RUNTIME_CMD" == *podman* ]]; then
+        event_tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal-events.XXXXXX")"
+        cp "$event_file" "$event_tmp_dir/$event_name"
+        chmod 755 "$event_tmp_dir"
+        chmod 644 "$event_tmp_dir/$event_name"
+        event_dir="$event_tmp_dir"
+    fi
     event_mount="$event_dir:/events:ro"
     if [[ "$CONTAINER_RUNTIME_CMD" == *podman* ]]; then
         event_mount="$event_dir:/events:ro,Z"
     fi
 
     log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
-    "$CONTAINER_RUNTIME_CMD" run --rm \
+    if "$CONTAINER_RUNTIME_CMD" run --rm \
         --network "$import_network" \
         -v "$event_mount" \
         -e DB_JDBC_URL="$db_jdbc_url" \
@@ -388,7 +397,17 @@ run_container_event_importer() {
         -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
         "$importer_image" \
         --filename "/events/$event_name" \
-        "$@"
+        "$@"; then
+        run_status=0
+    else
+        run_status=$?
+    fi
+
+    if [[ -n "$event_tmp_dir" ]]; then
+        rm -rf "$event_tmp_dir"
+    fi
+
+    return "$run_status"
 }
 
 run_local_event_importer() {
