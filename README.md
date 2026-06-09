@@ -160,6 +160,20 @@ cd ~/lightapi/portal-config-loc/all-in-lt
 podman compose -f docker-compose.yml -f docker-compose-rust.yml down -v
 ```
 
+### Fedora Silverblue Controller Certificates
+
+If `controller-rs` fails with a message that
+`CONTROLLER_TLS_CERT_PATH` points to missing `/keystore/server.pem`, use the
+latest Compose files and recreate the Rust stack. The cert files are tracked in
+`all-in-lt/light-controller-rust`, but rootless Podman on Silverblue needs the
+keystore bind mount to be SELinux relabeled.
+
+```bash
+cd ~/lightapi/portal-config-loc
+git pull --rebase
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
+```
+
 ## Create a workspace
 
 ```
