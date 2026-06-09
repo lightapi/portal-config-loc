@@ -186,6 +186,19 @@ git pull --rebase
 COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
 ```
 
+### Fedora Silverblue Gateway Certificates
+
+If `light-gateway` fails with a message like
+`fail to read client CA certificate 'config/ca.pem': permission denied`, use the
+latest Compose files and recreate the Rust stack. This is usually an SELinux
+label issue on the gateway config bind mount, not a Unix file permission issue.
+
+```bash
+cd ~/lightapi/portal-config-loc
+git pull --rebase
+COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
+```
+
 ## Create a workspace
 
 ```

@@ -7,7 +7,7 @@ services:
     ports:
       - 8438:8438
     volumes:
-      - ./light-controller-rust:/keystore:ro,Z
+      - ./light-controller-rust:/keystore:ro,z
     environment:
       CONTROLLER_ADDR: 0.0.0.0:8438
       CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
@@ -143,7 +143,7 @@ services:
       - 8085:8085
     volumes:
       - ./demo-customer-profile-api-rust/config:/app/config:ro
-      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     environment:
       CUSTOMER_PROFILE_CONFIG_DIR: /app/config
       CUSTOMER_PROFILE_EXTERNAL_CONFIG_DIR: /app/config-cache
@@ -170,7 +170,7 @@ services:
       - 8086:8086
     volumes:
       - ./demo-offer-decision-api-rust/config:/app/config:ro
-      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     environment:
       OFFER_DECISION_CONFIG_DIR: /app/config
       OFFER_DECISION_EXTERNAL_CONFIG_DIR: /app/config-cache
@@ -196,9 +196,9 @@ services:
     ports:
       - "${LIGHT_GATEWAY_HOST_PORT:-443}:8443"
     volumes:
-      - ./light-gateway-rust/config:/config
-      - ./light-gateway-rust/lightapi/dist:/lightapi/dist
-      - ./light-gateway-rust/signin/dist:/signin/dist
+      - ./light-gateway-rust/config:/config:Z
+      - ./light-gateway-rust/lightapi/dist:/lightapi/dist:Z
+      - ./light-gateway-rust/signin/dist:/signin/dist:Z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
@@ -222,7 +222,7 @@ services:
       - ${LIGHT_AGENT_PORT:-8083}:8083
     volumes:
       - ./light-agent-rust/config:/config:ro
-      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
