@@ -378,7 +378,7 @@ run_container_event_importer() {
             "$@" < "$event_file"
         return $?
     fi
-    event_mount="$event_dir:/events:ro"
+    event_mount="$event_dir:/events:ro,z"
 
     log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
     "$CONTAINER_RUNTIME_CMD" run --rm \
