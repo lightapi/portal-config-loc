@@ -2369,6 +2369,7 @@ CREATE TABLE auth_provider_client_t (
 CREATE TABLE auth_code_t (
     auth_code            VARCHAR(22) NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
@@ -2392,13 +2393,14 @@ CREATE TABLE auth_code_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_refresh_token_t (
     refresh_token        UUID NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
@@ -2420,15 +2422,20 @@ CREATE TABLE auth_refresh_token_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_code_t_host_client_provider ON auth_code_t(host_id, client_id, provider_id);
+CREATE INDEX idx_auth_code_t_auth_host_client_provider ON auth_code_t(auth_host_id, client_id, provider_id);
+CREATE UNIQUE INDEX idx_auth_code_t_auth_code ON auth_code_t(auth_code);
 CREATE INDEX idx_auth_refresh_token_t_host_client_provider ON auth_refresh_token_t(host_id, client_id, provider_id);
+CREATE INDEX idx_auth_refresh_token_t_auth_host_client_provider ON auth_refresh_token_t(auth_host_id, client_id, provider_id);
+CREATE UNIQUE INDEX idx_auth_refresh_token_t_refresh_token ON auth_refresh_token_t(refresh_token);
 
 CREATE TABLE auth_session_t (
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     session_id           UUID NOT NULL,
     user_id              UUID NOT NULL,
     client_id            UUID NOT NULL,
@@ -2452,13 +2459,14 @@ CREATE TABLE auth_session_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, session_id),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_session_t_user_status ON auth_session_t(host_id, user_id, status, login_ts DESC);
 CREATE INDEX idx_auth_session_t_client_status ON auth_session_t(host_id, client_id, status, login_ts DESC);
 CREATE INDEX idx_auth_session_t_status_refresh ON auth_session_t(host_id, status, last_refresh_ts DESC);
+CREATE INDEX idx_auth_session_t_auth_host_client_provider ON auth_session_t(auth_host_id, client_id, provider_id);
 
 ALTER TABLE auth_refresh_token_t
     ADD CONSTRAINT auth_refresh_token_session_fk
@@ -2473,6 +2481,7 @@ ALTER TABLE auth_code_t
 CREATE TABLE auth_session_audit_t (
     audit_id             UUID NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     session_id           UUID,
     user_id              UUID,
     client_id            UUID,
@@ -2489,13 +2498,15 @@ CREATE TABLE auth_session_audit_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, audit_id),
-    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_session_audit_t_session ON auth_session_audit_t(host_id, session_id, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_user ON auth_session_audit_t(host_id, user_id, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_event ON auth_session_audit_t(host_id, event_type, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_refresh_rotation ON auth_session_audit_t(host_id, old_refresh_token_id, client_id, provider_id, event_type, event_ts DESC);
+CREATE INDEX idx_auth_session_audit_t_auth_refresh_rotation ON auth_session_audit_t(auth_host_id, old_refresh_token_id, client_id, provider_id, event_type, event_ts DESC);
 
 
 CREATE TABLE auth_ref_token_t (
@@ -4015,7 +4026,7 @@ BEGIN
     SELECT
         t.product_version_id,
         t.service_id,
-        t.environment
+        COALESCE(NULLIF(t.env_tag, ''), t.environment)
     INTO
         v_product_version_id,
         v_service_id,
@@ -4386,12 +4397,13 @@ CREATE OR REPLACE FUNCTION revoke_auth_session_by_refresh_token(
 ) RETURNS UUID AS $$
 DECLARE
     v_session_id UUID;
+    v_auth_host_id UUID;
     v_user_id UUID;
     v_client_id UUID;
     v_provider_id VARCHAR(22);
 BEGIN
-    SELECT session_id, user_id, client_id, provider_id
-      INTO v_session_id, v_user_id, v_client_id, v_provider_id
+    SELECT session_id, auth_host_id, user_id, client_id, provider_id
+      INTO v_session_id, v_auth_host_id, v_user_id, v_client_id, v_provider_id
       FROM auth_refresh_token_t
      WHERE host_id = p_host_id
        AND refresh_token = p_refresh_token;
@@ -4417,10 +4429,10 @@ BEGIN
        AND session_id = v_session_id;
 
     INSERT INTO auth_session_audit_t (
-        audit_id, host_id, session_id, user_id, client_id, provider_id,
+        audit_id, host_id, auth_host_id, session_id, user_id, client_id, provider_id,
         event_type, result, failure_reason, metadata, update_user
     ) VALUES (
-        gen_random_uuid(), p_host_id, v_session_id, v_user_id, v_client_id, v_provider_id,
+        gen_random_uuid(), p_host_id, v_auth_host_id, v_session_id, v_user_id, v_client_id, v_provider_id,
         'SESSION_REVOKED', 'SUCCESS', p_reason,
         jsonb_build_object('source', 'admin', 'refreshTokenId', p_refresh_token::text),
         COALESCE(p_admin_user, SESSION_USER)
