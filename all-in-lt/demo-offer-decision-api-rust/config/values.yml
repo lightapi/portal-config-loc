@@ -7,7 +7,7 @@ startup.externalConfigDir: /app/config-cache
 light-config-server-uri: https://config-server:8435
 
 server.serviceId: com.networknt.offer.decision-1.0.0
-server.environment: demo
+server.environment: dev
 server.ip: 0.0.0.0
 server.advertisedAddress: demo-offer-decision-api
 server.httpPort: 8086
