@@ -6,8 +6,6 @@ issuer: ${security.issuer:}
 audience: ${security.audience:[]}
 skipPathPrefixes: ${security.skipPathPrefixes:[]}
 jwt:
-  certificate: ${security.jwt.certificate:{}}
   clockSkewInSeconds: ${security.jwt.clockSkewInSeconds:60}
-  keyResolver: ${security.jwt.keyResolver:}
 bootstrapFromKeyService: ${security.bootstrapFromKeyService:false}
 providerId: ${security.providerId:}
