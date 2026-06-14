@@ -72,6 +72,7 @@ services:
       embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
       embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
+      LIGHT_WORKFLOW_RULE_TEST_URL: "http://light-workflow:8436/rule/test"
     hostname: hybrid-query
     container_name: hybrid-query
     depends_on:

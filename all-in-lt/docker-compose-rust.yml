@@ -115,7 +115,7 @@ services:
   light-workflow:
     image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:latest}
     ports:
-      - 8080:8080
+      - 8436:8436
     env_file:
       - ./light-workflow-rust/config/light-workflow.env
     environment:
