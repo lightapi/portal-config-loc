@@ -55,7 +55,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -k -f https://localhost:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys || exit 1"]
+      test: ["CMD-SHELL", "printf 'GET /oauth2/AZZRJE52eXu3t1hseacnGQ/keys HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' | timeout 5 openssl s_client -connect localhost:6881 -servername localhost -quiet 2>/dev/null | grep -q 'HTTP/1.1 200 OK'"]
       interval: 10s
       timeout: 5s
       retries: 10
