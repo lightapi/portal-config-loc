@@ -81,7 +81,7 @@ services:
       - 2498:2498
     volumes:
       - ./portal-service-java/config:/config
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure

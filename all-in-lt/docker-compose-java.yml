@@ -81,7 +81,7 @@ services:
       - 2498:2498
     volumes:
       - ./portal-service-java/config:/config
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
@@ -91,6 +91,32 @@ services:
       default:
         aliases:
           - reference
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  light-gateway:
+    image: networknt/light-gateway:2.2.1
+    ports:
+      - "${LIGHT_GATEWAY_HOST_PORT:-443}:8443"
+      # - 5005:5005
+    volumes:
+      - ./light-gateway-java/config:/config
+      - ./light-gateway-java/lightapi/dist:/lightapi/dist
+      - ./light-gateway-java/signin/dist:/signin/dist
+    environment:
+      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
+      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
+      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
+      # The following environment variable will enable debug in the container.
+      # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+      # JAVA_TOOL_OPTIONS: "-Djavax.net.debug=all"
+    hostname: light-gateway
+    container_name: light-gateway
     depends_on:
       postgres:
         condition: service_healthy

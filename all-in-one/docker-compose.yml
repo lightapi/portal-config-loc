@@ -135,8 +135,8 @@ services:
       - broker
     volumes:
       # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
-      - ./postgres-db/data:/var/lib/postgresql/data
-      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
     environment:
       POSTGRES_PASSWORD: secret
     command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10
@@ -199,7 +199,7 @@ services:
     volumes:
       - ./hybrid-command/config:/config
       - ./hybrid-command/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8439:8439
       # The debug port
@@ -217,10 +217,17 @@ services:
     volumes:
       - ./hybrid-query/node1:/config
       - ./hybrid-query/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8440:8440
     # restart: on-failure
+    environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
     container_name: hybrid-query1
     depends_on:
       postgres:
@@ -233,10 +240,17 @@ services:
     volumes:
       - ./hybrid-query/node2:/config
       - ./hybrid-query/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8441:8441
     # restart: on-failure
+    environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
     container_name: hybrid-query2
     depends_on:
       postgres:
@@ -249,10 +263,17 @@ services:
     volumes:
       - ./hybrid-query/node3:/config
       - ./hybrid-query/service:/service
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8442:8442
     # restart: on-failure
+    environment:
+      embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
+      embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
+      embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
+      embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
+      embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
+      embedding-task.apiKey: ${GEMINI_API_KEY:-}
     container_name: hybrid-query3
     depends_on:
       postgres:
@@ -301,7 +322,7 @@ services:
       - 2498:2498
     volumes:
       - ./light-reference/config:/config
-      - /home/steve/data:/data
+      - ${PORTAL_DATA_DIR:-./data}:/data
     # environment:
     #   JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     # restart: on-failure
@@ -313,7 +334,7 @@ services:
   light-gateway:
     image: networknt/light-gateway:2.2.1-slim
     ports:
-      - 443:8443
+      - "${LIGHT_GATEWAY_HOST_PORT:-443}:8443"
     #   - 5005:5005
     volumes:
       - ./light-gateway/config:/config
@@ -353,3 +374,6 @@ services:
     hostname: http-sidecar
     # restart: on-failure
     container_name: http-sidecar
+
+volumes:
+  postgres-data:

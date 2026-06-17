@@ -75,7 +75,7 @@ direct-registry.directUrls:
   com.networknt.petstore-1.0.0: https://192.168.5.85:9443
   com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
   com.networknt.agent.tech-support-1.0.0: http://192.168.5.85:8082
-  com.networknt.agent.account-1.0.0: http://192.168.5.85:8083
+  com.networknt.agent.account-1.0.0: http://light-agent:8083
   com.networknt.agent.advisor-1.0.0: http://192.168.5.85:8084
 
 # handler.yml
@@ -574,6 +574,7 @@ virtual-host.hosts:
     directoryListingEnabled: false
 
 # websocket-router.yml
+websocket-router.idleTimeoutMs: 3600000
 websocket-router.pathPrefixService:
   /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0

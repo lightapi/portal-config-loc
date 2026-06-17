@@ -1,6 +1,7 @@
 CREATE DATABASE configserver;
 \c configserver;
 
+-- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS session_memory_t CASCADE;
@@ -13,9 +14,29 @@ DROP TABLE IF EXISTS org_memory_t CASCADE;
 
 DROP TABLE IF EXISTS agent_session_history_t CASCADE;
 
+DROP TABLE IF EXISTS agent_memory_link_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_unit_entity_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_entity_cooccur_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_reflection_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_directive_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_unit_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_entity_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_doc_t CASCADE;
+
+DROP TABLE IF EXISTS agent_memory_bank_t CASCADE;
+
 DROP TABLE IF EXISTS agent_skill_t CASCADE;
 
 DROP TABLE IF EXISTS skill_dependency_t CASCADE;
+
+DROP TABLE IF EXISTS skill_workflow_t CASCADE;
 
 DROP TABLE IF EXISTS skill_tool_t CASCADE;
 
@@ -125,6 +146,14 @@ DROP TABLE IF EXISTS product_version_config_t CASCADE;
 
 DROP TABLE IF EXISTS product_version_config_property_t CASCADE;
 
+DROP TABLE IF EXISTS product_version_config_profile_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_property_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_config_t CASCADE;
+
+DROP TABLE IF EXISTS config_profile_t CASCADE;
+
 DROP TABLE IF EXISTS product_version_environment_t CASCADE;
 
 DROP TABLE IF EXISTS product_version_t CASCADE;
@@ -232,6 +261,10 @@ DROP table IF EXISTS user_crypto_wallet_t CASCADE;
 DROP table IF EXISTS user_host_t CASCADE;
 
 DROP TABLE IF EXISTS user_t CASCADE;
+
+DROP TABLE IF EXISTS auth_session_audit_t CASCADE;
+
+DROP TABLE IF EXISTS auth_session_t CASCADE;
 
 DROP TABLE IF EXISTS auth_refresh_token_t CASCADE;
 
@@ -377,6 +410,10 @@ CREATE TABLE tag_t (
         tag_name ~ '^[a-z0-9_-]+$'
     ),  -- tag name must be lower case and url friendly.
     tag_desc             VARCHAR(1024),          -- decription
+    tag_group_code       VARCHAR(64),            -- optional group code for dropdown grouping.
+    tag_group_label      VARCHAR(128),           -- optional group label for dropdown grouping.
+    group_sort_order     INT,                    -- sort order for groups in dropdowns.
+    tag_sort_order       INT,                    -- sort order for tags within a group.
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
     delete_user          VARCHAR (255),
@@ -405,7 +442,7 @@ CREATE INDEX idx_tag_name ON tag_t (tag_name);
 CREATE INDEX idx_tag_host_id ON tag_t (host_id);
 
 CREATE TABLE entity_tag_t (
-    entity_id             UUID NOT NULL,
+    entity_id             VARCHAR(126) NOT NULL,
     entity_type           VARCHAR(50) NOT NULL,
     tag_id                UUID NOT NULL REFERENCES tag_t(tag_id) ON DELETE CASCADE,
     aggregate_version     BIGINT DEFAULT 1 NOT NULL,
@@ -419,6 +456,7 @@ CREATE TABLE entity_tag_t (
 
 CREATE INDEX idx_entity_tag_id ON entity_tag_t (tag_id);
 CREATE INDEX idx_entity_tag_entity ON entity_tag_t (entity_id, entity_type);
+CREATE INDEX idx_entity_tag_filter ON entity_tag_t (entity_type, tag_id, entity_id) WHERE active = TRUE;
 
 
 CREATE TABLE category_t (
@@ -463,7 +501,7 @@ CREATE INDEX idx_category_name ON category_t (category_name);
 CREATE INDEX idx_category_host_id ON category_t (host_id);
 
 CREATE TABLE entity_category_t (
-    entity_id             UUID NOT NULL,
+    entity_id             VARCHAR(126) NOT NULL,
     entity_type           VARCHAR(50) NOT NULL,
     category_id           UUID NOT NULL REFERENCES category_t(category_id) ON DELETE CASCADE,
     aggregate_version     BIGINT DEFAULT 1 NOT NULL,
@@ -477,6 +515,7 @@ CREATE TABLE entity_category_t (
 
 CREATE INDEX idx_entity_category_id ON entity_category_t (category_id);
 CREATE INDEX idx_entity_category_entity ON entity_category_t (entity_id, entity_type);
+CREATE INDEX idx_entity_category_filter ON entity_category_t (entity_type, category_id, entity_id) WHERE active = TRUE;
 
 CREATE TABLE schema_t (
     schema_id            VARCHAR(126) NOT NULL CHECK (
@@ -484,6 +523,12 @@ CREATE TABLE schema_t (
         schema_id ~ '^[a-z0-9_-]+$'
     ),  -- schema id, must be lower case and url friendly and uniquely identify a schema
     host_id              UUID,            -- null means global schema
+    schema_alias         VARCHAR(126) CHECK (
+        schema_alias IS NULL OR (
+            schema_alias = LOWER(schema_alias) AND
+            schema_alias ~ '^[a-z0-9_-]+$'
+        )
+    ),  -- optional url-friendly external schema alias
     schema_version       VARCHAR(12) NOT NULL,   -- the version of the schema
     schema_type          VARCHAR(16) NOT NULL,   -- schema type
     spec_version         VARCHAR(12) NOT NULL,   -- schema specification version
@@ -493,6 +538,7 @@ CREATE TABLE schema_t (
     schema_body          VARCHAR(65535) NOT NULL,-- schema body
     schema_owner         UUID NOT NULL,          -- schema owner
     schema_status        CHAR(1) DEFAULT 'P' NOT NULL,  -- D draft P published R retired
+    external_visible     BOOLEAN NOT NULL DEFAULT FALSE, -- whether /r/schema can expose this schema
     example              VARCHAR(65535),         -- json example
     comment_status       CHAR(1) DEFAULT 'O' NOT NULL, -- comment open or closed. O open C close
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
@@ -522,6 +568,22 @@ WHERE host_id IS NOT NULL;
 
 -- Add index on host_id for efficient tenant-specific lookups
 CREATE INDEX idx_schema_host_id ON schema_t (host_id);
+CREATE UNIQUE INDEX idx_schema_alias_global
+ON schema_t (schema_alias)
+WHERE host_id IS NULL AND schema_alias IS NOT NULL;
+
+CREATE UNIQUE INDEX idx_schema_alias_tenant
+ON schema_t (host_id, schema_alias)
+WHERE host_id IS NOT NULL AND schema_alias IS NOT NULL;
+
+CREATE INDEX idx_schema_external_alias_global
+ON schema_t (schema_alias, schema_version)
+WHERE host_id IS NULL AND external_visible = TRUE AND active = TRUE;
+
+CREATE INDEX idx_schema_external_alias_tenant
+ON schema_t (host_id, schema_alias, schema_version)
+WHERE host_id IS NOT NULL AND external_visible = TRUE AND active = TRUE;
+
 -- Add index on schema_name for lookups by name
 CREATE INDEX idx_schema_schema_name ON schema_t (schema_name);
 -- Add index on schema_type for filtering by schema type
@@ -538,6 +600,8 @@ CREATE TABLE rule_t (
     version              VARCHAR(32),           -- version that follows major.minor.patch pattern.
     author               VARCHAR(128),
     rule_desc            VARCHAR(1024),
+    condition_language   VARCHAR(16) DEFAULT 'native' NOT NULL,
+    condition_security_profile VARCHAR(32),
     rule_body            VARCHAR(65535) NOT NULL,
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN NOT NULL DEFAULT TRUE,
@@ -550,6 +614,12 @@ CREATE TABLE rule_t (
 
 ALTER TABLE rule_t
     ADD CHECK ( common IN ('Y', 'N'));
+
+ALTER TABLE rule_t
+    ADD CHECK ( condition_language IN ('native', 'cel'));
+
+ALTER TABLE rule_t
+    ADD CHECK ( condition_security_profile IS NULL OR condition_security_profile IN ('strict', 'standard', 'internal-admin'));
 
 -- Ensures uniqueness of (rule_id) ONLY when host_id is NULL
 CREATE UNIQUE INDEX idx_rule_unique_global
@@ -638,6 +708,7 @@ CREATE TABLE api_endpoint_rule_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 ALTER TABLE api_endpoint_rule_t ADD CONSTRAINT api_rule_pk PRIMARY KEY ( host_id, endpoint_id, rule_id);
+CREATE INDEX idx_api_endpoint_rule_endpoint_active ON api_endpoint_rule_t(host_id, endpoint_id, active);
 
 
 CREATE TABLE api_t (
@@ -653,7 +724,6 @@ CREATE TABLE api_t (
     platform                VARCHAR(20),
     capability              VARCHAR(20),
     git_repo                VARCHAR(1024),
-    api_tags                VARCHAR(1024),          -- single word separated with comma.
     api_status              VARCHAR(32) NOT NULL,
     owner_user_id           UUID,
     owner_position_id       VARCHAR(128),
@@ -675,7 +745,7 @@ CREATE TABLE api_version_t (
     api_version_id          UUID NOT NULL,
     api_id                  VARCHAR(16) NOT NULL,
     api_version             VARCHAR(16) NOT NULL,
-    api_type                VARCHAR(7) NOT NULL,    -- openapi, graphql, hybrid, mcp
+    api_type                VARCHAR(16) NOT NULL,   -- openapi, graphql, hybrid, mcp, lightapi
     transport_config        TEXT,                   -- JSON format for transport_config for mcp
     -- {"transport": "stdio", "command": "npx", "args": ["-y", "@mcp/server-google"], "env": {"KEY": "VAL"}}
     -- {"transport": "streamable http", "url": "http://example.com:8080/mcp"}
@@ -700,6 +770,7 @@ CREATE TABLE api_version_t (
 
 
 ALTER TABLE api_version_t ADD CONSTRAINT api_version_uk UNIQUE(host_id, api_id, api_version);
+CREATE INDEX idx_api_version_catalog_summary ON api_version_t(host_id, api_id, active, update_ts DESC);
 
 CREATE TABLE api_endpoint_t (
     host_id              UUID NOT NULL,
@@ -711,6 +782,12 @@ CREATE TABLE api_endpoint_t (
     endpoint_name        VARCHAR(128) NOT NULL,
     tool_schema          TEXT,                    -- The JSON Schema for the tool's input
     tool_metadata        TEXT,                    -- JSON tool metadata. {"destructive": true, "read_only": false}
+    routing_domain       VARCHAR(128),
+    semantic_namespace   VARCHAR(128),
+    sensitivity_tier     VARCHAR(64),
+    semantic_weight      REAL DEFAULT 1.0,
+    source_protocol      VARCHAR(50),
+    target_personas      TEXT,
     endpoint_desc        VARCHAR(1024),
     active               BOOLEAN NOT NULL DEFAULT TRUE,
     delete_user          VARCHAR (255),
@@ -723,6 +800,10 @@ CREATE TABLE api_endpoint_t (
 
 ALTER TABLE api_endpoint_t
     ADD CHECK ( http_method IN ( 'delete', 'get', 'patch', 'post', 'put', 'call' ) );
+
+CREATE INDEX idx_api_endpoint_routing ON api_endpoint_t(host_id, active, routing_domain, semantic_namespace, sensitivity_tier);
+CREATE INDEX idx_api_endpoint_source_protocol ON api_endpoint_t(host_id, source_protocol);
+CREATE INDEX idx_api_endpoint_version_active ON api_endpoint_t(host_id, api_version_id, active);
 
 
 CREATE TABLE api_endpoint_scope_t (
@@ -1055,6 +1136,7 @@ CREATE TABLE instance_api_t (
 );
 
 ALTER TABLE instance_api_t ADD CONSTRAINT instance_api_uk UNIQUE (host_id, instance_id, api_version_id);
+CREATE INDEX idx_instance_api_version_active ON instance_api_t(host_id, api_version_id, active);
 
 
 -- customized config property for the instance api.
@@ -1199,6 +1281,7 @@ CREATE TABLE instance_file_t (
     host_id              UUID NOT NULL,
     instance_file_id     UUID NOT NULL,
     instance_id          UUID NOT NULL,
+    config_phase         CHAR(1) DEFAULT 'R' NOT NULL,
     file_type            VARCHAR(32) DEFAULT 'File',
     file_name            VARCHAR (126) NOT NULL,
     file_value           TEXT NOT NULL,
@@ -1222,8 +1305,12 @@ ALTER TABLE instance_file_t
     ADD CHECK ( file_type IN ( 'Cert', 'File' ) );
 
 ALTER TABLE instance_file_t
-    ADD CONSTRAINT instance_file_uk
-        UNIQUE (host_id, instance_id, v_file_name);
+    ADD CONSTRAINT instance_file_config_phase_check
+        CHECK ( config_phase IN ( 'G', 'D', 'R' ) );
+
+CREATE UNIQUE INDEX instance_file_uk
+    ON instance_file_t (host_id, instance_id, config_phase, v_file_name)
+    WHERE active = TRUE;
 
 ALTER TABLE instance_file_t
   ADD CONSTRAINT instance_file_fk FOREIGN KEY (host_id, instance_id)
@@ -1290,6 +1377,61 @@ CREATE TABLE product_version_environment_t (
 );
 
 
+-- reusable config contract/profile shared by product versions.
+CREATE TABLE config_profile_t (
+    profile_id           UUID PRIMARY KEY,
+    profile_name         VARCHAR (255) NOT NULL,
+    runtime_family       VARCHAR (32) NOT NULL,
+    product_id           VARCHAR (8) NOT NULL,
+    light4j_version      VARCHAR (32),
+    contract_version     VARCHAR (64) NOT NULL,
+    profile_desc         VARCHAR (1024),
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX config_profile_unique_idx
+    ON config_profile_t(runtime_family, product_id, contract_version)
+    WHERE active = true;
+
+-- config files included in a reusable config profile.
+CREATE TABLE config_profile_config_t (
+    profile_id           UUID NOT NULL,
+    config_id            UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(profile_id, config_id),
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE CASCADE,
+    FOREIGN KEY(config_id)
+        REFERENCES config_t(config_id) ON DELETE CASCADE
+);
+
+-- config properties included in a reusable config profile.
+CREATE TABLE config_profile_property_t (
+    profile_id           UUID NOT NULL,
+    property_id          UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(profile_id, property_id),
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE CASCADE,
+    FOREIGN KEY(property_id)
+        REFERENCES config_property_t(property_id) ON DELETE CASCADE
+);
+
 -- config file and product version mapping (applicable config for pv)
 CREATE TABLE product_version_config_t (
     host_id              UUID NOT NULL,
@@ -1324,6 +1466,24 @@ CREATE TABLE product_version_config_property_t (
         REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
     FOREIGN KEY(property_id)
         REFERENCES config_property_t(property_id) ON DELETE CASCADE
+);
+
+-- product version link to the reusable config profile contract.
+CREATE TABLE product_version_config_profile_t (
+    host_id              UUID NOT NULL,
+    product_version_id   UUID NOT NULL,
+    profile_id           UUID NOT NULL,
+    aggregate_version    BIGINT DEFAULT 1 NOT NULL,
+    active               BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_user          VARCHAR (255),
+    delete_ts            TIMESTAMP WITH TIME ZONE,
+    update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
+    update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY(host_id, product_version_id),
+    FOREIGN KEY(host_id, product_version_id)
+        REFERENCES product_version_t(host_id, product_version_id) ON DELETE CASCADE,
+    FOREIGN KEY(profile_id)
+        REFERENCES config_profile_t(profile_id) ON DELETE RESTRICT
 );
 
 -- customized property for product version within the host.
@@ -1392,7 +1552,7 @@ CREATE TABLE runtime_instance_t (
     service_id               VARCHAR(512) NOT NULL, -- serviceId from the server.yml
     env_tag                  VARCHAR(16) NOT NULL DEFAULT '',  -- if there is no envTag, then '' is used
     protocol                 VARCHAR(16) NOT NULL DEFAULT 'https',  -- the transport protocol: http, https, ws, wss
-    ip_address               VARCHAR(30) NOT NULL,  -- detected from the server instance and registered on the control pane.
+    ip_address               VARCHAR(253) NOT NULL, -- detected host/IP from the server instance and registered on the control pane.
     port_number              INT NOT NULL,          -- registered on control pane.
     instance_status          VARCHAR(16) NOT NULL,  -- Deployed, Running, Shutdown, Starting
     owner_user_id            UUID,
@@ -2209,6 +2369,7 @@ CREATE TABLE auth_provider_client_t (
 CREATE TABLE auth_code_t (
     auth_code            VARCHAR(22) NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
@@ -2232,13 +2393,14 @@ CREATE TABLE auth_code_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, auth_code),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_refresh_token_t (
     refresh_token        UUID NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     client_id            UUID NOT NULL,
     provider_id          VARCHAR(22) NOT NULL,
     user_id              UUID NOT NULL,
@@ -2260,15 +2422,20 @@ CREATE TABLE auth_refresh_token_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, refresh_token),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_code_t_host_client_provider ON auth_code_t(host_id, client_id, provider_id);
+CREATE INDEX idx_auth_code_t_auth_host_client_provider ON auth_code_t(auth_host_id, client_id, provider_id);
+CREATE UNIQUE INDEX idx_auth_code_t_auth_code ON auth_code_t(auth_code);
 CREATE INDEX idx_auth_refresh_token_t_host_client_provider ON auth_refresh_token_t(host_id, client_id, provider_id);
+CREATE INDEX idx_auth_refresh_token_t_auth_host_client_provider ON auth_refresh_token_t(auth_host_id, client_id, provider_id);
+CREATE UNIQUE INDEX idx_auth_refresh_token_t_refresh_token ON auth_refresh_token_t(refresh_token);
 
 CREATE TABLE auth_session_t (
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     session_id           UUID NOT NULL,
     user_id              UUID NOT NULL,
     client_id            UUID NOT NULL,
@@ -2292,13 +2459,14 @@ CREATE TABLE auth_session_t (
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, session_id),
     FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id, client_id, provider_id) REFERENCES auth_provider_client_t(host_id, client_id, provider_id) ON DELETE CASCADE,
     FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_session_t_user_status ON auth_session_t(host_id, user_id, status, login_ts DESC);
 CREATE INDEX idx_auth_session_t_client_status ON auth_session_t(host_id, client_id, status, login_ts DESC);
 CREATE INDEX idx_auth_session_t_status_refresh ON auth_session_t(host_id, status, last_refresh_ts DESC);
+CREATE INDEX idx_auth_session_t_auth_host_client_provider ON auth_session_t(auth_host_id, client_id, provider_id);
 
 ALTER TABLE auth_refresh_token_t
     ADD CONSTRAINT auth_refresh_token_session_fk
@@ -2313,6 +2481,7 @@ ALTER TABLE auth_code_t
 CREATE TABLE auth_session_audit_t (
     audit_id             UUID NOT NULL,
     host_id              UUID NOT NULL,
+    auth_host_id         UUID NOT NULL,
     session_id           UUID,
     user_id              UUID,
     client_id            UUID,
@@ -2329,13 +2498,15 @@ CREATE TABLE auth_session_audit_t (
     update_user          VARCHAR (255) DEFAULT SESSION_USER NOT NULL,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (host_id, audit_id),
-    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
+    FOREIGN KEY (auth_host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_auth_session_audit_t_session ON auth_session_audit_t(host_id, session_id, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_user ON auth_session_audit_t(host_id, user_id, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_event ON auth_session_audit_t(host_id, event_type, event_ts DESC);
 CREATE INDEX idx_auth_session_audit_t_refresh_rotation ON auth_session_audit_t(host_id, old_refresh_token_id, client_id, provider_id, event_type, event_ts DESC);
+CREATE INDEX idx_auth_session_audit_t_auth_refresh_rotation ON auth_session_audit_t(auth_host_id, old_refresh_token_id, client_id, provider_id, event_type, event_ts DESC);
 
 
 CREATE TABLE auth_ref_token_t (
@@ -2355,19 +2526,87 @@ CREATE TABLE auth_ref_token_t (
 );
 
 CREATE TABLE notification_t (
-    id                        UUID NOT NULL,
-    host_id                   UUID NOT NULL,
-    user_id                   UUID NOT NULL,
-    nonce                     INTEGER NOT NULL,
-    event_class               VARCHAR(255) NOT NULL,
-    event_json                TEXT NOT NULL,
-    process_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
-    is_processed              BOOLEAN NOT NULL,
-    error                     VARCHAR(1024) NULL,
+    id                  UUID NOT NULL,
+    host_id             UUID NOT NULL,
+    user_id             UUID NOT NULL,
+    nonce               BIGINT NOT NULL,
+    event_class         VARCHAR(255) NOT NULL,
+    event_json          TEXT NOT NULL,
+    event_ts            TIMESTAMP WITH TIME ZONE NULL,
+    process_ts          TIMESTAMP WITH TIME ZONE NOT NULL,
+    status              VARCHAR(16) NOT NULL,
+    error               VARCHAR(2048) NULL,
+    aggregate_id        VARCHAR(255) NULL,
+    aggregate_type      VARCHAR(255) NULL,
+    aggregate_version   BIGINT NULL,
+    event_partition     INTEGER NULL,
+    event_offset        BIGINT NULL,
+    transaction_id      UUID NULL,
+    read_ts             TIMESTAMP WITH TIME ZONE NULL,
     PRIMARY KEY (host_id, id),
-    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES user_t(user_id) ON DELETE CASCADE
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_notification_user_process_ts ON notification_t (host_id, user_id, process_ts DESC);
+CREATE INDEX idx_notification_status_process_ts ON notification_t (host_id, status, process_ts DESC);
+CREATE INDEX idx_notification_transaction ON notification_t (host_id, transaction_id);
+CREATE INDEX idx_notification_event_position ON notification_t (host_id, event_partition, event_offset);
+CREATE INDEX idx_notification_unread_failure ON notification_t (host_id, user_id, process_ts DESC)
+    WHERE read_ts IS NULL AND status IN ('FAILED', 'DLQ');
+
+
+CREATE TABLE private_conversation_t (
+    host_id              UUID NOT NULL,
+    conversation_id      UUID NOT NULL,
+    participant_low_id   UUID NOT NULL,
+    participant_high_id  UUID NOT NULL,
+    created_ts           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_message_id      UUID NULL,
+    last_message_ts      TIMESTAMP WITH TIME ZONE NULL,
+    PRIMARY KEY (host_id, conversation_id),
+    UNIQUE (host_id, participant_low_id, participant_high_id),
+    FOREIGN KEY (host_id) REFERENCES host_t(host_id) ON DELETE CASCADE
+);
+
+CREATE TABLE private_message_t (
+    host_id          UUID NOT NULL,
+    message_id       UUID NOT NULL,
+    conversation_id  UUID NOT NULL,
+    from_user_id     UUID NOT NULL,
+    to_user_id       UUID NOT NULL,
+    subject          VARCHAR(256) NULL,
+    content          TEXT NOT NULL,
+    send_ts          TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (host_id, message_id),
+    FOREIGN KEY (host_id, conversation_id)
+        REFERENCES private_conversation_t(host_id, conversation_id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE private_message_state_t (
+    host_id      UUID NOT NULL,
+    message_id   UUID NOT NULL,
+    user_id      UUID NOT NULL,
+    read_ts      TIMESTAMP WITH TIME ZONE NULL,
+    deleted_ts   TIMESTAMP WITH TIME ZONE NULL,
+    PRIMARY KEY (host_id, message_id, user_id),
+    FOREIGN KEY (host_id, message_id)
+        REFERENCES private_message_t(host_id, message_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_private_conversation_last_message
+    ON private_conversation_t (host_id, participant_low_id, participant_high_id, last_message_ts DESC);
+
+CREATE INDEX idx_private_message_conversation_ts
+    ON private_message_t (host_id, conversation_id, send_ts DESC);
+
+CREATE INDEX idx_private_message_to_user_ts
+    ON private_message_t (host_id, to_user_id, send_ts DESC);
+
+CREATE INDEX idx_private_message_state_unread
+    ON private_message_state_t (host_id, user_id)
+    WHERE read_ts IS NULL AND deleted_ts IS NULL;
 
 
 CREATE TABLE message_t (
@@ -2445,6 +2684,7 @@ CREATE TABLE snapshot_instance_file_t (
     host_id              UUID NOT NULL,
     instance_file_id     UUID NOT NULL,
     instance_id          UUID NOT NULL,
+    config_phase         CHAR(1) DEFAULT 'R' NOT NULL,
     file_type            VARCHAR(32) DEFAULT 'File',
     file_name            VARCHAR (126) NOT NULL,
     file_value           TEXT NOT NULL,
@@ -2459,7 +2699,11 @@ CREATE TABLE snapshot_instance_file_t (
     PRIMARY KEY(snapshot_id, host_id, instance_file_id),
     FOREIGN KEY(snapshot_id) REFERENCES config_snapshot_t(snapshot_id) ON DELETE CASCADE
 );
+ALTER TABLE snapshot_instance_file_t
+    ADD CONSTRAINT snapshot_instance_file_config_phase_check
+        CHECK ( config_phase IN ( 'G', 'D', 'R' ) );
 CREATE INDEX idx_snap_inst_file ON snapshot_instance_file_t (snapshot_id);
+CREATE INDEX idx_snap_inst_file_phase ON snapshot_instance_file_t (snapshot_id, config_phase, file_type, active);
 
 
 CREATE TABLE snapshot_deployment_instance_property_t (
@@ -2610,6 +2854,7 @@ CREATE TABLE wf_definition_t (
     name                VARCHAR(126) NOT NULL,
     version             VARCHAR(20) NOT NULL,
     definition          TEXT NOT NULL, -- The Agentic Workflow DSL in YAML
+    catalog_visible     BOOLEAN,
     owner_user_id       UUID,
     owner_position_id   VARCHAR(128),
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
@@ -2739,17 +2984,32 @@ CREATE TABLE task_asst_t
     task_id              UUID NOT NULL,
     assigned_ts          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     assignee_id          VARCHAR(126) NOT NULL,
+    assignment_type      VARCHAR(16) DEFAULT 'USER' NOT NULL,
+    assignment_id        VARCHAR(126) NOT NULL,
     reason_code          VARCHAR(126) NOT NULL,
     unassigned_ts        TIMESTAMP WITH TIME ZONE      NULL,
     unassigned_reason    VARCHAR(126)     NULL,
     category_code        VARCHAR(126)     NULL,
+    status_code          VARCHAR(16) DEFAULT 'ASSIGNED' NOT NULL,
+    claimed_by           VARCHAR(126)     NULL,
+    claimed_ts           TIMESTAMP WITH TIME ZONE      NULL,
+    claim_expires_ts     TIMESTAMP WITH TIME ZONE      NULL,
     aggregate_version    BIGINT DEFAULT 1 NOT NULL,
     active               BOOLEAN DEFAULT TRUE,
     update_ts            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user          VARCHAR(126) DEFAULT SESSION_USER,
     PRIMARY KEY(host_id, task_asst_id),
+    CONSTRAINT chk_task_asst_assignment_type CHECK (assignment_type IN ('USER', 'ROLE')),
     FOREIGN KEY(host_id, task_id) REFERENCES task_info_t(host_id, task_id) ON DELETE CASCADE
 );
+CREATE INDEX idx_task_asst_actionable
+ON task_asst_t (host_id, assignee_id, status_code, active, assigned_ts DESC);
+CREATE INDEX idx_task_asst_target_actionable
+ON task_asst_t (host_id, assignment_type, assignment_id, status_code, active, assigned_ts DESC);
+CREATE INDEX idx_task_asst_claimed_by
+ON task_asst_t (host_id, claimed_by, status_code, active, assigned_ts DESC);
+CREATE INDEX idx_task_asst_task
+ON task_asst_t (host_id, task_id, active);
 
 CREATE TABLE audit_log_t
 (
@@ -2774,8 +3034,7 @@ CREATE INDEX audit_log_idx1 ON audit_log_t (source_type_id, correlation_id, even
 -- Agent Definitions: Stores the "Brain" configuration
 CREATE TABLE agent_definition_t (
     host_id             UUID NOT NULL,
-    agent_def_id        UUID NOT NULL,
-    agent_name          VARCHAR(126) NOT NULL,
+    agent_def_id        UUID NOT NULL,         -- Same value as api_version_t.api_version_id
     model_provider      VARCHAR(64) NOT NULL,  -- 'openai', 'anthropic', etc.
     model_name          VARCHAR(126) NOT NULL, -- 'gpt-4o', 'claude-3-5-sonnet'
     api_key_ref         VARCHAR(126),          -- Reference to Secret Manager key
@@ -2786,7 +3045,7 @@ CREATE TABLE agent_definition_t (
     update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     update_user         VARCHAR(126) DEFAULT SESSION_USER,
     PRIMARY KEY(host_id, agent_def_id),
-    UNIQUE(host_id, agent_name)
+    CONSTRAINT agent_definition_api_version_fk FOREIGN KEY(host_id, agent_def_id) REFERENCES api_version_t(host_id, api_version_id) ON DELETE CASCADE
 );
 
 
@@ -2820,6 +3079,10 @@ CREATE TABLE tool_t (
     tool_id             UUID NOT NULL,
     name                VARCHAR(126) NOT NULL,
     description         TEXT NOT NULL,         -- Instructions for LLM on when/how to use this tool
+    description_source  VARCHAR(32),           -- endpoint_sync, manual, or another source label
+    description_manual_override BOOLEAN DEFAULT FALSE NOT NULL,
+    description_override_ts TIMESTAMP WITH TIME ZONE,
+    description_override_user VARCHAR(126),
 
     -- Implementation specifics
     implementation_type VARCHAR(50),           -- 'java', 'mcp_server', 'rest', 'python', 'javascript'
@@ -2830,8 +3093,20 @@ CREATE TABLE tool_t (
     endpoint_id         UUID,                  -- Reference to fine-grained auth endpoint
     script_content      TEXT,                  -- Source code if 'python'/'javascript'
     response_schema     JSONB,                 -- Strict output schema for tool results
+    routing_domain      VARCHAR(128),          -- Macro-filtering domain for semantic routing
+    semantic_namespace  VARCHAR(128),          -- Semantic namespace/owner of the tool
+    sensitivity_tier    VARCHAR(64),           -- Safety/routing sensitivity tier
+    semantic_weight     REAL DEFAULT 1.0,      -- Search/routing weight
+    source_protocol     VARCHAR(50),           -- Source protocol such as openapi, mcp, or lightapi
+    target_personas     TEXT,                  -- JSON array or comma-separated persona hints
 
     description_embedding VECTOR(384),          -- For semantic lookup/discovery
+    description_embedding_model VARCHAR(128),
+    description_embedding_dimension INTEGER,
+    description_embedding_source_hash VARCHAR(64),
+    description_embedding_ts TIMESTAMP WITH TIME ZONE,
+    description_embedding_status VARCHAR(32),
+    description_embedding_error TEXT,
     version             VARCHAR(20) DEFAULT '1.0.0',
     aggregate_version   BIGINT DEFAULT 1 NOT NULL,
     active              BOOLEAN DEFAULT true,
@@ -2844,6 +3119,36 @@ CREATE TABLE tool_t (
 CREATE INDEX idx_tool_host_endpoint ON tool_t(host_id, endpoint_id);
 CREATE INDEX idx_tool_active ON tool_t(active);
 CREATE INDEX idx_tool_name ON tool_t(name);
+CREATE INDEX idx_tool_routing ON tool_t(host_id, active, routing_domain, semantic_namespace, sensitivity_tier);
+CREATE INDEX idx_tool_source_protocol ON tool_t(host_id, source_protocol);
+CREATE INDEX idx_tool_description_embedding_status ON tool_t(host_id, active, description_embedding_status);
+CREATE INDEX idx_tool_description_embedding_source_hash ON tool_t(host_id, description_embedding_source_hash);
+CREATE INDEX idx_tool_description_embedding ON tool_t USING hnsw (description_embedding vector_cosine_ops)
+    WHERE active = TRUE
+      AND description_embedding IS NOT NULL
+      AND description_embedding_status = 'ready';
+
+CREATE TABLE embedding_task_t (
+    host_id             UUID NOT NULL,
+    task_id             UUID NOT NULL,
+    entity_type         VARCHAR(64) NOT NULL,
+    entity_id           UUID NOT NULL,
+    source_table        VARCHAR(128),
+    source_hash         VARCHAR(64) NOT NULL,
+    source_version      BIGINT,
+    status              VARCHAR(32) DEFAULT 'pending' NOT NULL,
+    attempt_count       INTEGER DEFAULT 0 NOT NULL,
+    next_attempt_ts     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_error          TEXT,
+    active              BOOLEAN DEFAULT TRUE,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, task_id),
+    UNIQUE(host_id, entity_type, entity_id, source_hash)
+);
+
+CREATE INDEX idx_embedding_task_due ON embedding_task_t(status, active, next_attempt_ts);
+CREATE INDEX idx_embedding_task_entity ON embedding_task_t(host_id, entity_type, entity_id);
 
 -- Tool Parameters: Defines the arguments for each tool
 CREATE TABLE tool_param_t (
@@ -2918,6 +3223,26 @@ CREATE TABLE skill_tool_t (
     FOREIGN KEY(host_id, tool_id) REFERENCES tool_t(host_id, tool_id) ON DELETE CASCADE
 );
 CREATE INDEX idx_skill_tool_skill ON skill_tool_t(skill_id);
+
+-- Skill-Workflow Mapping: Links skills to durable workflow definitions
+CREATE TABLE skill_workflow_t (
+    host_id             UUID NOT NULL,
+    skill_id            UUID NOT NULL,
+    wf_def_id           UUID NOT NULL,
+    workflow_role       VARCHAR(32) DEFAULT 'primary',
+    start_mode          VARCHAR(32) DEFAULT 'manual',
+    config              JSONB DEFAULT '{}',
+
+    aggregate_version   BIGINT DEFAULT 1 NOT NULL,
+    active              BOOLEAN DEFAULT true,
+    update_ts           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_user         VARCHAR(126) DEFAULT SESSION_USER,
+    PRIMARY KEY(host_id, skill_id, wf_def_id, workflow_role),
+    FOREIGN KEY(host_id, skill_id) REFERENCES skill_t(host_id, skill_id) ON DELETE CASCADE,
+    FOREIGN KEY(host_id, wf_def_id) REFERENCES wf_definition_t(host_id, wf_def_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_skill_workflow_skill ON skill_workflow_t(host_id, skill_id);
+CREATE INDEX idx_skill_workflow_wf_def ON skill_workflow_t(host_id, wf_def_id);
 
 -- -- Hindsight Advanced Memory System
 -- Transitioned from flat logs to biomimetic memory banks (World, Experiences, Mental Models)
@@ -3201,6 +3526,7 @@ CREATE TRIGGER trg_auth_client_token_owner_user
 
 CREATE INDEX idx_wf_definition_owner_user ON wf_definition_t(host_id, owner_user_id);
 CREATE INDEX idx_wf_definition_owner_position ON wf_definition_t(host_id, owner_position_id);
+CREATE INDEX idx_wf_definition_catalog_visible ON wf_definition_t(host_id, catalog_visible) WHERE catalog_visible = TRUE;
 CREATE TRIGGER trg_wf_definition_owner_user
     BEFORE INSERT ON wf_definition_t
     FOR EACH ROW EXECUTE FUNCTION set_owner_user_id_from_update_user();
@@ -3273,6 +3599,55 @@ ALTER TABLE instance_t
     ADD CONSTRAINT product_version_fk FOREIGN KEY (host_id, product_version_id)
         REFERENCES product_version_t (host_id, product_version_id)
             ON DELETE CASCADE;
+
+
+CREATE TABLE pii_token_scheme_t (
+    scheme_id        SMALLINT PRIMARY KEY,
+    scheme_code      VARCHAR(16) NOT NULL UNIQUE,
+    description      TEXT NOT NULL,
+    active           BOOLEAN DEFAULT TRUE NOT NULL,
+    update_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_user      VARCHAR(126) DEFAULT SESSION_USER NOT NULL
+);
+
+INSERT INTO pii_token_scheme_t (scheme_id, scheme_code, description)
+VALUES
+    (0, 'UUID', 'UUID Version 4 token.'),
+    (1, 'GUID', 'URL-safe base64 UUID token.'),
+    (2, 'LN', 'Luhn-compliant numeric token.'),
+    (3, 'N', 'Random numeric token, length preserving.'),
+    (4, 'LN4', 'Luhn-compliant numeric token retaining the original last four digits.'),
+    (5, 'AN', 'Alpha-numeric token, length preserving.'),
+    (6, 'AN4', 'Alpha-numeric token retaining the original last four characters.'),
+    (7, 'CC', 'Credit-card-shaped Luhn token retaining the original first digit.'),
+    (8, 'CC4', 'Credit-card-shaped Luhn token retaining the original first and last four digits.');
+
+CREATE TABLE pii_token_vault_t (
+    host_id           UUID NOT NULL,
+    token             TEXT NOT NULL,
+    scheme_id         SMALLINT NOT NULL,
+    value_hash        BYTEA NOT NULL,
+    value_ciphertext  BYTEA NOT NULL,
+    value_nonce       BYTEA NOT NULL,
+    key_id            VARCHAR(128) NOT NULL,
+    created_ts        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    expires_ts        TIMESTAMP WITH TIME ZONE,
+    active            BOOLEAN DEFAULT TRUE NOT NULL,
+    update_ts         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_user       VARCHAR(126) DEFAULT SESSION_USER NOT NULL,
+    PRIMARY KEY(host_id, token),
+    FOREIGN KEY(host_id) REFERENCES host_t(host_id) ON DELETE CASCADE,
+    FOREIGN KEY(scheme_id) REFERENCES pii_token_scheme_t(scheme_id)
+);
+
+CREATE UNIQUE INDEX pii_token_vault_value_uk
+ON pii_token_vault_t(host_id, scheme_id, value_hash)
+WHERE active = TRUE;
+
+CREATE INDEX pii_token_vault_expiry_idx
+ON pii_token_vault_t(expires_ts)
+WHERE expires_ts IS NOT NULL;
+
 
 -- create a view to simplify the foreign key relationship.
 
@@ -3651,7 +4026,7 @@ BEGIN
     SELECT
         t.product_version_id,
         t.service_id,
-        t.environment
+        COALESCE(NULLIF(t.env_tag, ''), t.environment)
     INTO
         v_product_version_id,
         v_service_id,
@@ -3746,11 +4121,11 @@ BEGIN
 
     -- C. snapshot_instance_file_t (Instance Files)
     INSERT INTO snapshot_instance_file_t (
-        snapshot_id, host_id, instance_file_id, instance_id, file_type, file_name, file_value, file_desc, expiration_ts,
+        snapshot_id, host_id, instance_file_id, instance_id, config_phase, file_type, file_name, file_value, file_desc, expiration_ts,
         aggregate_version, active, update_user, update_ts
     )
     SELECT
-        p_snapshot_id, t.host_id, t.instance_file_id, t.instance_id, t.file_type, t.file_name, t.file_value, t.file_desc, t.expiration_ts,
+        p_snapshot_id, t.host_id, t.instance_file_id, t.instance_id, t.config_phase, t.file_type, t.file_name, t.file_value, t.file_desc, t.expiration_ts,
         t.aggregate_version, t.active, t.update_user, t.update_ts
     FROM
         instance_file_t t
@@ -4022,12 +4397,13 @@ CREATE OR REPLACE FUNCTION revoke_auth_session_by_refresh_token(
 ) RETURNS UUID AS $$
 DECLARE
     v_session_id UUID;
+    v_auth_host_id UUID;
     v_user_id UUID;
     v_client_id UUID;
     v_provider_id VARCHAR(22);
 BEGIN
-    SELECT session_id, user_id, client_id, provider_id
-      INTO v_session_id, v_user_id, v_client_id, v_provider_id
+    SELECT session_id, auth_host_id, user_id, client_id, provider_id
+      INTO v_session_id, v_auth_host_id, v_user_id, v_client_id, v_provider_id
       FROM auth_refresh_token_t
      WHERE host_id = p_host_id
        AND refresh_token = p_refresh_token;
@@ -4053,10 +4429,10 @@ BEGIN
        AND session_id = v_session_id;
 
     INSERT INTO auth_session_audit_t (
-        audit_id, host_id, session_id, user_id, client_id, provider_id,
+        audit_id, host_id, auth_host_id, session_id, user_id, client_id, provider_id,
         event_type, result, failure_reason, metadata, update_user
     ) VALUES (
-        gen_random_uuid(), p_host_id, v_session_id, v_user_id, v_client_id, v_provider_id,
+        gen_random_uuid(), p_host_id, v_auth_host_id, v_session_id, v_user_id, v_client_id, v_provider_id,
         'SESSION_REVOKED', 'SUCCESS', p_reason,
         jsonb_build_object('source', 'admin', 'refreshTokenId', p_refresh_token::text),
         COALESCE(p_admin_user, SESSION_USER)

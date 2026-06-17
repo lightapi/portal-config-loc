@@ -1,11 +1,27 @@
 # server.yml
 server.serviceId: com.networknt.portal.gateway-1.0.0
+server.advertisedAddress: light-gateway
+server.enableHttp: false
+server.enableHttps: true
+server.httpsPort: 8443
+server.tlsCertPath: /config/cert.pem
+server.tlsKeyPath: /config/key.pem
+server.enableRegistry: true
+server.startOnRegistryFailure: true
+
+# startup.yml
+startup.bootstrapCaCertPath: /config/ca.pem
+light-config-server-uri: https://config-server:8435
+
+# portal-registry.yml
+portalRegistry.portalUrl: https://controller:8438
 
 # router.yml
 router.maxRequestTime: 5000
 
 # client.yml
 client.verifyHostname: false
+client.caCertPath: /config/ca.pem
 client.tokenServerUrl: https://light-oauth:6881
 # Authorization Code
 client.tokenAcUri: /oauth2/AZZRJE52eXu3t1hseacnGQ/token
@@ -75,67 +91,54 @@ direct-registry.directUrls:
   com.networknt.petstore-1.0.0: https://192.168.5.85:9443
   com.networknt.local.mcp-1.0.0: http://192.168.5.85:5000
   com.networknt.agent.tech-support-1.0.0: http://192.168.5.85:8082
-  com.networknt.agent.account-1.0.0: http://192.168.5.85:8083
+  com.networknt.agent.account-1.0.0: http://light-agent:8083
   com.networknt.agent.advisor-1.0.0: http://192.168.5.85:8084
 
 # handler.yml
 handler.handlers:
-  # Light-framework cross-cutting concerns implemented in the microservice
-  - com.networknt.exception.ExceptionHandler@exception
-  - com.networknt.metrics.MetricsHandler@metrics
-  - com.networknt.traceability.TraceabilityHandler@traceability
-  - com.networknt.correlation.CorrelationHandler@correlation
-  # Cors handler to handler post/put pre-flight. It is not used in the sidecar but only in the router.
-  - com.networknt.cors.CorsHttpHandler@cors
-  - com.networknt.openapi.OpenApiHandler@specification
-  - com.networknt.openapi.JwtVerifyHandler@security
-  - com.networknt.body.BodyHandler@body
-  - com.networknt.audit.AuditHandler@audit
-  - com.networknt.sanitizer.SanitizerHandler@sanitizer
-  - com.networknt.openapi.ValidatorHandler@validator
-  # Header middleware to manipulate request and/or response headers before or after downstream server
-  - com.networknt.header.HeaderHandler@header
-  # Rate limit middleware to prevent DDoS attacks externally or throttle requests internally
-  - com.networknt.limit.LimitHandler@limit
-  # IP whitelist handler to allow only one or several IPs to connect to the gateway.
-  # - com.networknt.whitelist.WhitelistHandler@whitelist
-  # Direct requests to named services based on the request path
-  # - com.networknt.router.middleware.GatewayServiceDictHandler@path
-  - com.networknt.router.middleware.PathPrefixServiceHandler@prefix
-  - com.networknt.router.middleware.TokenHandler@token
-  - com.networknt.router.RouterHandler@router
-  - com.networknt.proxy.LightProxyHandler@proxy
-  - com.networknt.proxy.ProxyServerInfoHandler@proxyServerInfo
-  - com.networknt.resource.VirtualHostHandler@virtual
-  # Customer business domain specific cross-cutting concerns handlers
-  # - com.example.validator.CustomizedValidator@custvalidator
-  # Framework endpoint handlers
-  # Control Pane middleware handlers and API handler
-  - com.networknt.chaos.KillappAssaultHandler@killapp
-  - com.networknt.chaos.LatencyAssaultHandler@latency
-  - com.networknt.chaos.MemoryAssaultHandler@memory
-  - com.networknt.chaos.ExceptionAssaultHandler@exchaos
-  - com.networknt.chaos.ChaosMonkeyGetHandler@chaosget
-  - com.networknt.chaos.ChaosMonkeyPostHandler@chaospost
-  - com.networknt.health.HealthGetHandler@health
-  - com.networknt.info.ServerInfoGetHandler@info
-  - com.networknt.logging.handler.LoggerGetHandler@getLogger
-  - com.networknt.logging.handler.LoggerPostHandler@postLogger
-  - com.networknt.logging.handler.LoggerGetLogContentsHandler@getLogContents
-  - com.networknt.config.reload.handler.ModuleRegistryGetHandler@modules
-  - com.networknt.config.reload.handler.ConfigReloadHandler@configReload
-  - com.networknt.specification.SpecDisplayHandler@spec
-  - com.networknt.specification.SpecSwaggerUIHandler@swaggerui
-  - com.networknt.specification.FaviconHandler@favicon
-  - com.networknt.router.OAuthServerHandler@oauth
-  - com.networknt.router.OAuthServerGetHandler@getOauth
-  - com.networknt.server.handler.ServerShutdownHandler@shutdown
-  - com.networknt.auth.StatelessAuthHandler@stateless
-  - com.networknt.auth.GoogleAuthHandler@google
-  - com.networknt.auth.FacebookAuthHandler@facebook
-  - com.networknt.auth.GithubAuthHandler@github
-  - com.networknt.websocket.router.WebSocketRouterHandler@websocket
-  - com.networknt.mcp.McpHandler@mcp
+  - exception
+  - metrics
+  - limit
+  - correlation
+  - cors
+  - specification
+  - security
+  - body
+  - audit
+  - sanitizer
+  - validator
+  - header
+  - prefix
+  - token
+  - router
+  - proxy
+  - proxyServerInfo
+  - virtual
+  - killapp
+  - latency
+  - memory
+  - exchaos
+  - chaosget
+  - chaospost
+  - health
+  - info
+  - getLogger
+  - postLogger
+  - getLogContents
+  - modules
+  - configReload
+  - spec
+  - swaggerui
+  - favicon
+  - oauth
+  - getOauth
+  - shutdown
+  - stateless
+  - google
+  - facebook
+  - github
+  - websocket
+  - mcp
 
 handler.chains:
   default:
@@ -168,7 +171,7 @@ handler.chains:
     - security
     - websocket
 
-  mcp:
+  mcpChain:
     - exception
     - cors
     - security
@@ -183,16 +186,14 @@ handler.chains:
     - validator
   code:
     - exception
-    - traceability
     - correlation
     - cors
     - header
     - prefix
     - router
 
-  google:
+  googleAuth:
     - exception
-    - traceability
     - correlation
     - cors
     - google
@@ -201,9 +202,8 @@ handler.chains:
     - prefix
     - router
 
-  facebook:
+  facebookAuth:
     - exception
-    - traceability
     - correlation
     - cors
     - facebook
@@ -212,9 +212,8 @@ handler.chains:
     - prefix
     - router
 
-  github:
+  githubAuth:
     - exception
-    - traceability
     - correlation
     - cors
     - github
@@ -266,17 +265,17 @@ handler.paths:
   - path: '/google'
     method: 'GET'
     exec:
-      - google
+      - googleAuth
 
   - path: '/facebook'
     method: 'GET'
     exec:
-      - facebook
+      - facebookAuth
 
   - path: '/github'
     method: 'GET'
     exec:
-      - github
+      - githubAuth
 
   - path: '/chat'
     method: 'GET'
@@ -286,12 +285,12 @@ handler.paths:
   - path: '/mcp'
     method: 'GET'
     exec:
-      - mcp
+      - mcpChain
 
   - path: '/mcp'
     method: 'POST'
     exec:
-      - mcp
+      - mcpChain
 
   - path: '/mcp'
     method: 'OPTIONS'
@@ -546,6 +545,17 @@ statelessAuth.githubClientId: f13cddcfe475920deca7
 security.skipPathPrefixes: ["/adm/server/info"]
 security.enableVerifyScope: false
 security.ignoreJwtExpiry: true
+security.enableRelaxedKeyValidation: true
+security.bootstrapFromKeyService: true
+security.issuer: "urn:com:networknt:oauth2:v1"
+security.audience:
+  - urn:com.networknt
+security.jwt.certificate: {}
+
+# access-control.yml
+access-control.enabled: true
+access-control.accessRuleLogic: any
+access-control.defaultDeny: true
 
 # token.yml
 token.enabled: true
@@ -574,6 +584,7 @@ virtual-host.hosts:
     directoryListingEnabled: false
 
 # websocket-router.yml
+websocket-router.idleTimeoutMs: 3600000
 websocket-router.pathPrefixService:
   /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0

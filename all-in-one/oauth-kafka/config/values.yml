@@ -61,6 +61,11 @@ direct-registry.directUrls:
   com.networknt.portal.hybrid.command-1.0.0: https://hybrid-command:8439
 
 # oauth.yml
+oauth.oidcDiscoveryEnabled: true
+oauth.publicIssuerBaseUrl: https://oauth.localhost
+oauth.defaultProviderId: AZZRJE52eXu3t1hseacnGQ
+oauth.oidcScopesSupported:
+  - portal.r
 # oauth.bootstrapToken: eyJraWQiOiIxMDAiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MTkxMjk0MzAzMiwianRpIjoia3NPRHl0MlFVU25CY0NublpOMmZSZyIsImlhdCI6MTU5NzU4MzAzMiwibmJmIjoxNTk3NTgyOTEyLCJ2ZXJzaW9uIjoiMS4wIiwiY2xpZW50X2lkIjoiZjdkNDIzNDgtYzY0Ny00ZWZiLWE1MmQtNGM1Nzg3NDIxZTczIiwic2NvcGUiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdfQ.uCfoIZMx5xhlHvLAnmgkyuSnTGm0pTEosZOgFdGf946XeAxzULQk6mwHz0wu0oNL_L0hT1uOsgANfNpVmS44nbedkqELgHAnJpHf4IP7EStHk3o99MPZSVLufKvKmbP6-G0Th-1a8wK5XkX1_9WIhHAmxr-D23VQpvJq_XOKH24Ik06qSVUj-B3YAHrqlNIk4b-WqUYhUkluOYvI4mvCwB-xi5-Nioqa6JqpXO9fv7bb9xQzKX_3MsuEYT-LO8vquNtKPJLbz42vP1A5calbyBNZ4pnKgJyjH9_TFMywNZ-C7y2ZlhNR5_F-MKKysVkOC25TJmV49om_kb2lnoEDKg
 
 # handler.yml
@@ -96,6 +101,7 @@ handler.handlers:
   - com.networknt.oauth.handler.ProviderIdCodeGetHandler
   - com.networknt.oauth.handler.ProviderIdCodePostHandler
   - com.networknt.oauth.handler.ProviderIdKeysGetHandler@keysGet
+  - com.networknt.oauth.handler.ProviderIdOpenIdConfigurationGetHandler@openidConfigurationGet
   - com.networknt.oauth.handler.ProviderIdTokenPostHandler@tokenPost
   - com.networknt.oauth.handler.ProviderIdDerefTokenGetHandler@derefGet
   - com.networknt.oauth.handler.ProviderIdSigningPostHandler@signingPost
