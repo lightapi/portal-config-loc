@@ -63,12 +63,18 @@ fi
 
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
-DEFAULT_RELEASE_IMAGE_ENV_FILE="$SERVICE_ASSET_REPO/docker-images.env"
-if [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "${HOME:-}/workspace/service-asset/docker-images.env" ]]; then
+RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"
+RELEASE_IMAGE_ENV_CACHE="${RELEASE_IMAGE_ENV_CACHE:-$RELEASE_STATE_DIR/docker-images.env}"
+DEFAULT_RELEASE_IMAGE_ENV_FILE="$RELEASE_IMAGE_ENV_CACHE"
+if [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "$SERVICE_ASSET_REPO/docker-images.env" ]]; then
+    DEFAULT_RELEASE_IMAGE_ENV_FILE="$SERVICE_ASSET_REPO/docker-images.env"
+elif [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "${HOME:-}/workspace/service-asset/docker-images.env" ]]; then
     DEFAULT_RELEASE_IMAGE_ENV_FILE="${HOME:-}/workspace/service-asset/docker-images.env"
 fi
 RELEASE_IMAGE_ENV_FILE="${RELEASE_IMAGE_ENV_FILE:-$DEFAULT_RELEASE_IMAGE_ENV_FILE}"
 RELEASE_IMAGE_ENV_CONFIGURED=false
+RELEASE_IMAGE_ENV_FETCHED=false
+R2_ENDPOINT_URL="${R2_ENDPOINT_URL:-https://033b143ffb81eda015ca350680ac5f28.r2.cloudflarestorage.com}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -94,10 +100,47 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
+ensure_release_image_env_file() {
+    if [[ "$RELEASE_IMAGE_ENV_FETCHED" == "true" ]]; then
+        return 0
+    fi
+    RELEASE_IMAGE_ENV_FETCHED=true
+
+    if [[ -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
+        return 0
+    fi
+
+    if [[ -n "${RELEASE_IMAGE_ENV_URL:-}" ]]; then
+        mkdir -p "$(dirname "$RELEASE_IMAGE_ENV_FILE")"
+        log_info "Downloading release image env file from $RELEASE_IMAGE_ENV_URL"
+        if curl -fsSL "$RELEASE_IMAGE_ENV_URL" -o "$RELEASE_IMAGE_ENV_FILE"; then
+            return 0
+        fi
+        log_warning "Failed to download release image env file from $RELEASE_IMAGE_ENV_URL"
+    fi
+
+    if [[ -n "${RELEASE_IMAGE_ENV_S3_URI:-}" ]]; then
+        if command -v aws >/dev/null 2>&1; then
+            mkdir -p "$(dirname "$RELEASE_IMAGE_ENV_FILE")"
+            log_info "Downloading release image env file from $RELEASE_IMAGE_ENV_S3_URI"
+            if aws --endpoint-url "$R2_ENDPOINT_URL" s3 cp "$RELEASE_IMAGE_ENV_S3_URI" "$RELEASE_IMAGE_ENV_FILE"; then
+                return 0
+            fi
+            log_warning "Failed to download release image env file from $RELEASE_IMAGE_ENV_S3_URI"
+        else
+            log_warning "aws command not found; cannot download $RELEASE_IMAGE_ENV_S3_URI"
+        fi
+    fi
+
+    return 1
+}
+
 configure_release_image_env() {
     if [[ "$RELEASE_IMAGE_ENV_CONFIGURED" == "true" ]]; then
         return 0
     fi
+
+    ensure_release_image_env_file || true
 
     if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
        [[ "$CONTROLLER_TYPE" == "rust" ]] &&
@@ -111,6 +154,8 @@ configure_release_image_env() {
 load_env_file_var() {
     local name="$1"
     local value=""
+
+    ensure_release_image_env_file || true
 
     if [[ -n "${!name:-}" ]] || [[ ! -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
         return 0
@@ -553,7 +598,13 @@ main() {
 }
 
 # Handle script arguments
-configure_release_image_env
+case "${1:-}" in
+    "help"|"-h"|"--help")
+        ;;
+    *)
+        configure_release_image_env
+        ;;
+esac
 
 case "${1:-}" in
     "stop")
@@ -607,6 +658,10 @@ case "${1:-}" in
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
         echo "  EVENT_IMPORTER_CMD=...            Override local importer command when EVENT_IMPORT_RUNNER=local"
+        echo "  RELEASE_IMAGE_ENV_FILE=...        Compose image env file path"
+        echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
+        echo "  RELEASE_IMAGE_ENV_S3_URI=...      Download docker-images.env with aws s3 cp when local file is missing"
+        echo "  RELEASE_IMAGE_ENV_CACHE=...       Default cache path for downloaded docker-images.env"
         ;;
     *)
         main
