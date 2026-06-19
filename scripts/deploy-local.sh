@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BASE_DIR="$(cd "$REPO_DIR/.." && pwd)"
 DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
-SERVICE_ASSET_REPO="$BASE_DIR/service-asset"
 DOCKER_COMPOSE_FILES=()
 read -r -a DOCKER_COMPOSE_CMD <<< "${COMPOSE_CMD:-docker compose}"
 if [[ -n "${CONTAINER_CMD:-}" ]]; then
@@ -64,14 +63,13 @@ fi
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
 RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"
+LIGHT_PORTAL_ASSET_BASE_URL="${LIGHT_PORTAL_ASSET_BASE_URL:-https://cdn.networknt.com}"
+LIGHT_PORTAL_ASSET_BASE_URL="${LIGHT_PORTAL_ASSET_BASE_URL%/}"
+RELEASE_ASSET_CACHE_DIR="${RELEASE_ASSET_CACHE_DIR:-$RELEASE_STATE_DIR/assets}"
+REFRESH_RELEASE_ASSETS="${REFRESH_RELEASE_ASSETS:-false}"
 RELEASE_IMAGE_ENV_CACHE="${RELEASE_IMAGE_ENV_CACHE:-$RELEASE_STATE_DIR/docker-images.env}"
-DEFAULT_RELEASE_IMAGE_ENV_FILE="$RELEASE_IMAGE_ENV_CACHE"
-if [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "$SERVICE_ASSET_REPO/docker-images.env" ]]; then
-    DEFAULT_RELEASE_IMAGE_ENV_FILE="$SERVICE_ASSET_REPO/docker-images.env"
-elif [[ ! -f "$DEFAULT_RELEASE_IMAGE_ENV_FILE" ]] && [[ -f "${HOME:-}/workspace/service-asset/docker-images.env" ]]; then
-    DEFAULT_RELEASE_IMAGE_ENV_FILE="${HOME:-}/workspace/service-asset/docker-images.env"
-fi
-RELEASE_IMAGE_ENV_FILE="${RELEASE_IMAGE_ENV_FILE:-$DEFAULT_RELEASE_IMAGE_ENV_FILE}"
+RELEASE_IMAGE_ENV_FILE="${RELEASE_IMAGE_ENV_FILE:-$RELEASE_IMAGE_ENV_CACHE}"
+RELEASE_IMAGE_ENV_URL="${RELEASE_IMAGE_ENV_URL:-$LIGHT_PORTAL_ASSET_BASE_URL/docker-images.env}"
 RELEASE_IMAGE_ENV_CONFIGURED=false
 RELEASE_IMAGE_ENV_FETCHED=false
 R2_ENDPOINT_URL="${R2_ENDPOINT_URL:-https://033b143ffb81eda015ca350680ac5f28.r2.cloudflarestorage.com}"
@@ -167,52 +165,99 @@ load_env_file_var() {
     fi
 }
 
-copy_missing_dir_contents() {
+is_true() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|y|Y) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+download_file() {
+    local url="$1"
+    local dest="$2"
+    local tmp="${dest}.tmp"
+
+    mkdir -p "$(dirname "$dest")"
+    log_info "Downloading $url"
+    curl -fsSL "$url" -o "$tmp"
+    mv "$tmp" "$dest"
+}
+
+ensure_archive() {
+    local archive_name="$1"
+    local archive_path="$RELEASE_ASSET_CACHE_DIR/$archive_name"
+
+    if [[ -f "$archive_path" ]] && ! is_true "$REFRESH_RELEASE_ASSETS"; then
+        return 0
+    fi
+
+    download_file "$LIGHT_PORTAL_ASSET_BASE_URL/$archive_name" "$archive_path"
+}
+
+target_has_contents() {
     local target_dir="$1"
-    local repo_dir="$2"
+    local file_pattern="${2:-*}"
+
+    [[ -d "$target_dir" ]] || return 1
+    if [[ "$file_pattern" == "*" ]]; then
+        find "$target_dir" -mindepth 1 | grep -q .
+        return $?
+    fi
+    find "$target_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .
+}
+
+extract_archive_if_missing() {
+    local archive_name="$1"
+    local target_dir="$2"
     local asset_name="$3"
     local file_pattern="${4:-*}"
-    local recursive_copy="${5:-false}"
+    local archive_path
 
-    mkdir -p "$target_dir"
-
-    if [[ "$recursive_copy" == "true" ]]; then
-        if find "$target_dir" -mindepth 1 | grep -q .; then
-            log_info "$asset_name already present in $target_dir"
-            return 0
-        fi
-    elif find "$target_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .; then
+    if target_has_contents "$target_dir" "$file_pattern"; then
         log_info "$asset_name already present in $target_dir"
         return 0
     fi
 
-    if [ ! -d "$SERVICE_ASSET_REPO" ]; then
-        log_error "$asset_name missing in $target_dir and service-asset repo not found at $SERVICE_ASSET_REPO"
+    command -v curl >/dev/null 2>&1 || {
+        log_error "curl is required to download $asset_name from $LIGHT_PORTAL_ASSET_BASE_URL"
         return 1
-    fi
-
-    if [ ! -d "$repo_dir" ]; then
-        log_error "$asset_name missing in $target_dir and source folder not found: $repo_dir"
+    }
+    command -v unzip >/dev/null 2>&1 || {
+        log_error "unzip is required to extract $asset_name from $archive_name"
         return 1
+    }
+
+    archive_path="$RELEASE_ASSET_CACHE_DIR/$archive_name"
+    ensure_archive "$archive_name" || return 1
+    log_info "Extracting $asset_name from $archive_path to $target_dir"
+    rm -rf "$target_dir"
+    mkdir -p "$target_dir"
+    unzip -q "$archive_path" -d "$target_dir"
+}
+
+ensure_event_file() {
+    local event_file="$RELEASE_ASSET_CACHE_DIR/events.json"
+    local archive_path
+
+    if [[ -f "$event_file" ]] && ! is_true "$REFRESH_RELEASE_ASSETS"; then
+        return 0
     fi
 
-    if [[ "$recursive_copy" == "true" ]]; then
-        if ! find "$repo_dir" -mindepth 1 | grep -q .; then
-            log_error "No asset files found in $repo_dir for $asset_name"
-            return 1
-        fi
+    command -v curl >/dev/null 2>&1 || {
+        log_error "curl is required to download events.zip from $LIGHT_PORTAL_ASSET_BASE_URL"
+        return 1
+    }
+    command -v unzip >/dev/null 2>&1 || {
+        log_error "unzip is required to extract events.json from events.zip"
+        return 1
+    }
 
-        log_info "Copying $asset_name from $repo_dir to $target_dir"
-        cp -R "$repo_dir"/. "$target_dir"/
-    else
-        if ! find "$repo_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .; then
-            log_error "No matching files found in $repo_dir for $asset_name"
-            return 1
-        fi
-
-        log_info "Copying $asset_name from $repo_dir to $target_dir"
-        cp "$repo_dir"/$file_pattern "$target_dir"/
-    fi
+    archive_path="$RELEASE_ASSET_CACHE_DIR/events.zip"
+    ensure_archive events.zip || return 1
+    log_info "Extracting events.json from $archive_path"
+    mkdir -p "$RELEASE_ASSET_CACHE_DIR"
+    unzip -p "$archive_path" events.json > "$event_file.tmp"
+    mv "$event_file.tmp" "$event_file"
 }
 
 container_runtime_is_podman() {
@@ -231,8 +276,8 @@ ensure_service_assets() {
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
     local gateway_roots=()
 
-    copy_missing_dir_contents "$query_target" "$SERVICE_ASSET_REPO/hybrid-query" "hybrid-query jars" "*.jar" || exit 1
-    copy_missing_dir_contents "$command_target" "$SERVICE_ASSET_REPO/hybrid-command" "hybrid-command jars" "*.jar" || exit 1
+    extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" || exit 1
+    extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" || exit 1
 
     if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] || [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
         [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-java")
@@ -244,8 +289,8 @@ ensure_service_assets() {
     for gateway_root in "${gateway_roots[@]}"; do
         local gateway_name
         gateway_name="$(basename "$gateway_root")"
-        copy_missing_dir_contents "$gateway_root/lightapi/dist" "$SERVICE_ASSET_REPO/lightapi/dist" "$gateway_name lightapi UI assets" "*" "true" || exit 1
-        copy_missing_dir_contents "$gateway_root/signin/dist" "$SERVICE_ASSET_REPO/signin/dist" "$gateway_name signin UI assets" "*" "true" || exit 1
+        extract_archive_if_missing "lightapi.zip" "$gateway_root/lightapi" "$gateway_name lightapi UI assets" "*" || exit 1
+        extract_archive_if_missing "signin.zip" "$gateway_root/signin" "$gateway_name signin UI assets" "*" || exit 1
     done
 }
 
@@ -362,8 +407,67 @@ start_docker_compose() {
     fi
 }
 
+start_event_bootstrap_services() {
+    log_info "Starting Postgres and event processors for event bootstrap..."
+
+    ensure_service_assets || exit 1
+
+    cd "$DOCKER_COMPOSE_DIR" || {
+        log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
+        exit 1
+    }
+
+    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d postgres; then
+        log_success "Postgres started"
+    else
+        log_error "Failed to start Postgres"
+        return 1
+    fi
+
+    wait_for_container_running postgres || {
+        log_error "Postgres did not start"
+        return 1
+    }
+
+    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --no-deps hybrid-command hybrid-query; then
+        log_success "Event processors started"
+    else
+        log_error "Failed to start event processors"
+        return 1
+    fi
+
+    wait_for_container_running hybrid-command || {
+        log_error "hybrid-command did not start"
+        return 1
+    }
+    wait_for_container_running hybrid-query || {
+        log_error "hybrid-query did not start"
+        return 1
+    }
+}
+
 get_event_store_count() {
     "$CONTAINER_RUNTIME_CMD" exec postgres psql -U postgres -d configserver -tAc "select count(*) from event_store_t;"
+}
+
+wait_for_container_running() {
+    local container_name="$1"
+    local max_attempts="${BOOTSTRAP_SERVICE_READY_ATTEMPTS:-30}"
+    local interval="${BOOTSTRAP_SERVICE_READY_INTERVAL:-2}"
+    local attempt=1
+    local status=""
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        status="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_name" 2>/dev/null || true)"
+        if [[ "$status" == "running" ]]; then
+            return 0
+        fi
+
+        sleep "$interval"
+        attempt=$((attempt + 1))
+    done
+
+    return 1
 }
 
 default_event_import_network() {
@@ -443,21 +547,18 @@ run_local_event_importer() {
     local database_url="$2"
     shift 2
     local importer_cmd=()
+    local importer_work_dir="$REPO_DIR"
 
     if [[ -n "${EVENT_IMPORTER_CMD:-}" ]]; then
         read -r -a importer_cmd <<< "$EVENT_IMPORTER_CMD"
-    elif [[ -x "$SERVICE_ASSET_REPO/importer-rust.sh" && -x "$SERVICE_ASSET_REPO/rust/linux/importer" ]]; then
-        importer_cmd=("./importer-rust.sh")
-    elif [[ -x "$SERVICE_ASSET_REPO/importer.sh" ]]; then
-        importer_cmd=("./importer.sh")
     else
-        log_error "No executable importer found in $SERVICE_ASSET_REPO"
+        log_error "EVENT_IMPORT_RUNNER=local requires EVENT_IMPORTER_CMD to point to an executable importer command"
         return 1
     fi
 
     log_info "Running local event importer: ${importer_cmd[*]}"
     (
-        cd "$SERVICE_ASSET_REPO" || exit 1
+        cd "$importer_work_dir" || exit 1
         export DATABASE_URL="$database_url"
         "${importer_cmd[@]}" --filename "$event_file" "$@"
     )
@@ -466,7 +567,7 @@ run_local_event_importer() {
 import_events() {
     local import_mode="${IMPORT_EVENTS:-false}"
     local import_mode_lower="${import_mode,,}"
-    local event_file="$SERVICE_ASSET_REPO/events.json"
+    local event_file="$RELEASE_ASSET_CACHE_DIR/events.json"
     local database_url="${EVENT_IMPORT_DATABASE_URL:-postgres://postgres:secret@localhost:5432/configserver}"
     local import_runner="${EVENT_IMPORT_RUNNER:-container}"
     local import_runner_lower
@@ -476,7 +577,7 @@ import_events() {
 
     case "$import_mode_lower" in
         false|no|0|"")
-            log_info "Event import skipped. Set IMPORT_EVENTS=auto or IMPORT_EVENTS=true to import service-asset events."
+            log_info "Event import skipped. Set IMPORT_EVENTS=auto or IMPORT_EVENTS=true to import downloaded R2 events."
             return 0
             ;;
         auto|true|yes|1|force)
@@ -487,15 +588,12 @@ import_events() {
             ;;
     esac
 
-    if [ ! -d "$SERVICE_ASSET_REPO" ]; then
-        log_error "service-asset repo not found at $SERVICE_ASSET_REPO"
-        return 1
-    fi
-
     if [[ -n "${EVENT_IMPORT_FILE:-}" ]]; then
         log_error "EVENT_IMPORT_FILE is not supported. Replace $event_file before starting deploy-local.sh if you need custom events."
         return 1
     fi
+
+    ensure_event_file || return 1
 
     if [ ! -f "$event_file" ]; then
         log_error "Event import file not found: $event_file"
@@ -545,6 +643,26 @@ import_events() {
     log_success "Event import completed"
 }
 
+event_import_enabled() {
+    local import_mode="${IMPORT_EVENTS:-false}"
+    local import_mode_lower="${import_mode,,}"
+
+    case "$import_mode_lower" in
+        false|no|0|"") return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+bootstrap_events_if_requested() {
+    if ! event_import_enabled; then
+        import_events
+        return 0
+    fi
+
+    start_event_bootstrap_services || return 1
+    import_events
+}
+
 # Show deployment summary
 show_summary() {
     log_info "=== Deployment Summary ==="
@@ -576,19 +694,18 @@ main() {
     # Step 2: Stop Compose
     stop_docker_compose
 
-    # Step 3: Start Compose
-    if ! start_docker_compose; then
-        log_error "Failed to start Compose"
-        exit 1
-    fi
-
-    # Step 4: Import events if requested. Some services bootstrap config from
-    # imported events.
+    # Step 3: Import events before starting services that require OAuth keys.
     if [[ -z "${IMPORT_EVENTS+x}" ]]; then
         log_info "IMPORT_EVENTS not set; defaulting to auto for full deployment."
         IMPORT_EVENTS=auto
     fi
-    import_events
+    bootstrap_events_if_requested || exit 1
+
+    # Step 4: Start Compose
+    if ! start_docker_compose; then
+        log_error "Failed to start Compose"
+        exit 1
+    fi
 
     # Step 5: Show summary
     show_summary
@@ -611,14 +728,14 @@ case "${1:-}" in
         stop_docker_compose
         ;;
     "start")
+        bootstrap_events_if_requested
         start_docker_compose
-        import_events
         ;;
     "restart")
         stop_docker_compose
         sleep 2
+        bootstrap_events_if_requested
         start_docker_compose
-        import_events
         ;;
     "status")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps
@@ -651,9 +768,12 @@ case "${1:-}" in
         echo "  COMPOSE_CMD=\"podman compose\"     Use Podman Compose instead of the default docker compose"
         echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
-        echo "  IMPORT_EVENTS=auto                Import service-asset/events.json only when event_store_t is empty (default for full deployment)"
+        echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
+        echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
+        echo "  REFRESH_RELEASE_ASSETS=true       Redownload released asset zip files"
+        echo "  IMPORT_EVENTS=auto                Import downloaded events.json only when event_store_t is empty (default for full deployment)"
         echo "  IMPORT_EVENTS=false               Skip event import"
-        echo "  IMPORT_EVENTS=true                Import service-asset/events.json even when rows already exist"
+        echo "  IMPORT_EVENTS=true                Import downloaded events.json even when rows already exist"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"

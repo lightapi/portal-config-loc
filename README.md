@@ -3,51 +3,53 @@ Portal configuration and docker-compose to start light-portal services at local 
 
 ## Get Started Quickly
 
-Use the script first for a local Rust stack. It copies the checked-in assets
-from the sibling `service-asset` repository when the target asset directories
-are missing or empty, starts `all-in-lt`, and can import
-`service-asset/events.json` automatically for a new database.
+Use the script first for a local Rust stack. It downloads released assets from
+`https://cdn.networknt.com` when the target asset directories are missing or
+empty, starts `all-in-lt`, and can import the downloaded `events.json`
+automatically for a new database.
 
-Clone or update the two runtime repositories under `~/lightapi`:
+For a first run, the script starts Postgres plus `hybrid-command` and
+`hybrid-query`, imports `events.json` when `event_store_t` is empty, and then
+starts the full Compose stack. This avoids the dependency loop where
+`light-oauth` cannot serve JWKS until the OAuth key data has been imported.
+
+Clone or update the runtime repository under `~/lightapi`:
 
 ```bash
 cd ~
 mkdir -p lightapi
 cd lightapi
 git clone git@github.com:lightapi/portal-config-loc.git
-git clone git@github.com:lightapi/service-asset.git
 ```
 
-If both repositories are already cloned:
+If the repository is already cloned:
 
 ```bash
 cd ~/lightapi/portal-config-loc
-git pull --rebase
-cd ~/lightapi/service-asset
 git pull --rebase
 ```
 
 ### Optional: Use Your Own Events
 
-The importer always reads this exact file:
+The importer reads this downloaded cache file by default:
 
 ```text
-~/lightapi/service-asset/events.json
+~/lightapi/.release-state/assets/events.json
 ```
 
-To initialize a new local database with your own snapshot, replace
-`~/lightapi/service-asset/events.json` before running `deploy-local.sh` for the
-first time:
+To initialize a new local database with your own snapshot, create or replace
+that file before running `deploy-local.sh` for the first time:
 
 ```bash
-cp /path/to/your/events.json ~/lightapi/service-asset/events.json
+mkdir -p ~/lightapi/.release-state/assets
+cp /path/to/your/events.json ~/lightapi/.release-state/assets/events.json
 ```
 
 Do not use a different filename. `deploy-local.sh` rejects `EVENT_IMPORT_FILE`
-so every import path uses only `service-asset/events.json`. After the script has
+so every import path uses only the cached `events.json`. After the script has
 started and imported events into Postgres, replacing the file will not change
 the existing database. To reinitialize from a different file, remove the
-Postgres named volume, replace `service-asset/events.json`, and then start the
+Postgres named volume, replace cached `events.json`, and then start the
 script again with `IMPORT_EVENTS=auto`.
 
 For Podman:
@@ -85,7 +87,7 @@ RUST_LOG=info \
 ```
 
 Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
-`event_store_t`, and imports `~/lightapi/service-asset/events.json` only when
+`event_store_t`, and imports the downloaded `events.json` only when
 the event store is empty. This is the expected mode for a brand new environment
 or after removing the Postgres named volume. Explicit `start` and `restart`
 commands skip import unless `IMPORT_EVENTS=auto` or `IMPORT_EVENTS=true` is set.
@@ -93,7 +95,7 @@ Use `IMPORT_EVENTS=true` only when you intentionally want to import again.
 
 The automatic import path uses the event-importer container image through the
 selected container runtime. Set `EVENT_IMPORT_RUNNER=local` only when you want
-to use the host-side importer scripts from `service-asset`.
+to use an explicitly configured host-side importer command.
 
 After startup:
 
@@ -220,51 +222,48 @@ cd ~
 mkdir lightapi
 ```
 
-## Choose a service source
+## Released assets
 
-For `portal-view` development there are two practical ways to populate the hybrid service jars under:
+`deploy-local.sh` downloads released assets from `https://cdn.networknt.com`
+when the target service or UI directories are missing or empty. The default
+cache directory is:
 
-- `all-in-pg/hybrid-query/service`
-- `all-in-pg/hybrid-command/service`
-
-The recommended shared source for checked-in service and UI assets is the separate `service-asset` repository:
-
-- `~/lightapi/service-asset/hybrid-query`
-- `~/lightapi/service-asset/hybrid-command`
-- `~/lightapi/service-asset/lightapi/dist`
-- `~/lightapi/service-asset/signin/dist`
-
-Use a local build only if you are actively changing one or more `*-query` or `*-command` services in your workspace and need those unpublished changes locally.
-
-### Option 1: Use checked-in assets from `service-asset`
-
-Clone both repositories into the same workspace:
-
-```bash
-cd ~
-mkdir -p lightapi
-cd lightapi
-git clone git@github.com:lightapi/portal-config-loc.git
-git clone git@github.com:lightapi/service-asset.git
+```text
+~/lightapi/.release-state/assets
 ```
 
-You can copy the checked-in assets manually if needed:
+The release assets are:
 
-```bash
-cd ~/lightapi
-cp service-asset/hybrid-query/*.jar portal-config-loc/all-in-pg/hybrid-query/service/
-cp service-asset/hybrid-command/*.jar portal-config-loc/all-in-pg/hybrid-command/service/
-cp -R service-asset/lightapi/dist portal-config-loc/all-in-pg/light-gateway/lightapi
-cp -R service-asset/signin/dist portal-config-loc/all-in-pg/light-gateway/signin
-cp -R service-asset/lightapi/dist portal-config-loc/all-in-lt/light-gateway-java/lightapi
-cp -R service-asset/signin/dist portal-config-loc/all-in-lt/light-gateway-java/signin
-cp -R service-asset/lightapi/dist portal-config-loc/all-in-lt/light-gateway-rust/lightapi
-cp -R service-asset/signin/dist portal-config-loc/all-in-lt/light-gateway-rust/signin
+```text
+hybrid-query.zip
+hybrid-command.zip
+lightapi.zip
+signin.zip
+events.zip
+docker-images.env
 ```
 
-This manual step is usually unnecessary now. When you run `./scripts/deploy-local.sh`, it checks the hybrid service directories and the gateway UI asset directories under the currently selected compose directory. For `all-in-pg`, that means `all-in-pg/light-gateway/lightapi/dist` and `all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates both `all-in-lt/light-gateway-java/...` and `all-in-lt/light-gateway-rust/...` so either gateway variant can be selected. If any of them are missing, it automatically copies them from `~/lightapi/service-asset`. If the `service-asset` repo or the expected files are missing, the deploy script exits with an error.
+The script extracts the service archives into the selected compose profile and
+extracts the UI archives into the gateway asset directories. For `all-in-pg`,
+that means `all-in-pg/light-gateway/lightapi/dist` and
+`all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates both
+`all-in-lt/light-gateway-java/...` and `all-in-lt/light-gateway-rust/...` so
+either gateway variant can be selected.
 
-### Option 2: Copy locally built jars
+Set `REFRESH_RELEASE_ASSETS=true` to redownload the cached archives:
+
+```bash
+cd ~/lightapi/portal-config-loc
+REFRESH_RELEASE_ASSETS=true ./scripts/deploy-local.sh lt rust
+```
+
+Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
+
+```bash
+LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt rust
+```
+
+## Optional: Copy locally built jars
 
 If you are developing the backend services in the same workspace, build and copy the local jars instead:
 
@@ -272,8 +271,6 @@ If you are developing the backend services in the same workspace, build and copy
 cd ~/lightapi/portal-config-loc
 ./scripts/copy-service-local.sh
 ```
-
-This script now also copies the built jars into `~/lightapi/service-asset/hybrid-query` and `~/lightapi/service-asset/hybrid-command` when the `service-asset` repository is present.
 
 Use `-f` to force rebuilding all projects:
 
@@ -377,7 +374,6 @@ export LIGHT_AGENT_IMAGE=networknt/light-agent:agent-local
 ```
 cd ~/lightapi
 git clone git@github.com:lightapi/portal-config-loc.git
-git clone git@github.com:lightapi/service-asset.git
 cd portal-config-loc
 ./scripts/deploy-local.sh pg rust
 ```
@@ -487,8 +483,9 @@ COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=true ./scripts/d
 Automatic import uses a container by default. `CONTAINER_CMD` selects the
 runtime and `EVENT_IMPORTER_IMAGE` selects the image:
 
-For Podman, `deploy-local.sh` streams `service-asset/events.json` to the
-event-importer container over stdin instead of bind-mounting it. If you see
+For Podman, `deploy-local.sh` streams the cached
+`~/lightapi/.release-state/assets/events.json` to the event-importer container
+over stdin instead of bind-mounting it. If you see
 `AccessDeniedException: /events/events.json`, pull the latest script and retry
 the import. Fedora's Docker-compatible Podman wrapper is also detected, but
 setting `CONTAINER_CMD=podman` makes the selected runtime explicit.
@@ -501,9 +498,8 @@ EVENT_IMPORTER_IMAGE=networknt/event-importer:latest \
 ./scripts/deploy-local.sh lt rust start
 ```
 
-Manual local import is still available from `service-asset` by setting
-`EVENT_IMPORT_RUNNER=local`. The Rust importer is the best local option on
-Linux because it does not require a local JDK:
+Manual local import is still available by setting `EVENT_IMPORT_RUNNER=local`
+and `EVENT_IMPORTER_CMD` to an executable importer command:
 
 ```bash
 cd ~/lightapi/portal-config-loc
@@ -511,14 +507,8 @@ COMPOSE_CMD="podman compose" \
 CONTAINER_CMD=podman \
 IMPORT_EVENTS=true \
 EVENT_IMPORT_RUNNER=local \
+EVENT_IMPORTER_CMD="/path/to/importer" \
 ./scripts/deploy-local.sh lt rust start
-```
-
-The Java importer is available if `JAVA_HOME` points to a local JDK:
-
-```
-cd ~/lightapi/service-asset
-./importer.sh -f events.json
 ```
 
 ## Start portal-view
