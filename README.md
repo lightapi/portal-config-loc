@@ -1,5 +1,11 @@
 # portal-config-loc
-Portal configuration and docker-compose to start light-portal services at local to help service developers and UI developers. For pure UI developers, he/she can use the https://localhost:3000 to connect to the dev portal server.
+
+This repository contains the local portal configuration and Docker Compose stacks used for service and UI development. It is intended for full-stack and front-end developers who need to work with both the backend services and the portal UI.
+
+To use this repository, you must also clone the `portal-view` repository and run a local Node.js server to render the UI, which connects to the services started through the Docker Compose stacks in this repository.
+
+If you are a backend developer, or simply want to run the complete application without cloning additional GitHub repositories, follow the CLI installation instructions provided in the [light-portal-install](https://github.com/lightapi/light-portal-install) repository.
+
 
 ## Get Started Quickly
 
@@ -29,42 +35,33 @@ cd ~/lightapi/portal-config-loc
 git pull --rebase
 ```
 
-### Optional: Use Your Own Events
+### Recreate the Database
 
-The importer reads this downloaded cache file by default:
+Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
+`event_store_t`, and imports the downloaded `events.json` only when the event
+store is empty. This is the expected mode for a brand new environment or after
+removing the Postgres named volume.
 
-```text
-~/lightapi/.release-state/assets/events.json
+To force a fresh database and re-import the downloaded events, use
+`CLEAN_VOLUMES=true`:
+
+```bash
+CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
 ```
 
-To initialize a new local database with your own snapshot, create or replace
-that file before running `deploy-local.sh` for the first time:
+To initialize from a custom snapshot, replace the cached file before the first
+import:
 
 ```bash
 mkdir -p ~/lightapi/.release-state/assets
 cp /path/to/your/events.json ~/lightapi/.release-state/assets/events.json
+CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
 ```
 
-Do not use a different filename. `deploy-local.sh` rejects `EVENT_IMPORT_FILE`
-so every import path uses only the cached `events.json`. After the script has
-started and imported events into Postgres, replacing the file will not change
-the existing database. To reinitialize from a different file, remove the
-Postgres named volume, replace cached `events.json`, and then start the
-script again with `IMPORT_EVENTS=auto`.
+The importer always reads `~/lightapi/.release-state/assets/events.json`.
+`EVENT_IMPORT_FILE` is intentionally not supported.
 
-For Podman:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-lt
-podman compose -f docker-compose.yml -f docker-compose-rust.yml down -v
-```
-
-For Docker:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-lt
-docker compose -f docker-compose.yml -f docker-compose-rust.yml down -v
-```
+### Start the Rust Stack
 
 Docker Compose:
 
@@ -86,23 +83,16 @@ RUST_LOG=info \
 ./scripts/deploy-local.sh lt rust
 ```
 
-Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
-`event_store_t`, and imports the downloaded `events.json` only when
-the event store is empty. This is the expected mode for a brand new environment
-or after removing the Postgres named volume. Explicit `start` and `restart`
-commands skip import unless `IMPORT_EVENTS=auto` or `IMPORT_EVENTS=true` is set.
-Use `IMPORT_EVENTS=true` only when you intentionally want to import again.
-
-The automatic import path uses the event-importer container image through the
-selected container runtime. Set `EVENT_IMPORT_RUNNER=local` only when you want
-to use an explicitly configured host-side importer command.
-
 After startup:
 
 ```bash
 COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust status
 COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust logs
 ```
+
+The automatic import path uses the event-importer container image through the
+selected container runtime. Set `EVENT_IMPORT_RUNNER=local` only when you want
+to use an explicitly configured host-side importer command.
 
 Open the portal at `https://localhost`. If you use configured hostnames such as
 `dev.lightapi.net`, point them to `127.0.0.1` in your hosts file.
@@ -151,77 +141,6 @@ RUST_LOG=info \
 ./scripts/deploy-local.sh lt rust
 ```
 
-### Fedora Silverblue Postgres Permissions
-
-Postgres data is stored in a Compose named volume, not in
-`postgres-db/data`. If you previously started the stack before this change and
-hit a permission error on the old bind-mounted data directory, pull the latest
-config and recreate the stack:
-
-```bash
-cd ~/lightapi/portal-config-loc
-git pull --rebase
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust stop
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=auto ./scripts/deploy-local.sh lt rust
-```
-
-If you need a completely fresh database after a failed first run, remove the
-Compose volume before starting again:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-lt
-podman compose -f docker-compose.yml -f docker-compose-rust.yml down -v
-```
-
-### Fedora Silverblue Controller Certificates
-
-If `controller-rs` fails with a message that
-`CONTROLLER_TLS_CERT_PATH` points to missing `/keystore/server.pem`, use the
-latest Compose files and recreate the Rust stack. The cert files are tracked in
-`all-in-lt/light-controller-rust`, but rootless Podman on Silverblue needs the
-keystore bind mount to be SELinux relabeled.
-
-```bash
-cd ~/lightapi/portal-config-loc
-git pull --rebase
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
-```
-
-### Fedora Silverblue Gateway Certificates
-
-If `light-gateway` fails with a message like
-`fail to read client CA certificate 'config/ca.pem': permission denied`, use the
-latest Compose files and recreate the Rust stack. This is usually an SELinux
-label issue on the gateway config bind mount, not a Unix file permission issue.
-
-```bash
-cd ~/lightapi/portal-config-loc
-git pull --rebase
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
-```
-
-### Fedora Silverblue Agent Certificates
-
-If `light-agent` fails with a message like
-`config/ca.pem: no such file or directory`, use the latest Compose files and
-recreate the Rust stack. The agent config sets the CA path to
-`/keystore/ca.pem`; seeing `config/ca.pem` usually means the container did not
-read the mounted `/config/values.yml` because the config bind mount was not
-SELinux relabeled.
-
-```bash
-cd ~/lightapi/portal-config-loc
-git pull --rebase
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust restart
-```
-
-## Create a workspace
-
-```
-cd ~
-mkdir lightapi
-```
-
 ## Released assets
 
 `deploy-local.sh` downloads released assets from `https://cdn.networknt.com`
@@ -265,7 +184,8 @@ LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh 
 
 ## Optional: Copy locally built jars
 
-If you are developing the backend services in the same workspace, build and copy the local jars instead:
+If you are developing the backend services in the same workspace, build and
+copy the local jars instead:
 
 ```bash
 cd ~/lightapi/portal-config-loc
@@ -279,7 +199,8 @@ cd ~/lightapi/portal-config-loc
 ./scripts/copy-service-local.sh -f
 ```
 
-If you want Compose to use locally built baked-in images instead of the published wrapper tags, add the image-local override compose file:
+If you want Compose to use locally built baked-in images instead of the
+published wrapper tags, add the image-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
@@ -293,7 +214,8 @@ cd ~/lightapi/portal-config-loc/all-in-pg
 podman compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
 ```
 
-If you want Compose to use the host service folders directly instead of baked-in jars, add the service-local override compose file:
+If you want Compose to use the host service folders directly instead of
+baked-in jars, add the service-local override compose file:
 
 ```bash
 cd ~/lightapi/portal-config-loc/all-in-pg
@@ -369,61 +291,14 @@ cd ~/lightapi/light-fabric
 export LIGHT_AGENT_IMAGE=networknt/light-agent:agent-local
 ```
 
-## Start services
-
-```
-cd ~/lightapi
-git clone git@github.com:lightapi/portal-config-loc.git
-cd portal-config-loc
-./scripts/deploy-local.sh pg rust
-```
-
-The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default, non-database data files stay under the selected compose directory, for example `all-in-pg/data`. To keep using a shared host directory, set `PORTAL_DATA_DIR` before running Compose or `deploy-local.sh`.
+The compose files mount `${PORTAL_DATA_DIR:-./data}` to `/data`. By default,
+non-database data files stay under the selected compose directory, for example
+`all-in-pg/data`. To keep using a shared host directory, set
+`PORTAL_DATA_DIR` before running Compose or `deploy-local.sh`.
 
 Postgres uses a Compose named volume called `postgres-data` instead of the
 host bind directory `postgres-db/data`. This avoids rootless Podman permission
 and SELinux label issues on Fedora Silverblue. 
-
-To clean/recreate the Postgres database volume, you can either:
-- Set the `CLEAN_VOLUMES=true` environment variable when running the deploy script:
-  - **Full redeployment** (stop/wipe, start, and run event import for Rust):
-    ```bash
-    CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
-    ```
-  - **Stop and wipe only** (without restarting/importing for Rust):
-    ```bash
-    CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust stop
-    ```
-- Or run Compose directly from the selected stack directory:
-  ```bash
-  cd all-in-lt
-  docker compose down -v
-  ```
-
-### Podman Compose
-
-The deploy script defaults to Docker Compose for existing development machines.
-To use Podman Compose, set `COMPOSE_CMD`:
-
-```bash
-cd ~/lightapi/portal-config-loc
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust
-```
-
-You can also run Compose directly from the selected stack directory:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-lt
-podman compose -f docker-compose.yml -f docker-compose-rust.yml up -d
-```
-
-If `podman compose` cannot find a provider, verify `podman-compose` is installed
-and visible on `PATH`:
-
-```bash
-podman compose version
-podman-compose --version
-```
 
 ### Rust Logging
 
@@ -464,56 +339,9 @@ or `deploy-local.sh` commands if you want to keep that rendered configuration.
 `RUST_LOG` affects Rust services only; Java services use their Java logging
 configuration.
 
-## Import Events
-
-The preferred first-run path is automatic import through `deploy-local.sh`:
-
-```bash
-cd ~/lightapi/portal-config-loc
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman ./scripts/deploy-local.sh lt rust
-```
-
-Full deployment defaults to `IMPORT_EVENTS=auto`, so it imports only when
-`event_store_t` is empty. To force an import, use:
-
-```bash
-COMPOSE_CMD="podman compose" CONTAINER_CMD=podman IMPORT_EVENTS=true ./scripts/deploy-local.sh lt rust start
-```
-
-Automatic import uses a container by default. `CONTAINER_CMD` selects the
-runtime and `EVENT_IMPORTER_IMAGE` selects the image:
-
-For Podman, `deploy-local.sh` streams the cached
-`~/lightapi/.release-state/assets/events.json` to the event-importer container
-over stdin instead of bind-mounting it. If you see
-`AccessDeniedException: /events/events.json`, pull the latest script and retry
-the import. Fedora's Docker-compatible Podman wrapper is also detected, but
-setting `CONTAINER_CMD=podman` makes the selected runtime explicit.
-
-```bash
-COMPOSE_CMD="podman compose" \
-CONTAINER_CMD=podman \
-IMPORT_EVENTS=auto \
-EVENT_IMPORTER_IMAGE=networknt/event-importer:latest \
-./scripts/deploy-local.sh lt rust start
-```
-
-Manual local import is still available by setting `EVENT_IMPORT_RUNNER=local`
-and `EVENT_IMPORTER_CMD` to an executable importer command:
-
-```bash
-cd ~/lightapi/portal-config-loc
-COMPOSE_CMD="podman compose" \
-CONTAINER_CMD=podman \
-IMPORT_EVENTS=true \
-EVENT_IMPORT_RUNNER=local \
-EVENT_IMPORTER_CMD="/path/to/importer" \
-./scripts/deploy-local.sh lt rust start
-```
-
 ## Start portal-view
 
-Start the portal view in Nodejs to UI development.
+Start the portal view to access the dashboard or for UI development.
 
 ```
 cd ~/lightapi
@@ -523,7 +351,7 @@ npm install
 npm run dev
 ```
 
-click the user profile icon on the top right corner to login with
+Click the user profile icon in the bottom-left corner of the page to log in with:
 
 ```
 steve.hu@lightapi.net
