@@ -424,8 +424,8 @@ start_event_bootstrap_services() {
         return 1
     fi
 
-    wait_for_container_running postgres || {
-        log_error "Postgres did not start"
+    wait_for_postgres_ready || {
+        log_error "Postgres did not become ready"
         return 1
     }
 
@@ -447,7 +447,8 @@ start_event_bootstrap_services() {
 }
 
 get_event_store_count() {
-    "$CONTAINER_RUNTIME_CMD" exec postgres psql -U postgres -d configserver -tAc "select count(*) from event_store_t;"
+    "$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+        psql -h localhost -U postgres -d configserver -tAc "select count(*) from event_store_t;"
 }
 
 wait_for_container_running() {
@@ -460,6 +461,27 @@ wait_for_container_running() {
     while [ "$attempt" -le "$max_attempts" ]; do
         status="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_name" 2>/dev/null || true)"
         if [[ "$status" == "running" ]]; then
+            return 0
+        fi
+
+        sleep "$interval"
+        attempt=$((attempt + 1))
+    done
+
+    return 1
+}
+
+wait_for_postgres_ready() {
+    local max_attempts="${POSTGRES_READY_ATTEMPTS:-60}"
+    local interval="${POSTGRES_READY_INTERVAL:-2}"
+    local attempt=1
+    local status=""
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        status="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' postgres 2>/dev/null || true)"
+        if [[ "$status" == running\ healthy* ]] &&
+           "$CONTAINER_RUNTIME_CMD" exec postgres pg_isready -h localhost -U postgres -d configserver >/dev/null 2>&1 &&
+           get_event_store_count >/dev/null 2>&1; then
             return 0
         fi
 
@@ -624,15 +646,24 @@ import_events() {
     log_info "Importing events from $event_file"
     case "$import_runner_lower" in
         container|docker|podman)
-            run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"
+            if ! run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"; then
+                log_error "Container event import failed"
+                return 1
+            fi
             ;;
         local|host)
-            run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"
+            if ! run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"; then
+                log_error "Local event import failed"
+                return 1
+            fi
             ;;
         auto)
             if ! run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"; then
                 log_warning "Container event import failed; trying local importer fallback"
-                run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"
+                if ! run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"; then
+                    log_error "Local event import fallback failed"
+                    return 1
+                fi
             fi
             ;;
         *)
