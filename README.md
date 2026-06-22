@@ -241,6 +241,7 @@ first, then point compose at those image tags:
 ```bash
 DEMO_CUSTOMER_PROFILE_API_IMAGE=networknt/demo-customer-profile-api:0.1.0 \
 DEMO_OFFER_DECISION_API_IMAGE=networknt/demo-offer-decision-api:0.1.0 \
+DEMO_INSURANCE_CLAIM_MCP_SERVER_IMAGE=networknt/demo-insurance-claim-mcp-server:latest \
 LIGHT_WORKFLOW_IMAGE=networknt/light-workflow:2.3.5 \
 ./scripts/deploy-local.sh lt rust
 ```

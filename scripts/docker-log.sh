@@ -16,7 +16,7 @@ rm workflow.txt
 rm agent.txt
 rm customer-profile.txt
 rm offer-decision.txt
-
+rm insurance-claim.txt
 
 docker logs hybrid-query1 > query1.txt
 docker logs hybrid-query2 > query2.txt
@@ -35,3 +35,4 @@ docker logs light-workflow > workflow.txt
 docker logs light-agent > agent.txt
 docker logs demo-customer-profile-api > customer-profile.txt
 docker logs demo-offer-decision-api > offer-decision.txt
+docker logs demo-insurance-claim-mcp-server > insurance-claim.txt
