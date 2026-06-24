@@ -143,25 +143,24 @@ handler.handlers:
 
 handler.chains:
   default:
-    # - whitelist
     - exception
-    # - metrics
     - limit
     - correlation
-    # - killapp
-    # - latency
-    # - memory
-    # - exchaos
     - cors
     - stateless
     - header
-    # - body
-    # - specification
     # - security
-    # - audit
-    # - sanitizer
-    # - validator
-    # - path
+    - prefix
+    - token
+    - router
+  hybrid:
+    - exception
+    - limit
+    - correlation
+    - cors
+    - stateless
+    - header
+    # - security
     - prefix
     - token
     - access-control
@@ -326,87 +325,19 @@ handler.paths:
   - path: '/portal/query'
     method: 'GET'
     exec:
-      - default
+      - hybrid
   - path: '/portal/query'
     method: 'POST'
     exec:
-      - default
+      - hybrid
   - path: '/portal/command'
     method: 'POST'
     exec:
-      - default
+      - hybrid
   - path: '/portal/command'
     method: 'GET'
     exec:
-      - default
-
-  # light-scheduler
-  - path: '/schedulers'
-    method: 'POST'
-    exec:
-      - default
-  - path: '/schedulers'
-    method: 'GET'
-    exec:
-      - default
-
-  # light-controller
-  - path: '/services'
-    method: 'POST'
-    exec:
-      - default
-  - path: '/services'
-    method: 'DELETE'
-    exec:
-      - default
-  - path: '/services'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/lookup'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/check'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/check'
-    method: 'PUT'
-    exec:
-      - default
-  - path: '/services/check/{id}'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/info'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/chaosmonkey'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/chaosmonkey'
-    method: 'POST'
-    exec:
-      - default
-  - path: '/services/chaosmonkey/assault'
-    method: 'POST'
-    exec:
-      - default
-  - path: '/services/logger'
-    method: 'GET'
-    exec:
-      - default
-  - path: '/services/logger'
-    method: 'POST'
-    exec:
-      - default
-  - path: '/services/logger/content'
-    method: 'POST'
-    exec:
-      - default
+      - hybrid
 
   # Config Server
   - path: '/config-server/configs'
@@ -423,75 +354,6 @@ handler.paths:
     method: 'GET'
     exec:
       - default
-
-  # In most case, the /server/info endpoint shouldn't be exposed. If it is, then it must be protected by OAuth 2.0
-  - path: '/adm/server/info'
-    method: 'get'
-    exec:
-      - admin
-      - info
-  # the health endpoint for the proxy itself without security, this for both Kubernetes liveness and readiness.
-  - path: '/health'
-    method: 'get'
-    exec:
-      - exception
-      - health
-  # the health check endpoint called from control plane with security and it will invoke backend optionally.
-  - path: '/adm/health/${server.serviceId}'
-    method: 'get'
-    exec:
-      - admin
-      - health
-
-  - path: '/adm/logger'
-    method: 'get'
-    exec:
-      - admin
-      - getLogger
-
-  - path: '/adm/logger'
-    method: 'post'
-    exec:
-      - admin
-      - postLogger
-
-  - path: '/adm/logger/content'
-    method: 'GET'
-    exec:
-      - admin
-      - getLogContents
-
-  - path: '/adm/modules'
-    method: 'get'
-    exec:
-      - admin
-      - modules
-
-  - path: '/adm/modules'
-    method: 'post'
-    exec:
-      - admin
-      - configReload
-
-  - path: '/adm/shutdown'
-    method: 'delete'
-    exec:
-      - admin
-      - shutdown
-
-  - path: '/adm/chaosmonkey'
-    method: 'get'
-    exec:
-      # enable security once we have this endpoint in the spec with a proper scope.
-      - admin
-      - chaosget
-
-  - path: '/adm/chaosmonkey/{assault}'
-    method: 'post'
-    exec:
-      # enable security once we have this endpoint in the spec with a proper scope.
-      - admin
-      - chaospost
 
   - path: '/spec.yaml'
     method: 'get'
@@ -599,7 +461,7 @@ rule.endpointRules:
     req-acc:
       - allow-role-based-access-control.lightapi.net.dev.lightapi.net
     permission:
-      roles: mcp-reader
+      roles: mcp-reader host-admin
   /v1/pets@get:
     req-acc:
       - allow-role-based-access-control.lightapi.net.dev.lightapi.net
