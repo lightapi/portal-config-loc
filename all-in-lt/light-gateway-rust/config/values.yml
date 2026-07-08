@@ -417,7 +417,7 @@ security.audience:
 security.jwt.certificate: {}
 
 # access-control.yml
-access-control.enabled: true
+access-control.enabled: false
 access-control.accessRuleLogic: any
 access-control.defaultDeny: true
 
