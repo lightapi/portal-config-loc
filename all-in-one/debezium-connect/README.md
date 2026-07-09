@@ -31,8 +31,8 @@ Here is the working config for portal-event topic with Timestamp support.
     "transforms": "unwrap,timestamp_converter,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-    "transforms.unwrap.drop.tombstones": "false",
-    "transforms.unwrap.delete.handling.mode": "none",
+    "transforms.unwrap.drop.tombstones": "true",
+    "transforms.unwrap.delete.handling.mode": "drop",
 
     "transforms.timestamp_converter.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
     "transforms.timestamp_converter.field": "event_ts",
@@ -99,8 +99,8 @@ Here is the configuration that has user_id as key. In the config, we have define
     "transforms": "unwrap,extractKey,timestamp_converter,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-    "transforms.unwrap.drop.tombstones": "false",
-    "transforms.unwrap.delete.handling.mode": "none",
+    "transforms.unwrap.drop.tombstones": "true",
+    "transforms.unwrap.delete.handling.mode": "drop",
 
     "transforms.extractKey.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
     "transforms.extractKey.field": "user_id",
@@ -168,8 +168,8 @@ This is the final version that has payload as the Kafka value.
     "transforms": "unwrap,timestamp_converter,extractPayload,extractKey,outbox,final_route",
 
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-    "transforms.unwrap.drop.tombstones": "false",
-    "transforms.unwrap.delete.handling.mode": "none",
+    "transforms.unwrap.drop.tombstones": "true",
+    "transforms.unwrap.delete.handling.mode": "drop",
 
     "transforms.timestamp_converter.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
     "transforms.timestamp_converter.field": "event_ts",
