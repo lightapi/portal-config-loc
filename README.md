@@ -358,3 +358,18 @@ Click the user profile icon in the bottom-left corner of the page to log in with
 steve.hu@lightapi.net
 123456
 ```
+# Instance clone rollout
+
+The `all-in-lt`, `all-in-pg`, and `all-in-one` variants provide identical,
+disabled `instance-clone.yml` policies for every hybrid-command/query process.
+Export the same secret to every process before startup:
+
+```bash
+export INSTANCE_CLONE_PLAN_HMAC_KEY='<local-secret>'
+export INSTANCE_CLONE_PLAN_HMAC_KEY_ID='v1'
+```
+
+The secret must not be committed or imported into configuration snapshots.
+Keep `enabled: false` until the graph-revision parity/backfill gate passes and
+all clone-capable artifacts are deployed. When enabling locally, change the
+command and all query-node policy files together.

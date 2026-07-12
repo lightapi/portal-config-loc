@@ -194,6 +194,8 @@ services:
     image: networknt/portal-hybrid-command:2.2.1-slim
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     volumes:
@@ -222,6 +224,8 @@ services:
       - 8440:8440
     # restart: on-failure
     environment:
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
       embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
@@ -245,6 +249,8 @@ services:
       - 8441:8441
     # restart: on-failure
     environment:
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
       embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
@@ -268,6 +274,8 @@ services:
       - 8442:8442
     # restart: on-failure
     environment:
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
       embedding-task.endpoint: ${EMBEDDING_TASK_ENDPOINT:-https://generativelanguage.googleapis.com/v1beta/openai/embeddings}
