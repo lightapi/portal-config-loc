@@ -100,6 +100,8 @@ service.singletons:
     - net.lightapi.portal.user.query.DeadLetterProducerStartupHook
     # Durable canonical failure publication outbox worker
     - net.lightapi.portal.user.query.EventFailurePublisherStartupHook
+    # Fenced asynchronous replay worker (dormant while execution gates are disabled)
+    - net.lightapi.portal.db.replay.EventReplayWorkerStartupHook
     # User Consumer Startup Hook
     - net.lightapi.portal.user.query.PortalEventConsumerStartupHook
     # Schedule Query Startup Hook
@@ -108,6 +110,8 @@ service.singletons:
   - com.networknt.server.ShutdownHookProvider:
     # User Consumer Shutdown Hook
     - net.lightapi.portal.user.query.PortalEventConsumerShutdownHook
+    # Fenced asynchronous replay worker
+    - net.lightapi.portal.db.replay.EventReplayWorkerShutdownHook
     # Durable canonical failure publication outbox worker
     - net.lightapi.portal.user.query.EventFailurePublisherShutdownHook
     # User Producer Shutdown Hook
