@@ -98,6 +98,8 @@ service.singletons:
     - net.lightapi.portal.db.EmbeddingTaskStartupHook
     # User Producer Startup Hook
     - net.lightapi.portal.user.query.DeadLetterProducerStartupHook
+    # Durable canonical failure publication outbox worker
+    - net.lightapi.portal.user.query.EventFailurePublisherStartupHook
     # User Consumer Startup Hook
     - net.lightapi.portal.user.query.PortalEventConsumerStartupHook
     # Schedule Query Startup Hook
@@ -106,6 +108,8 @@ service.singletons:
   - com.networknt.server.ShutdownHookProvider:
     # User Consumer Shutdown Hook
     - net.lightapi.portal.user.query.PortalEventConsumerShutdownHook
+    # Durable canonical failure publication outbox worker
+    - net.lightapi.portal.user.query.EventFailurePublisherShutdownHook
     # User Producer Shutdown Hook
     - net.lightapi.portal.user.query.DeadLetterProducerShutdownHook
     # Operational cleanup shutdown hook
