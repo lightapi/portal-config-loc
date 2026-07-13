@@ -35,7 +35,7 @@ services:
     image: networknt/portal-hybrid-command:2.2.1
     environment:
       NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
-      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-light-portal-development-only-instance-clone-hmac-key-v1}
       INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
@@ -66,7 +66,7 @@ services:
       - 8440:8440
     # restart: on-failure
     environment:
-      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-light-portal-development-only-instance-clone-hmac-key-v1}
       INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
@@ -93,7 +93,7 @@ services:
       - 8441:8441
     # restart: on-failure
     environment:
-      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-light-portal-development-only-instance-clone-hmac-key-v1}
       INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
@@ -120,7 +120,7 @@ services:
       - 8442:8442
     # restart: on-failure
     environment:
-      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-}
+      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-light-portal-development-only-instance-clone-hmac-key-v1}
       INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
       embedding-task.enabled: ${EMBEDDING_TASK_ENABLED:-false}
       embedding-task.provider: ${EMBEDDING_TASK_PROVIDER:-disabled}
