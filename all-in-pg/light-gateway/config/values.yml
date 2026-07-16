@@ -89,6 +89,9 @@ handler.handlers:
   - com.networknt.cors.CorsHttpHandler@cors
   - com.networknt.openapi.OpenApiHandler@specification
   - com.networknt.openapi.JwtVerifyHandler@security
+  # Loaded for the WebSocket router's one-time /ctrl/mcp@connect decision.
+  # It is intentionally not part of the chat handler chain.
+  - com.networknt.access.AuthorizationHandler@access-control
   - com.networknt.body.BodyHandler@body
   - com.networknt.audit.AuditHandler@audit
   - com.networknt.sanitizer.SanitizerHandler@sanitizer
@@ -575,14 +578,37 @@ virtual-host.hosts:
 
 # websocket-router.yml
 websocket-router.idleTimeoutMs: 3600000
+websocket-router.maxConnectionDurationMs: 900000
+websocket-router.maxActiveConnections: 1024
+websocket-router.maxUpgradeRequestsPerSecond: 128
+websocket-router.originAllowlist:
+  /ctrl/mcp:
+    - https://local.localhost
+    # Supported portal-view Vite origins. Other hosts/ports remain fail closed.
+    - http://localhost:3000
+    - https://localhost:3000
+websocket-router.applicationProtocols:
+  /ctrl/mcp: []
 websocket-router.pathPrefixService:
   /ctrl/mcp:
     serviceId: com.networknt.controller-1.0.0
     protocol: https
     envTag: dev
 
+# access-control.yml. The websocket adapter evaluates this policy once for a
+# new /ctrl/mcp tunnel; the generic HTTP handler is not in the chat chain.
+access-control.enabled: true
+access-control.defaultDeny: true
+access-control.defaultInclude: false
+access-control.skipPathPrefixes: []
+
 # rule.yml
 rule.endpointRules:
+  /ctrl/mcp@connect:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: admin host-admin instance-admin
   echo@call:
     req-acc:
       - allow-role-based-access-control.lightapi.net.dev.lightapi.net

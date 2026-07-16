@@ -3,8 +3,6 @@ services:
 
   controller:
     image: networknt/controller-rs:latest
-    ports:
-      - 8438:8438
     volumes:
       - ./light-controller-rust:/keystore:ro,z
     environment:
