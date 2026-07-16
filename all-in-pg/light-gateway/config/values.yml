@@ -609,6 +609,11 @@ rule.endpointRules:
       - allow-role-based-access-control.lightapi.net.dev.lightapi.net
     permission:
       roles: admin host-admin instance-admin
+  lightapi.net/instance/getRuntimeInstance/0.1.0:
+    req-acc:
+      - allow-role-based-access-control.lightapi.net.dev.lightapi.net
+    permission:
+      roles: admin host-admin instance-admin
   echo@call:
     req-acc:
       - allow-role-based-access-control.lightapi.net.dev.lightapi.net
