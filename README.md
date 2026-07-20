@@ -311,7 +311,7 @@ non-database data files stay under the selected compose directory, for example
 
 Postgres uses a Compose named volume called `postgres-data` instead of the
 host bind directory `postgres-db/data`. This avoids rootless Podman permission
-and SELinux label issues on Fedora Silverblue. 
+and SELinux label issues on Fedora Silverblue.
 
 ### Rust Logging
 
