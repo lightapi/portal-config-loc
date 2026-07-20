@@ -64,7 +64,6 @@ LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
 RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"
 LIGHT_PORTAL_ASSET_BASE_URL="${LIGHT_PORTAL_ASSET_BASE_URL:-https://cdn.networknt.com}"
-LIGHT_PORTAL_ASSET_BASE_URL="${LIGHT_PORTAL_ASSET_BASE_URL%/}"
 RELEASE_ASSET_CACHE_DIR="${RELEASE_ASSET_CACHE_DIR:-$RELEASE_STATE_DIR/assets}"
 REFRESH_RELEASE_ASSETS="${REFRESH_RELEASE_ASSETS:-false}"
 RELEASE_IMAGE_ENV_CACHE="${RELEASE_IMAGE_ENV_CACHE:-$RELEASE_STATE_DIR/docker-images.env}"
@@ -479,10 +478,14 @@ wait_for_postgres_ready() {
 
     while [ "$attempt" -le "$max_attempts" ]; do
         status="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' postgres 2>/dev/null || true)"
-        if [[ "$status" == running\ healthy* ]] &&
-           "$CONTAINER_RUNTIME_CMD" exec postgres pg_isready -h localhost -U postgres -d configserver >/dev/null 2>&1 &&
-           get_event_store_count >/dev/null 2>&1; then
+        # Health checks are optional on some runtimes/images; pg_isready is the primary readiness signal.
+        if [[ "$status" == running\ healthy* || "$status" == running* ]] &&
+           "$CONTAINER_RUNTIME_CMD" exec postgres pg_isready -h localhost -U postgres -d configserver >/dev/null 2>&1; then
             return 0
+        fi
+
+        if [ $((attempt % 10)) -eq 0 ]; then
+            log_info "Waiting for Postgres readiness (attempt $attempt/$max_attempts, status: ${status:-unknown})"
         fi
 
         sleep "$interval"
@@ -531,37 +534,99 @@ run_container_event_importer() {
     local import_network
     local db_jdbc_url
     local event_mount
+    local mount_mode="ro,z"
+    local disable_msys_pathconv=false
+    local mount_source_dir
+    local docker_mount_source_dir
+    local container_events_dir="/events"
+    local container_event_file
+    local container_stdin_file="/dev/stdin"
 
     event_dir="$(cd "$(dirname "$event_file")" && pwd)"
     event_name="$(basename "$event_file")"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
+    mount_source_dir="${RELEASE_ASSET_CACHE_DIR:-$event_dir}"
+    docker_mount_source_dir="$mount_source_dir"
+
+    # Git Bash/MSYS can rewrite /path arguments into host Windows paths.
+    # Disable conversion for container commands so /events paths remain in-container paths.
+    if [[ -n "${MSYSTEM:-}" ]]; then
+        disable_msys_pathconv=true
+
+        # On Git Bash + Docker Desktop, keep in-container paths literal but
+        # convert host bind source to Windows format (e.g. C:/path).
+        if ! container_runtime_is_podman; then
+            if command -v cygpath >/dev/null 2>&1; then
+                docker_mount_source_dir="$(cygpath -m "$mount_source_dir")"
+            elif [[ "$mount_source_dir" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+                docker_mount_source_dir="${BASH_REMATCH[1]}:/${BASH_REMATCH[2]}"
+            fi
+        fi
+    fi
+    container_event_file="$container_events_dir/$event_name"
+
+    if [[ ! -f "$mount_source_dir/$event_name" ]]; then
+        log_error "Event import file not found at mount source: $mount_source_dir/$event_name"
+        return 1
+    fi
+
+    if ! container_runtime_is_podman; then
+        mount_mode="ro"
+    fi
+
     if container_runtime_is_podman; then
         log_info "Streaming $event_file to event-importer over stdin"
-        "$CONTAINER_RUNTIME_CMD" run --rm -i \
+            if [[ "$disable_msys_pathconv" == "true" ]]; then
+                MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$CONTAINER_RUNTIME_CMD" run --rm -i \
+                    --network "$import_network" \
+                    -e DB_JDBC_URL="$db_jdbc_url" \
+                    -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
+                    -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
+                    -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
+                    "$importer_image" \
+                    --filename "$container_stdin_file" \
+                    "$@" < "$event_file"
+            else
+                "$CONTAINER_RUNTIME_CMD" run --rm -i \
+                    --network "$import_network" \
+                    -e DB_JDBC_URL="$db_jdbc_url" \
+                    -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
+                    -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
+                    -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
+                    "$importer_image" \
+                    --filename "$container_stdin_file" \
+                    "$@" < "$event_file"
+            fi
+        return $?
+    fi
+    event_mount="$docker_mount_source_dir:$container_events_dir:$mount_mode"
+    log_info "Event importer mount: $docker_mount_source_dir -> $container_events_dir"
+
+    log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
+    if [[ "$disable_msys_pathconv" == "true" ]]; then
+        MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$CONTAINER_RUNTIME_CMD" run --rm \
             --network "$import_network" \
+            -v "$event_mount" \
             -e DB_JDBC_URL="$db_jdbc_url" \
             -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
             -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
             -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
             "$importer_image" \
-            --filename "/dev/stdin" \
-            "$@" < "$event_file"
-        return $?
+            --filename "$container_event_file" \
+            "$@"
+    else
+        "$CONTAINER_RUNTIME_CMD" run --rm \
+            --network "$import_network" \
+            -v "$event_mount" \
+            -e DB_JDBC_URL="$db_jdbc_url" \
+            -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
+            -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
+            -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
+            "$importer_image" \
+            --filename "$container_event_file" \
+            "$@"
     fi
-    event_mount="$event_dir:/events:ro,z"
-
-    log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
-    "$CONTAINER_RUNTIME_CMD" run --rm \
-        --network "$import_network" \
-        -v "$event_mount" \
-        -e DB_JDBC_URL="$db_jdbc_url" \
-        -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
-        -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
-        -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
-        "$importer_image" \
-        --filename "/events/$event_name" \
-        "$@"
 }
 
 run_local_event_importer() {
