@@ -546,7 +546,10 @@ run_container_event_importer() {
     event_name="$(basename "$event_file")"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
-    mount_source_dir="${RELEASE_ASSET_CACHE_DIR:-$event_dir}"
+    # Always bind-mount the resolved event directory. A relative
+    # RELEASE_ASSET_CACHE_DIR would otherwise be interpreted as a named volume
+    # by Docker instead of the host directory checked below.
+    mount_source_dir="$event_dir"
     docker_mount_source_dir="$mount_source_dir"
 
     # Git Bash/MSYS can rewrite /path arguments into host Windows paths.
@@ -571,7 +574,9 @@ run_container_event_importer() {
         return 1
     fi
 
-    if ! container_runtime_is_podman; then
+    # Docker Desktop does not support SELinux relabel options. Keep :z for
+    # Linux Docker so the importer can read the cache on enforcing hosts.
+    if [[ "$disable_msys_pathconv" == "true" ]]; then
         mount_mode="ro"
     fi
 
