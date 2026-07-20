@@ -42,15 +42,24 @@ Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
 store is empty. This is the expected mode for a brand new environment or after
 removing the Postgres named volume.
 
-To force a fresh database and re-import the downloaded events, use
-`CLEAN_VOLUMES=true`:
+To force a fresh database and import the latest baseline from the CDN, use both
+`REFRESH_RELEASE_ASSETS=true` and `CLEAN_VOLUMES=true`:
 
 ```bash
-CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
+REFRESH_RELEASE_ASSETS=true \
+CLEAN_VOLUMES=true \
+./scripts/deploy-local.sh lt rust
 ```
 
+`CLEAN_VOLUMES=true` removes the Postgres named volume, but it does not remove
+or refresh `~/lightapi/.release-state/assets/events.json`.
+`REFRESH_RELEASE_ASSETS=true` downloads and extracts the current `events.zip`
+before the new database is populated. Without the refresh flag, a recreated
+database can import an older cached event baseline that no longer matches the
+current schema.
+
 To initialize from a custom snapshot, replace the cached file before the first
-import:
+import and omit `REFRESH_RELEASE_ASSETS=true`, which would overwrite it:
 
 ```bash
 mkdir -p ~/lightapi/.release-state/assets
@@ -175,6 +184,9 @@ Set `REFRESH_RELEASE_ASSETS=true` to redownload the cached archives:
 cd ~/lightapi/portal-config-loc
 REFRESH_RELEASE_ASSETS=true ./scripts/deploy-local.sh lt rust
 ```
+
+When recreating the database at the same time, combine it with
+`CLEAN_VOLUMES=true` as shown in [Recreate the Database](#recreate-the-database).
 
 Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
 
