@@ -199,7 +199,7 @@ target_has_contents() {
 
     [[ -d "$target_dir" ]] || return 1
     if [[ "$file_pattern" == "*" ]]; then
-        find "$target_dir" -mindepth 1 | grep -q .
+        find "$target_dir" -mindepth 1 ! -name '.gitkeep' -print -quit | grep -q .
         return $?
     fi
     find "$target_dir" -maxdepth 1 -type f -name "$file_pattern" | grep -q .
@@ -211,6 +211,7 @@ extract_archive_if_missing() {
     local asset_name="$3"
     local file_pattern="${4:-*}"
     local archive_path
+    local preserve_gitkeep=false
 
     if target_has_contents "$target_dir" "$file_pattern"; then
         log_info "$asset_name already present in $target_dir"
@@ -229,9 +230,15 @@ extract_archive_if_missing() {
     archive_path="$RELEASE_ASSET_CACHE_DIR/$archive_name"
     ensure_archive "$archive_name" || return 1
     log_info "Extracting $asset_name from $archive_path to $target_dir"
+    if [[ -f "$target_dir/.gitkeep" ]]; then
+        preserve_gitkeep=true
+    fi
     rm -rf "$target_dir"
     mkdir -p "$target_dir"
     unzip -q "$archive_path" -d "$target_dir"
+    if [[ "$preserve_gitkeep" == "true" ]]; then
+        : > "$target_dir/.gitkeep"
+    fi
 }
 
 ensure_event_file() {
@@ -270,7 +277,7 @@ container_runtime_is_podman() {
     [[ "$version_output" == *podman* || "$version_output" == *Podman* ]]
 }
 
-ensure_service_assets() {
+ensure_release_assets() {
     local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
     local gateway_roots=()
@@ -351,7 +358,7 @@ check_prerequisites() {
     fi
 
     check_gateway_host_port
-    ensure_service_assets
+    ensure_release_assets
 
     log_success "All prerequisites met"
 }
@@ -381,7 +388,7 @@ start_docker_compose() {
     log_info "Starting Compose services..."
 
     check_gateway_host_port || exit 1
-    ensure_service_assets || exit 1
+    ensure_release_assets || exit 1
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
@@ -409,7 +416,7 @@ start_docker_compose() {
 start_event_bootstrap_services() {
     log_info "Starting Postgres and event processors for event bootstrap..."
 
-    ensure_service_assets || exit 1
+    ensure_release_assets || exit 1
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"

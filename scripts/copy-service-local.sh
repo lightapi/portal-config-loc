@@ -53,7 +53,6 @@ if ! BASE_DIR="$(detect_base_dir)"; then
     exit 1
 fi
 DEST_DIR="${DEST_DIR:-$BASE_DIR/portal-config-loc}"
-SERVICE_ASSET_DIR="${SERVICE_ASSET_DIR:-$BASE_DIR/service-asset}"
 
 if [ ! -d "$DEST_DIR" ]; then
     echo "Error: portal-config-loc repository not found at $DEST_DIR"
@@ -222,13 +221,6 @@ if [ ${#QUERY_PROJECTS_BUILT[@]} -gt 0 ] || [ ${#COMMAND_PROJECTS_BUILT[@]} -gt 
     find "$DEST_DIR/all-in-lt/hybrid-query/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
     find "$DEST_DIR/all-in-lt/hybrid-command/service" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
 
-    if [ -d "$SERVICE_ASSET_DIR" ]; then
-        mkdir -p "$SERVICE_ASSET_DIR/hybrid-query" "$SERVICE_ASSET_DIR/hybrid-command"
-        find "$SERVICE_ASSET_DIR/hybrid-query" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-        find "$SERVICE_ASSET_DIR/hybrid-command" -maxdepth 1 -type f ! -name '.gitkeep' -delete 2>/dev/null
-    else
-        echo "Warning: service-asset repository not found at $SERVICE_ASSET_DIR. Skipping service-asset sync."
-    fi
 fi
 
 # Copy JAR files for projects that were built
@@ -255,25 +247,11 @@ copy_jar() {
     fi
 }
 
-copy_to_service_asset_repo() {
-    local project="$1"
-    local project_type="$2"  # "query" or "command"
-
-    if [ ! -d "$SERVICE_ASSET_DIR" ]; then
-        return 0
-    fi
-
-    local repo_dest="$SERVICE_ASSET_DIR/hybrid-${project_type}"
-    mkdir -p "$repo_dest"
-    copy_jar "$project" "$project_type" "$repo_dest"
-}
-
 # Copy query projects
 for project in "${QUERY_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "query" "$DEST_DIR/all-in-one/hybrid-query/service"
     copy_jar "$project" "query" "$DEST_DIR/all-in-pg/hybrid-query/service"
     copy_jar "$project" "query" "$DEST_DIR/all-in-lt/hybrid-query/service"
-    copy_to_service_asset_repo "$project" "query"
 done
 
 # Copy command projects
@@ -281,7 +259,6 @@ for project in "${COMMAND_PROJECTS_BUILT[@]}"; do
     copy_jar "$project" "command" "$DEST_DIR/all-in-one/hybrid-command/service"
     copy_jar "$project" "command" "$DEST_DIR/all-in-pg/hybrid-command/service"
     copy_jar "$project" "command" "$DEST_DIR/all-in-lt/hybrid-command/service"
-    copy_to_service_asset_repo "$project" "command"
 done
 
 
