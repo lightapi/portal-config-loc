@@ -178,7 +178,9 @@ that means `all-in-pg/light-gateway/lightapi/dist` and
 `all-in-lt/light-gateway-java/...` and `all-in-lt/light-gateway-rust/...` so
 either gateway variant can be selected.
 
-Set `REFRESH_RELEASE_ASSETS=true` to redownload the cached archives:
+Set `REFRESH_RELEASE_ASSETS=true` to refresh the cached release archives and
+replace the extracted hybrid service JARs, even when their target directories
+are already populated. Populated gateway UI directories are left intact:
 
 ```bash
 cd ~/lightapi/portal-config-loc

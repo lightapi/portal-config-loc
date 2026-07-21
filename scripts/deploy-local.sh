@@ -210,10 +210,16 @@ extract_archive_if_missing() {
     local target_dir="$2"
     local asset_name="$3"
     local file_pattern="${4:-*}"
+    local replace_on_refresh="${5:-false}"
     local archive_path
     local preserve_gitkeep=false
+    local replace_target=false
 
-    if target_has_contents "$target_dir" "$file_pattern"; then
+    if is_true "$REFRESH_RELEASE_ASSETS" && is_true "$replace_on_refresh"; then
+        replace_target=true
+    fi
+
+    if [[ "$replace_target" != "true" ]] && target_has_contents "$target_dir" "$file_pattern"; then
         log_info "$asset_name already present in $target_dir"
         return 0
     fi
@@ -282,8 +288,8 @@ ensure_release_assets() {
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
     local gateway_roots=()
 
-    extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" || exit 1
-    extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" || exit 1
+    extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" true || exit 1
+    extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" true || exit 1
 
     if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] || [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
         [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-java")
@@ -878,7 +884,7 @@ case "${1:-}" in
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
-        echo "  REFRESH_RELEASE_ASSETS=true       Redownload released asset zip files"
+        echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
         echo "  IMPORT_EVENTS=auto                Import downloaded events.json only when event_store_t is empty (default for full deployment)"
         echo "  IMPORT_EVENTS=false               Skip event import"
         echo "  IMPORT_EVENTS=true                Import downloaded events.json even when rows already exist"
