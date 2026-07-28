@@ -73,9 +73,12 @@ EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced' \
 ```
 
 Never use this mode against a live or shared database. It preserves normal
-envelope, schema, nonce, and uniqueness validation, but defers graph and
-identity-materialization enforcement until the historical snapshot is fully
-projected.
+envelope, schema, nonce, and uniqueness validation, but appends every preserved
+event through the direct historical path so command processing cannot reserve a
+second nonce or invent missing graph revisions. Graph and identity-materialization
+enforcement remains deferred until the historical snapshot is fully projected. It
+also skips the unavailable Light Gateway binary compiler for historical
+`mcp-router.tools` projection while retaining Java-side schema checks.
 
 To initialize from a custom snapshot, replace the cached file before the first
 import and omit `REFRESH_RELEASE_ASSETS=true`, which would overwrite it:
