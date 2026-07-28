@@ -58,6 +58,25 @@ before the new database is populated. Without the refresh flag, a recreated
 database can import an older cached event baseline that no longer matches the
 current schema.
 
+### Recover a Preserved Historical Baseline
+
+Use this only for a disposable local database when the preserved `events.json`
+predates graph revision and identity-materialization metadata. Keep the source
+asset by setting `REFRESH_RELEASE_ASSETS=false`, and explicitly acknowledge the
+write-fenced import mode:
+
+```bash
+REFRESH_RELEASE_ASSETS=false \
+CLEAN_VOLUMES=true \
+EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced' \
+./scripts/deploy-local.sh lt rust
+```
+
+Never use this mode against a live or shared database. It preserves normal
+envelope, schema, nonce, and uniqueness validation, but defers graph and
+identity-materialization enforcement until the historical snapshot is fully
+projected.
+
 To initialize from a custom snapshot, replace the cached file before the first
 import and omit `REFRESH_RELEASE_ASSETS=true`, which would overwrite it:
 
