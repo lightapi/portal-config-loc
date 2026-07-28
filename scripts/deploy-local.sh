@@ -678,6 +678,7 @@ import_events() {
     local import_runner_lower
     local importer_image
     local extra_args=()
+    local bootstrap_operator_id="${EVENT_IMPORT_BOOTSTRAP_OPERATOR_ID:-01964b05-5532-7c79-8cde-191dcbd421b8}"
     local event_count=""
 
     case "$import_mode_lower" in
@@ -720,6 +721,24 @@ import_events() {
 
     if [[ -n "${EVENT_IMPORT_ARGS:-}" ]]; then
         read -r -a extra_args <<< "$EVENT_IMPORT_ARGS"
+    fi
+
+    if [[ "$event_count" -eq 0 ]]; then
+        case " ${extra_args[*]} " in
+            *" --historical-import "*)
+                log_warning "Using explicitly requested historical import for the empty destination"
+                ;;
+            *" --bootstrap-import "*)
+                ;;
+            *)
+                extra_args+=(
+                    --bootstrap-import
+                    --legacy-write-fenced
+                    --bootstrap-operator-id "$bootstrap_operator_id"
+                )
+                log_info "Empty destination detected; enabling guarded baseline bootstrap import"
+                ;;
+        esac
     fi
 
     import_runner_lower="${import_runner,,}"
@@ -892,8 +911,8 @@ case "${1:-}" in
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
         echo "  EVENT_IMPORTER_CMD=...            Override local importer command when EVENT_IMPORT_RUNNER=local"
-        echo "  EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced'  Recover a preserved pre-graph-metadata snapshot"
-        echo "  EVENT_IMPORTER_IMAGE=networknt/event-importer:latest plus EVENT_IMPORT_ARGS='--bootstrap-import --legacy-write-fenced --bootstrap-operator-id UUID'  Bootstrap a generated baseline locally"
+        echo "  EVENT_IMPORT_BOOTSTRAP_OPERATOR_ID=UUID  Override the identity-materialization audit operator for automatic empty-DB bootstrap"
+        echo "  EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced'  Recover a preserved pre-graph-metadata snapshot instead of automatic bootstrap"
         echo "  RELEASE_IMAGE_ENV_FILE=...        Compose image env file path"
         echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
         echo "  RELEASE_IMAGE_ENV_S3_URI=...      Download docker-images.env with aws s3 cp when local file is missing"

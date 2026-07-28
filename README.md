@@ -40,7 +40,8 @@ git pull --rebase
 Full deployment defaults to `IMPORT_EVENTS=auto`: it waits for Postgres, checks
 `event_store_t`, and imports the downloaded `events.json` only when the event
 store is empty. This is the expected mode for a brand new environment or after
-removing the Postgres named volume.
+removing the Postgres named volume. An empty destination automatically enables
+the importer's guarded bootstrap mode; no `EVENT_IMPORT_ARGS` are required.
 
 To force a fresh database and import the latest baseline from the CDN, use both
 `REFRESH_RELEASE_ASSETS=true` and `CLEAN_VOLUMES=true`:
@@ -99,17 +100,16 @@ cp /path/to/events.candidate.json ~/lightapi/.release-state/assets/events.json
 REFRESH_RELEASE_ASSETS=false \
 CLEAN_VOLUMES=true \
 EVENT_IMPORTER_IMAGE=networknt/event-importer:latest \
-EVENT_IMPORT_ARGS='--bootstrap-import --legacy-write-fenced --bootstrap-operator-id 01964b05-5532-7c79-8cde-191dcbd421b8' \
 ./scripts/deploy-local.sh lt rust
 ```
 
 The importer refuses bootstrap mode unless the event store and identity tables
-are empty, stops on the first failed event, and will not accept
-`--historical-import` at the same time. The operator UUID is written to the
-identity-materialization audit record; replace the example when another operator
-runs the bootstrap. The explicit image override prevents a pinned release image
-from `.release-state/docker-images.env` from replacing a locally rebuilt importer.
-Never use this mode against a live or shared database.
+are empty and stops on the first failed event. The deployment script supplies
+bootstrap mode automatically when `event_store_t` is empty. Set
+`EVENT_IMPORT_BOOTSTRAP_OPERATOR_ID` to override the operator UUID written to the
+identity-materialization audit record. The explicit image override prevents a
+pinned release image from `.release-state/docker-images.env` from replacing a
+locally rebuilt importer. Never use this mode against a live or shared database.
 
 To initialize from a custom snapshot, replace the cached file before the first
 import and omit `REFRESH_RELEASE_ASSETS=true`, which would overwrite it:
