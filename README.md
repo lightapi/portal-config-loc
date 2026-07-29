@@ -240,6 +240,22 @@ cd ~/lightapi/portal-config-loc
 REFRESH_RELEASE_ASSETS=true ./scripts/deploy-local.sh lt rust
 ```
 
+Before qualifying or publishing a signin release, validate the exact archive
+and every extracted directory that will be mounted by Compose:
+
+```bash
+node scripts/verify-signin-assets.mjs \
+  /path/to/signin.zip \
+  all-in-lt/light-gateway-java/signin/dist \
+  all-in-lt/light-gateway-rust/signin/dist
+```
+
+The verifier is read-only. It checks that local assets referenced by
+`index.html` exist, rejects the legacy credentialed fetch without an explicit
+HTTP method, and requires an explicit credentialed `POST`. It is intentionally
+not run automatically by `deploy-local.sh`, so locally populated development
+bundles remain under developer control.
+
 When recreating the database at the same time, combine it with
 `CLEAN_VOLUMES=true` as shown in [Recreate the Database](#recreate-the-database).
 
