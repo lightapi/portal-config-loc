@@ -231,14 +231,9 @@ handler.paths:
     method: 'GET'
     exec:
       - default
-  # POST is canonical. Keep GET only as the temporary Phase 1A compatibility
-  # bridge; Phase 4 removes it after the rollout telemetry gate passes.
+  # Strict session mutation route. GET is rejected by the auth method guard.
   - path: '/logout'
     method: 'POST'
-    exec:
-      - default
-  - path: '/logout'
-    method: 'GET'
     exec:
       - default
   # Keep OPTIONS permanently so CORS handles preflight before stateless auth.
