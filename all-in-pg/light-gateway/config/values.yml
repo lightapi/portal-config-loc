@@ -235,6 +235,14 @@ handler.paths:
     method: 'GET'
     exec:
       - default
+  - path: '/logout'
+    method: 'POST'
+    exec:
+      - default
+  - path: '/logout'
+    method: 'OPTIONS'
+    exec:
+      - default
 
   - path: '/oauth2/{hostId}/code'
     method: 'GET'
