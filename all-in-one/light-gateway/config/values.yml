@@ -173,6 +173,7 @@ cors.allowedMethods:
   - POST
   - PUT
   - DELETE
+  - OPTIONS
 
 # statelessAuth.yml
 statelessAuth.googleClientId: 654131058807-15p8l5r4ddlusbeavvhiin9rt2cuglh6.apps.googleusercontent.com
