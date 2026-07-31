@@ -93,13 +93,15 @@ services:
       - 2498:2498
     volumes:
       - ./portal-service-rust/config:/config:Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
       - ${PORTAL_DATA_DIR:-./data}:/data
     environment:
       LIGHT_RS_CONFIG_DIR: /config
+      LIGHT_PORTAL_AUTHORIZATION: "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWZiOGFmLTgxYmYtNzhiNS1iNzk4LWM1MGE4ZGY3ODU0MiIsImV4cCI6MjEwMDg3MDAwOCwianRpIjoiUHVVNDZ2MTVRWDJfMkt6cE1KeFJBUSIsImlhdCI6MTc4NTUxMDAwOCwibmJmIjoxNzg1NTA5ODg4LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlmYjhhZi04MWJmLTc4YjUtYjc5OC1jNTBhOGRmNzg1NDIiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlmYjhhZi04MWJmLTc4YjUtYjc5OC1jNTBhOGRmNzg1NDIiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQucG9ydGFsLXNlcnZpY2UtMS4wLjAifQ.tDyGlHWaWHmHQ_UUnWeG9DSHFzohHwxYG5sN5BNy5u2gkcXNwDmbGVk8MHEO5OgzgrKeG-qmfNCdRDxqbmKH_bj7hjOdtP8nRFc09tejXfWPbMxBKc__2YtE7ps5gXvjCa2Ren-RZaFm8Bi5AKP8SlLrefA5Qq-clDPRKJjiwD313ZfxasAHeUYzIsGHi7VCJRdpqB7zYTTbIipG8rmntil2fp7jowhSgGWLzGR1oQjP7FFuHZlMQ_7o9deR4SIK3wVjKh_eOE0WDp6zwyNRzsnaU30R4zs6txw7JU6zv_JUsR3WWLKeWlKSMj1cRlt6NM48QA7136D_MLL_AzgtXw"
       # The following environment variable will enable the debug in the container.
       RUST_LOG: "${RUST_LOG:-debug}"
       PORTAL_LOG_ANSI: "false"
-    # restart: on-failure
+    restart: on-failure
     hostname: portal-service
     container_name: portal-service
     networks:
@@ -110,6 +112,8 @@ services:
       postgres:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      controller:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "true"]
