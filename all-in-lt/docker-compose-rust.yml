@@ -18,6 +18,7 @@ services:
       MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
       MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
       MICROSERVICE_JWT_AUDIENCE: urn:com.networknt
+      CONTROLLER_MCP_MUTATIONS_ENABLED: "true"
       RUST_LOG: "${RUST_LOG:-debug}"
       CONTROLLER_LOG_ANSI: "false"
     hostname: controller
