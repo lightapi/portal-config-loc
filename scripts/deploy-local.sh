@@ -71,6 +71,7 @@ RELEASE_IMAGE_ENV_FILE="${RELEASE_IMAGE_ENV_FILE:-$RELEASE_IMAGE_ENV_CACHE}"
 RELEASE_IMAGE_ENV_URL="${RELEASE_IMAGE_ENV_URL:-$LIGHT_PORTAL_ASSET_BASE_URL/docker-images.env}"
 RELEASE_IMAGE_ENV_CONFIGURED=false
 RELEASE_IMAGE_ENV_FETCHED=false
+LIGHT_PORTAL_ENV_FILE="${LIGHT_PORTAL_ENV_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/lightapi/light-portal.env}"
 R2_ENDPOINT_URL="${R2_ENDPOINT_URL:-https://033b143ffb81eda015ca350680ac5f28.r2.cloudflarestorage.com}"
 
 # Colors for output
@@ -146,6 +147,13 @@ configure_release_image_env() {
     fi
 
     RELEASE_IMAGE_ENV_CONFIGURED=true
+}
+
+configure_light_portal_env() {
+    if [[ -f "$LIGHT_PORTAL_ENV_FILE" ]]; then
+        DOCKER_COMPOSE_CMD+=(--env-file "$LIGHT_PORTAL_ENV_FILE")
+        log_info "Using local Portal environment file: $LIGHT_PORTAL_ENV_FILE"
+    fi
 }
 
 load_env_file_var() {
@@ -853,6 +861,7 @@ case "${1:-}" in
         ;;
     *)
         configure_release_image_env
+        configure_light_portal_env
         ;;
 esac
 
@@ -917,6 +926,7 @@ case "${1:-}" in
         echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
         echo "  RELEASE_IMAGE_ENV_S3_URI=...      Download docker-images.env with aws s3 cp when local file is missing"
         echo "  RELEASE_IMAGE_ENV_CACHE=...       Default cache path for downloaded docker-images.env"
+        echo "  LIGHT_PORTAL_ENV_FILE=...         Local secret env file (default: ~/.config/lightapi/light-portal.env)"
         ;;
     *)
         main
