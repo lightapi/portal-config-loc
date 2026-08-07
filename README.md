@@ -358,9 +358,10 @@ file (by default `~/.config/lightapi/light-portal.env`):
 LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
 ```
 
-The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys use
-the existing `GROQ_API_KEY` and `GEMINI_API_KEY` entries from the same file.
-Optional overrides are:
+The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys are
+optional. When configured, `GROQ_API_KEY` and `GEMINI_API_KEY` can be supplied
+through the same file; without them, the gateways still start but those
+providers are unavailable. Optional overrides are:
 
 ```bash
 LLM_GATEWAY_HOST_PORT=8444
