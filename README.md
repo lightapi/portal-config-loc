@@ -346,10 +346,11 @@ default model is `gemini-embedding-001` with 384 output dimensions.
 
 ## Dedicated LLM Gateway
 
-The `all-in-lt` Rust stack runs a dedicated `llm-gateway` service from the
-same `networknt/light-gateway` image as the Portal BFF. It loads the
-`com.networknt.llm.gateway-1.0.0` snapshot with the shared development
-`envTag` of `dev` and exposes HTTPS on host port `8444` by default.
+When both provider keys below are configured, the `all-in-lt` Rust stack runs
+a dedicated `llm-gateway` service from the same `networknt/light-gateway`
+image as the Portal BFF. It loads the `com.networknt.llm.gateway-1.0.0`
+snapshot with the shared development `envTag` of `dev` and exposes HTTPS on
+host port `8444` by default.
 
 Keep its long-lived Portal token outside git in the local Portal environment
 file (by default `~/.config/lightapi/light-portal.env`):
@@ -359,9 +360,10 @@ LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
 ```
 
 The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys are
-optional. When configured, `GROQ_API_KEY` and `GEMINI_API_KEY` can be supplied
-through the same file; without them, the gateways still start but those
-providers are unavailable. Optional overrides are:
+optional for the overall Portal stack. `GROQ_API_KEY` and `GEMINI_API_KEY` can
+be supplied through the same file; if either is missing, `deploy-local.sh`
+leaves the dedicated LLM gateway disabled while starting the remaining
+services normally. Optional overrides are:
 
 ```bash
 LLM_GATEWAY_HOST_PORT=8444
