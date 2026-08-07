@@ -344,6 +344,33 @@ export EMBEDDING_TASK_PROVIDER=http
 The default endpoint is Google's OpenAI-compatible embeddings endpoint and the
 default model is `gemini-embedding-001` with 384 output dimensions.
 
+## Dedicated LLM Gateway
+
+The `all-in-lt` Rust stack runs a dedicated `llm-gateway` service from the
+same `networknt/light-gateway` image as the Portal BFF. It loads the
+`com.networknt.llm.gateway-1.0.0` snapshot with the shared development
+`envTag` of `dev` and exposes HTTPS on host port `8444` by default.
+
+Keep its long-lived Portal token outside git in the local Portal environment
+file (by default `~/.config/lightapi/light-portal.env`):
+
+```bash
+LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
+```
+
+The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys use
+the existing `GROQ_API_KEY` and `GEMINI_API_KEY` entries from the same file.
+Optional overrides are:
+
+```bash
+LLM_GATEWAY_HOST_PORT=8444
+LLM_GATEWAY_ENVIRONMENT=dev
+LLM_GATEWAY_RUST_LOG=info
+```
+
+After deployment, the direct local LLM endpoint is
+`https://localhost:8444/v1/models`.
+
 ## Light Agent Codex Settings
 
 The Rust compose stacks include `light-agent` for the account agent. It defaults

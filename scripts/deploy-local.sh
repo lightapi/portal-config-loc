@@ -910,6 +910,8 @@ case "${1:-}" in
         echo "  COMPOSE_CMD=\"podman compose\"     Use Podman Compose instead of the default docker compose"
         echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
+        echo "  LLM_GATEWAY_HOST_PORT=8444        Dedicated LLM gateway host port (default 8444)"
+        echo "  LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'  LLM gateway service token"
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
         echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
