@@ -6652,6 +6652,7 @@ CREATE TABLE IF NOT EXISTS llm_provider_deployment_t (
     provider_account_id UUID NOT NULL,
     deployment_name VARCHAR(126) NOT NULL,
     provider_type VARCHAR(32) NOT NULL,
+    provider_protocol VARCHAR(16) NOT NULL DEFAULT 'openai',
     physical_model_id VARCHAR(255) NOT NULL,
     base_url TEXT NOT NULL CHECK(base_url ~ '^https://'),
     region VARCHAR(64),
@@ -6670,6 +6671,8 @@ CREATE TABLE IF NOT EXISTS llm_provider_deployment_t (
     FOREIGN KEY(host_id, model_registration_id) REFERENCES llm_model_registration_t(host_id, model_registration_id) ON DELETE RESTRICT,
     FOREIGN KEY(host_id, provider_account_id) REFERENCES llm_provider_account_t(host_id, provider_account_id) ON DELETE RESTRICT,
     UNIQUE(host_id, deployment_name),
+    CONSTRAINT llm_provider_deployment_provider_protocol_ck
+        CHECK(provider_protocol IN ('openai','anthropic')),
     CHECK(conformance_state IN ('UNKNOWN','PENDING','PASS','FAIL','EXPIRED','QUARANTINED')),
     CHECK(lifecycle_status IN ('DRAFT','VALIDATING','ACTIVE','SUSPENDED','RETIRED')),
     CHECK(conformance_valid_until IS NULL OR conformance_digest IS NOT NULL)
