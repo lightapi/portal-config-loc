@@ -1,6 +1,7 @@
 Provide `knowledge-database-url`, `knowledge-worker-database-url`,
 `knowledge-projector-database-url`, `agent-delegation-secret`,
-`knowledge-heartbeat-secret`, and `knowledge-portal-authorization` before
+`knowledge-heartbeat-secret`, `knowledge-portal-authorization`, and (for a
+Phase 2 enterprise source) `knowledge-connector-authorization` before
 enabling the `knowledge` Compose profile. Do not commit their values.
 
 Protected embedding qualification also requires separate `kb_index` and
