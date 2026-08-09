@@ -2,6 +2,10 @@
 
 services:
 
+  hybrid-command:
+    environment:
+      KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-light-knowledge-worker}
+
   controller:
     image: ${CONTROLLER_RS_IMAGE:-networknt/controller-rs:latest}
     volumes:
@@ -309,6 +313,10 @@ services:
       LIGHT_AGENT_TEMPERATURE: "${LIGHT_AGENT_TEMPERATURE:-0.7}"
       RUST_LOG: "${LIGHT_AGENT_RUST_LOG:-info}"
       AGENT_LOG_ANSI: "false"
+      LIGHT_AGENT_DELEGATION_SECRET: "${LIGHT_AGENT_DELEGATION_SECRET:-change-me-light-knowledge-local-secret}"
+      LIGHT_AGENT_KNOWLEDGE_URL: "http://light-knowledge:8092/"
+      LIGHT_AGENT_KNOWLEDGE_ALLOW_PRIVATE_PLAINTEXT: "true"
+      LIGHT_ENV_TAG: "${LIGHT_ENV_TAG:-loc}"
     hostname: light-agent
     container_name: light-agent
     depends_on:
@@ -328,3 +336,42 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  light-knowledge:
+    profiles: ["knowledge"]
+    image: ${LIGHT_KNOWLEDGE_IMAGE:-networknt/light-knowledge:latest}
+    ports: ["${LIGHT_KNOWLEDGE_PORT:-8092}:8092"]
+    volumes:
+      - ../light-knowledge/config:/config:ro,Z
+      - ../light-knowledge/secrets:/run/secrets:ro,Z
+      - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
+    environment:
+      LIGHT_KNOWLEDGE_CONFIG_FILE: /config/knowledge.yml
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  light-knowledge-projector:
+    profiles: ["knowledge"]
+    image: ${LIGHT_KNOWLEDGE_WORKER_IMAGE:-networknt/light-knowledge-worker:latest}
+    command: ["project-loop"]
+    volumes:
+      - ../light-knowledge/config:/config:ro,Z
+      - ../light-knowledge/secrets:/run/secrets:ro,Z
+    environment:
+      LIGHT_KNOWLEDGE_WORKER_CONFIG_FILE: /config/worker.yml
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  light-knowledge-builder:
+    profiles: ["knowledge"]
+    image: ${LIGHT_KNOWLEDGE_WORKER_IMAGE:-networknt/light-knowledge-worker:latest}
+    command: ["build-loop"]
+    volumes:
+      - ../light-knowledge/config:/config:ro,Z
+      - ../light-knowledge/secrets:/run/secrets:ro,Z
+      - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
+      - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
+    environment:
+      LIGHT_KNOWLEDGE_WORKER_CONFIG_FILE: /config/worker.yml
+    depends_on:
+      postgres: {condition: service_healthy}
