@@ -187,10 +187,11 @@ configure_llm_gateway_profile() {
         return 0
     fi
 
-    if llm_gateway_var_is_set GROQ_API_KEY &&
-       llm_gateway_var_is_set GEMINI_API_KEY; then
+    if llm_gateway_var_is_set GROQ_API_KEY ||
+       llm_gateway_var_is_set GEMINI_API_KEY ||
+       llm_gateway_var_is_set NVIDIA_API_KEY; then
         DOCKER_COMPOSE_CMD+=(--profile llm-gateway)
-        log_info "LLM provider keys are configured; enabling dedicated LLM gateway"
+        log_info "An LLM provider key is configured; enabling dedicated LLM gateway"
     else
         log_info "LLM provider keys are not configured; dedicated LLM gateway will remain disabled"
     fi

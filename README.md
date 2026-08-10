@@ -346,7 +346,7 @@ default model is `gemini-embedding-001` with 384 output dimensions.
 
 ## Dedicated LLM Gateway
 
-When both provider keys below are configured, the `all-in-lt` Rust stack runs
+When at least one supported provider key is configured, the `all-in-lt` Rust stack runs
 a dedicated `llm-gateway` service from the same `networknt/light-gateway`
 image as the Portal BFF. It loads the `com.networknt.llm.gateway-1.0.0`
 snapshot with the shared development `envTag` of `dev` and exposes HTTPS on
@@ -360,10 +360,10 @@ LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
 ```
 
 The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys are
-optional for the overall Portal stack. `GROQ_API_KEY` and `GEMINI_API_KEY` can
-be supplied through the same file; if either is missing, `deploy-local.sh`
-leaves the dedicated LLM gateway disabled while starting the remaining
-services normally. Optional overrides are:
+optional for the overall Portal stack. `GROQ_API_KEY`, `GEMINI_API_KEY`, or
+`NVIDIA_API_KEY` can be supplied through the same file. When none is present,
+`deploy-local.sh` leaves the dedicated LLM gateway disabled while starting the
+remaining services normally. Optional overrides are:
 
 ```bash
 LLM_GATEWAY_HOST_PORT=8444
@@ -373,6 +373,14 @@ LLM_GATEWAY_RUST_LOG=info
 
 After deployment, the direct local LLM endpoint is
 `https://localhost:8444/v1/models`.
+
+After publishing the NVIDIA embedding configuration, follow
+[`all-in-lt/llm-gateway-rust/VALIDATE-EMBEDDINGS.md`](all-in-lt/llm-gateway-rust/VALIDATE-EMBEDDINGS.md)
+to validate `kb-query` through the live gateway without exposing the NVIDIA API
+key or raw embedding vector.
+
+The checked Phase 2 helper and both demo lanes are documented in
+[`all-in-lt/llm-gateway-rust/NVIDIA-DEMO.md`](all-in-lt/llm-gateway-rust/NVIDIA-DEMO.md).
 
 ## Light Agent Codex Settings
 
