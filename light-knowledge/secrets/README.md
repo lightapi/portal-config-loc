@@ -1,8 +1,12 @@
 Provide `knowledge-database-url`, `knowledge-worker-database-url`,
 `knowledge-projector-database-url`, `agent-delegation-secret`,
+`knowledge-query-cache-key`,
 `knowledge-heartbeat-secret`, `knowledge-portal-authorization`, and (for a
 Phase 2 enterprise source) `knowledge-connector-authorization` before
 enabling the `knowledge` Compose profile. Do not commit their values.
+
+`knowledge-query-cache-key` must contain at least 32 random bytes and be
+independent of `agent-delegation-secret`; rotate the two on separate schedules.
 
 Protected embedding qualification also requires separate `kb_index` and
 `kb_query` workload credentials. Point `embeddingAuthorizationFile` in the
