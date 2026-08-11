@@ -1,0 +1,4 @@
+version: 1
+projectorDatabaseUrlFile: /run/knowledge-runtime/knowledge-projector-database-url
+heartbeatSecretFile: /run/knowledge-runtime/knowledge-heartbeat-secret
+projectorId: light-knowledge-projector-loc
