@@ -417,6 +417,7 @@ services:
     volumes:
       - ../light-knowledge/config/worker-runtime:/config:ro,Z
       - light-knowledge-runtime:/run/knowledge-runtime:ro
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
       - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
       - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
     environment:

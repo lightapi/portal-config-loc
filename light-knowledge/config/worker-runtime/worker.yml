@@ -9,8 +9,12 @@ objectStoreRoot: /var/lib/light-knowledge/objects
 projectorId: light-knowledge-worker-loc
 deterministicPilot: false
 migrationDeterministicPilot: false
-embeddingGatewayUrl: https://llm-gateway:8443/
+embeddingGatewayUrl: https://llm-gateway:8443/v1/embeddings
 embeddingAuthorizationFile: /run/knowledge-runtime/knowledge-index-embedding-authorization
+embeddingGatewayCaCertFile: /keystore/ca.pem
+# The shared local certificate is trusted but does not contain the Compose DNS
+# name. Production must keep hostname verification enabled with a matching SAN.
+embeddingGatewayVerifyHostname: false
 embeddingAlias: kb-index
 embeddingBatchSize: 32
 embeddingMigrationEnabled: false
