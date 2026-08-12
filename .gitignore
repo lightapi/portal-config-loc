@@ -36,3 +36,9 @@ dist/
 .claude/
 AGENTS.md
 CLAUDE.md
+
+# Local light-knowledge runtime data
+light-knowledge/checkouts/*
+!light-knowledge/checkouts/.gitkeep
+light-knowledge/objects/*
+!light-knowledge/objects/.gitkeep

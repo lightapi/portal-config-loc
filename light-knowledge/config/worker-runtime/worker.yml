@@ -16,7 +16,7 @@ embeddingGatewayCaCertFile: /keystore/ca.pem
 # name. Production must keep hostname verification enabled with a matching SAN.
 embeddingGatewayVerifyHostname: false
 embeddingAlias: kb-index
-embeddingBatchSize: 32
+embeddingBatchSize: 1
 embeddingMigrationEnabled: false
 productionOperationsEnabled: false
 graphAssistedEnabled: false
