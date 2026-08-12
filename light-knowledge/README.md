@@ -21,6 +21,11 @@ call paths can still be overridden independently with:
 `LIGHT_AGENT_DELEGATION_SECRET` remains a separate local override because it
 protects agent delegation rather than service-to-service JWT authentication.
 
+The application and workers run with the local host identity so their bind
+mounted object and checkout directories remain writable. `deploy-local.sh`
+derives `LOCAL_UID` and `LOCAL_GID` from the current account. Developers can
+override both values when invoking Compose through another runtime boundary.
+
 The protected `kb-index` and `kb-query` public Aliases must set **Bound
 Workload Principal** to the `sub` claim of the configured service token. For
 the checked-in local token that value is

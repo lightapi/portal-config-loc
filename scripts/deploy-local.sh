@@ -156,45 +156,10 @@ configure_light_portal_env() {
     fi
 }
 
-env_file_var_is_set() {
-    local file="$1"
-    local name="$2"
-
-    [[ -f "$file" ]] || return 1
-    awk -F= -v key="$name" '
-        $1 == key {
-            sub(/^[^=]*=/, "")
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-            if ($0 != "" && $0 != "\"\"" && $0 != "\047\047") {
-                found = 1
-            }
-        }
-        END { exit(found ? 0 : 1) }
-    ' "$file"
-}
-
-llm_gateway_var_is_set() {
-    local name="$1"
-
-    [[ -n "${!name:-}" ]] ||
-        env_file_var_is_set "$LIGHT_PORTAL_ENV_FILE" "$name" ||
-        env_file_var_is_set "$DOCKER_COMPOSE_DIR/.env" "$name"
-}
-
-configure_llm_gateway_profile() {
-    if [[ "$DOCKER_COMPOSE_DIR" != "$BASE_DIR/portal-config-loc/all-in-lt" ]] ||
-       [[ "$CONTROLLER_TYPE" != "rust" ]]; then
-        return 0
-    fi
-
-    if llm_gateway_var_is_set GROQ_API_KEY ||
-       llm_gateway_var_is_set GEMINI_API_KEY ||
-       llm_gateway_var_is_set NVIDIA_API_KEY; then
-        DOCKER_COMPOSE_CMD+=(--profile llm-gateway)
-        log_info "An LLM provider key is configured; enabling dedicated LLM gateway"
-    else
-        log_info "LLM provider keys are not configured; dedicated LLM gateway will remain disabled"
-    fi
+configure_local_runtime_identity() {
+    export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
+    export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
+    log_info "Using local runtime identity: ${LOCAL_UID}:${LOCAL_GID}"
 }
 
 load_env_file_var() {
@@ -903,7 +868,7 @@ case "${1:-}" in
     *)
         configure_release_image_env
         configure_light_portal_env
-        configure_llm_gateway_profile
+        configure_local_runtime_identity
         ;;
 esac
 

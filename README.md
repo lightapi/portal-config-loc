@@ -346,9 +346,9 @@ default model is `gemini-embedding-001` with 384 output dimensions.
 
 ## Dedicated LLM Gateway
 
-When at least one supported provider key is configured, the `all-in-lt` Rust stack runs
-a dedicated `llm-gateway` service from the same `networknt/light-gateway`
-image as the Portal BFF. It loads the `com.networknt.llm.gateway-1.0.0`
+The `all-in-lt` Rust stack always runs a dedicated `llm-gateway` service from
+the same `networknt/light-gateway` image as the Portal BFF. It loads the
+`com.networknt.llm.gateway-1.0.0`
 snapshot with the shared development `envTag` of `dev` and exposes HTTPS on
 host port `8444` by default.
 
@@ -359,11 +359,11 @@ file (by default `~/.config/lightapi/light-portal.env`):
 LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
 ```
 
-The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys are
-optional for the overall Portal stack. `GROQ_API_KEY`, `GEMINI_API_KEY`, or
-`NVIDIA_API_KEY` can be supplied through the same file. When none is present,
-`deploy-local.sh` leaves the dedicated LLM gateway disabled while starting the
-remaining services normally. Optional overrides are:
+The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys remain
+optional at startup. `GROQ_API_KEY`, `GEMINI_API_KEY`, or `NVIDIA_API_KEY` can
+be supplied through the same file; requests for an unconfigured provider fail
+at runtime without preventing the local service graph from starting. Optional
+overrides are:
 
 ```bash
 LLM_GATEWAY_HOST_PORT=8444
@@ -398,6 +398,7 @@ export CODEX_ACCOUNT_ID=...
 Optional overrides:
 
 ```bash
+export LIGHT_AGENT_AGENT_DEF_ID=019e5748-dc1b-748b-908b-89d579f03af9
 export LIGHT_AGENT_MODEL=gpt-5.5
 export CODEX_REASONING_EFFORT=low
 export LIGHT_AGENT_IMAGE=networknt/light-agent:latest
