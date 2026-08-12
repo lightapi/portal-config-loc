@@ -10,6 +10,14 @@ and writes the checked-in local `light-knowledge` service token to the three
 runtime authorization files. The same token is used for Portal promotion
 acknowledgements and the protected `kb-index`/`kb-query` embedding lanes.
 
+The builder trusts the development CA committed at
+`all-in-lt/light-controller-rust/ca.pem`. Compose mounts that repository-local
+file at `/keystore/ca.pem`; it has no dependency on a sibling `keystore`
+checkout. Local hostname verification is disabled because the shared
+development certificate does not contain the Compose DNS name. Production
+must use a CA-issued certificate with a matching SAN and enable hostname
+verification.
+
 When the periodically rotated service token changes, override the shared value
 with `LIGHT_KNOWLEDGE_AUTHORIZATION` or update its Compose default. The three
 call paths can still be overridden independently with:

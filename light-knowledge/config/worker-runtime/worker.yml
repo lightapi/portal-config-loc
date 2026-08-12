@@ -4,6 +4,10 @@ projectorDatabaseUrlFile: /run/knowledge-runtime/knowledge-projector-database-ur
 heartbeatSecretFile: /run/knowledge-runtime/knowledge-heartbeat-secret
 portalCommandUrl: https://hybrid-command:8439/portal/command
 portalAuthorizationFile: /run/knowledge-runtime/knowledge-portal-authorization
+portalCommandCaCertFile: /keystore/ca.pem
+# The checked-in local certificate does not contain the Compose DNS name.
+# Production must use a CA-issued certificate and keep this enabled.
+portalCommandVerifyHostname: false
 checkoutRoot: /var/lib/light-knowledge/checkouts
 objectStoreRoot: /var/lib/light-knowledge/objects
 projectorId: light-knowledge-worker-loc
