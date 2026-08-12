@@ -1,1 +1,6 @@
 server.enableRegistry: false
+# Local development uses the shared self-signed certificate, whose SAN does
+# not include the Compose service/config-server hostname. The embedded
+# light-client configuration remains secure-by-default for production.
+client.verifyHostname: false
+client.caCertPath: /keystore/ca.pem
