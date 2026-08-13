@@ -1,0 +1,159 @@
+enabled: true
+path: /mcp
+workflow:
+  invocationUrl: http://light-workflow:8436
+  bearerTokenEnv: WORKFLOW_INVOCATION_BEARER_TOKEN
+  permitPools:
+    - 16
+protocols:
+  legacy:
+    enabled: true
+    versions:
+      - 2025-11-25
+      - 2025-06-18
+      - 2025-03-26
+      - 2024-11-05
+  stateless:
+    enabled: true
+    versions:
+      - 2026-07-28
+tools:
+  - name: workflow_mcp_smoke
+    description: Run a deterministic read-only workflow and return the supplied message.
+    method: CALL
+    endpoint: lightapi.net/workflow/getWorkflowCatalog/0.1.0
+    executionPlacement: workflow
+    inputSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 256
+    outputSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+        - executedBy
+      properties:
+        message:
+          type: string
+        executedBy:
+          type: string
+    toolMetadata:
+      readOnly: true
+      read_only: true
+      idempotent: true
+      destructive: false
+      humanApprovalRequired: false
+      routing:
+        domain: Workflow
+        semanticNamespace: workflow-smoke
+        semanticDescription: Qualify workflow-backed MCP execution.
+    workflowBinding:
+      stableToolRef: 019ffad6-0741-7625-90d8-4b96b2d5f4cd
+      workflowDefinitionId: 019ff93d-2ee9-7150-9409-d7114f84d17d
+      workflowVersion: 1.0.0
+      definitionDigest: sha256:5197cc8e1ef611ef736c6d033ffdbab19137318bbadf61ea16b906d114ad81c8
+      schemaDigest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      policyDigest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      responsePolicyDigest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      mode: sync
+      waitTimeoutMs: 20000
+      totalDeadlineMs: 30000
+      resultReplayMs: 0
+      resultTextMode: compact-json
+      budget:
+        maximumTaskAttempts: 4
+        maximumNestedCalls: 1
+        maximumDelegationDepth: 0
+        maximumParallelism: 1
+        maximumRequestBytes: 65536
+        maximumIntermediateBytes: 262144
+        maximumResultBytes: 131072
+        maximumCostUnits: 0
+
+  - name: customer_360
+    description: Read a customer profile, preferences, and policies in parallel and append the API responses.
+    method: CALL
+    endpoint: lightapi.net/workflow/getWorkflowCatalog/0.1.0
+    executionPlacement: workflow
+    inputSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - customerId
+        - channel
+      properties:
+        customerId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 32
+    outputSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - customerId
+        - results
+      properties:
+        customerId:
+          type: string
+        results:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - source
+              - status
+              - data
+            properties:
+              source:
+                type: string
+              status:
+                type: string
+                const: success
+              data:
+                type: object
+    toolMetadata:
+      readOnly: true
+      read_only: true
+      idempotent: true
+      destructive: false
+      humanApprovalRequired: false
+      routing:
+        domain: Customer
+        semanticNamespace: customer-360
+        semanticDescription: Aggregate customer context for an agent in one read-only call.
+    workflowBinding:
+      stableToolRef: 019ffba3-fcee-7dc6-bac1-d50dba320517
+      workflowDefinitionId: 019ffb9e-0ff6-7b40-ad6b-c84b7bb6edb1
+      workflowVersion: 1.0.0
+      definitionDigest: sha256:a7c1c07164110840222fd2528122d75ced9f69d4e7b7b2944ea15dddd14e10ae
+      schemaDigest: sha256:56cb21e48069caa1c9998ba58a3983a68b42d038b364c82b3a3620b85c3718ca
+      policyDigest: sha256:b5838a4852ba9937839f228e9d3e30607a58b69652e5c373fb2cb61108e87180
+      responsePolicyDigest: sha256:36c9bb0c09a5e06a4871f9c7ad985792269eb798334c2e9715f25d441796174e
+      mode: sync
+      waitTimeoutMs: 20000
+      totalDeadlineMs: 30000
+      resultReplayMs: 0
+      resultTextMode: compact-json
+      budget:
+        maximumTaskAttempts: 8
+        maximumNestedCalls: 1
+        maximumDelegationDepth: 0
+        maximumParallelism: 3
+        maximumRequestBytes: 65536
+        maximumIntermediateBytes: 524288
+        maximumResultBytes: 262144
+        maximumCostUnits: 0
