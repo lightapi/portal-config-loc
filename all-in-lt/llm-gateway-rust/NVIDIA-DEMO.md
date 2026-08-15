@@ -7,31 +7,17 @@ validation helper.
 
 Run from `portal-config-loc/all-in-lt/llm-gateway-rust`.
 
-## 1. Confirm the intended publication was applied
+## 1. Confirm the intended config snapshot was loaded
 
 Before testing, complete the Portal publication and config-snapshot workflow.
-Identify the selected `gateway_publication_id` and replica, then confirm its
-row in `llm_gateway_publication_ack_t` is `ACKNOWLEDGED`, with the intended
-sequence and root digest:
-
-```sql
-SELECT gateway_publication_id,
-       gateway_instance,
-       acknowledgement_state,
-       sequence_id,
-       root_digest,
-       material_generation,
-       applied_at
-  FROM llm_gateway_publication_ack_t
- WHERE host_id = :host_id
-   AND environment = :environment
-   AND gateway_publication_id = :gateway_publication_id
-   AND gateway_instance = :gateway_instance;
-```
+Restart the selected gateway or explicitly reload the `llm-router` module, and
+require a successful result from the standard startup/reload operation. Confirm
+that the operation reports the intended immutable config-snapshot version.
 
 Do not treat Alias visibility alone as proof that the intended revision was
-applied; an older snapshot can expose the same Alias. Stop if the acknowledgement
-is missing, `PENDING`, `FAILED`, or `DIVERGENT`.
+loaded; an older snapshot can expose the same Alias. Stop if startup or reload
+fails. The gateway keeps its last-known-good LLM snapshot when reload validation
+fails.
 
 ## 2. Provision only the gateway deployment
 
