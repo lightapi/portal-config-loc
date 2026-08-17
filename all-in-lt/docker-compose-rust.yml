@@ -133,6 +133,8 @@ services:
       - 8436:8436
     env_file:
       - ./light-workflow-rust/config/light-workflow.env
+    volumes:
+      - ./light-gateway-rust/config/ca.pem:/config/ca.pem:ro,Z
     environment:
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_WORKFLOW_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MjA5NTEyNDYwNCwianRpIjoidlBoMk9FeWdTT1d2QVRGZnloVzhKUSIsImlhdCI6MTc3OTc2NDYwNCwibmJmIjoxNzc5NzY0NDg0LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTllNjIzYi1mZDcyLTdhNDMtYmJjYy04YmJhNTJiMTU5NTMiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJob3N0IjoiMDE5NjRiMDUtNTUyYS03YzRiLTkxODQtNjg1N2U3ZjNkYzVmIiwic2lkIjoiY29tLm5ldHdvcmtudC53b3JrZmxvdy0xLjAuMCJ9.bPDJLqUkODxQkIYeNN89t7fEjg2s_wEcHD6iY6ogVTNLCt_-mv_jmRyQ_aQZxnH9AzmzlO8xdQLjJeXQ2LvzpbNU7diuQyDDDkhYU-25b10tJWZ30eDOZ8xiTqMp3Yrt9heT_H6yXXLIXugmBVJR3-mdTXvoPUyhzDMz_Zwu-vtYKQaFPcog8H9K92Wk3uut4l0iKinCPob4LQJF7nxtjXZkWOJkWao9qLax000i2JstSexpzROTRMVVQZsqevLTZ0R0MEkFEQUUB2PfrmUNj3RzTS3xqUrbO9t6l5JPHfSuHjxQ330PIRqxIkX5wOZnxKoQkwOcsFLTVybMtvPgrA}"
       RUST_LOG: "${RUST_LOG:-light_workflow=debug,info}"
@@ -140,6 +142,8 @@ services:
     container_name: light-workflow
     depends_on:
       postgres:
+        condition: service_healthy
+      light-oauth:
         condition: service_healthy
       hybrid-command:
         condition: service_started
@@ -256,7 +260,6 @@ services:
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_GATEWAY_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWY2NThhLThjY2ItN2ZjOC1iYjQ1LTRkNjdmMzlmOWUwNyIsImV4cCI6MjA5OTQ3NTA2NiwianRpIjoiOHh5TzFXVzBTenVwNGR1ZG5nSFI5QSIsImlhdCI6MTc4NDExNTA2NiwibmJmIjoxNzg0MTE0OTQ2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlmNjU4YS04Y2NiLTdmYzgtYmI0NS00ZDY3ZjM5ZjllMDciLCJzY3AiOlsicG9ydGFsLnciLCJwb3J0YWwuciJdLCJjbGllbnRfaWQiOiIwMTlmNjU4YS04Y2NiLTdmYzgtYmI0NS00ZDY3ZjM5ZjllMDciLCJzY29wZSI6InBvcnRhbC53IHBvcnRhbC5yIiwiZW52IjoibG9jIiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQucG9ydGFsLmdhdGV3YXktMS4wLjAifQ.E8rT4mJhzotcgIs23OUtihTBy5XtcfsiSaZ6C2XHRMpixb_iCis8DY0K6XNoVqQ9Ak_X8XtT9Fez-4_tTwINS0HCgVDsVG_3ZXzR_JjrZWUlFCZ7eY6QgAUTlciv3ZkFFHCvm4naUvvFOYAacwk4rcCJWDvkQvqLXpTnNafcisUH0xr8gKGOOQqrKTl7BaBmjFV2-dlTqZPnvbept9Aq9BESU2Rk17tyMyp3e3m9jhCob1t6n-0Ifop9nT2Q43XeHI5-cjdqWdKaByY8xZmt2f6VjrGNm4BTzGRmVqSB9B4sXQ8YX2m_PvUOkvX2SBgWTZ-mzQAY8tQslLJiYHkBJA}"
       RUST_LOG: "${RUST_LOG:-info}"
       GATEWAY_LOG_ANSI: "false"
-      WORKFLOW_INVOCATION_BEARER_TOKEN: workflow-mcp-local-development-secret-20260812
     hostname: light-gateway
     container_name: light-gateway
     depends_on:

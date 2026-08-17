@@ -2,7 +2,6 @@ enabled: true
 path: /mcp
 workflow:
   invocationUrl: http://light-workflow:8436
-  bearerTokenEnv: WORKFLOW_INVOCATION_BEARER_TOKEN
   permitPools:
     - 16
 protocols:
