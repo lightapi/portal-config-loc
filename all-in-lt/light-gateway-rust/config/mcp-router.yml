@@ -137,12 +137,12 @@ tools:
         semanticDescription: Aggregate customer context for an agent in one read-only call.
     workflowBinding:
       stableToolRef: 019ffba3-fcee-7dc6-bac1-d50dba320517
-      workflowDefinitionId: 019ffb9e-0ff6-7b40-ad6b-c84b7bb6edb1
+      workflowDefinitionId: 01a001ca-f27d-7f80-a1e7-fbb84d5422f6
       workflowVersion: 1.0.0
-      definitionDigest: sha256:a7c1c07164110840222fd2528122d75ced9f69d4e7b7b2944ea15dddd14e10ae
-      schemaDigest: sha256:56cb21e48069caa1c9998ba58a3983a68b42d038b364c82b3a3620b85c3718ca
-      policyDigest: sha256:b5838a4852ba9937839f228e9d3e30607a58b69652e5c373fb2cb61108e87180
-      responsePolicyDigest: sha256:36c9bb0c09a5e06a4871f9c7ad985792269eb798334c2e9715f25d441796174e
+      definitionDigest: sha256:2f4b5645cd3d7b8bff66a8b62c5e9be3db3403a7197935b02b184e8d41e1f29c
+      schemaDigest: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+      policyDigest: sha256:1bd902a75c98ee4aefa05a38bbbd3210dcc1b4bdf97145bdea93dd9bc6dab2e4
+      responsePolicyDigest: sha256:f6b9975dec9c359af6fb6d2f3904129748b36cd595e3e463dc48e263db7075f5
       mode: sync
       waitTimeoutMs: 20000
       totalDeadlineMs: 30000
