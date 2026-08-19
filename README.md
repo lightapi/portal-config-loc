@@ -405,6 +405,13 @@ export LIGHT_AGENT_IMAGE=networknt/light-agent:latest
 export LIGHT_AGENT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
 ```
 
+Before `light-agent` starts, the Rust compose stacks run the idempotent
+`agent-schema-migration` job to install the active policy-snapshot pointer
+required by the runtime. `all-in-lt` also creates a deterministic policy
+snapshot for its checked-in local Agent definition. This fixture is local-only:
+`all-in-pg` leaves `LIGHT_AGENT_SEED_LOCAL_POLICY` disabled by default and
+expects policy publication through the control plane.
+
 For a locally built image from `light-fabric`, build it there and point compose
 at the tag:
 

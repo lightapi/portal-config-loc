@@ -4475,6 +4475,7 @@ ALTER TABLE agent_definition_t
     ADD COLUMN IF NOT EXISTS product_profile VARCHAR(32) NOT NULL DEFAULT 'enterprise',
     ADD COLUMN IF NOT EXISTS default_execution_profile_id VARCHAR(126),
     ADD COLUMN IF NOT EXISTS policy_snapshot JSONB,
+    ADD COLUMN IF NOT EXISTS policy_snapshot_id UUID,
     ADD COLUMN IF NOT EXISTS policy_digest VARCHAR(71),
     ADD COLUMN IF NOT EXISTS maximum_session_seconds BIGINT,
     ADD COLUMN IF NOT EXISTS maximum_turn_seconds BIGINT;
@@ -4523,6 +4524,15 @@ CREATE TABLE IF NOT EXISTS agent_policy_snapshot_t (
     UNIQUE(host_id, policy_digest),
     FOREIGN KEY(host_id, agent_def_id) REFERENCES agent_definition_t(host_id, agent_def_id) ON DELETE RESTRICT
 );
+
+ALTER TABLE agent_policy_snapshot_t
+    ADD CONSTRAINT agent_policy_snapshot_agent_identity_uk
+    UNIQUE(host_id, agent_def_id, policy_snapshot_id);
+ALTER TABLE agent_definition_t
+    ADD CONSTRAINT agent_definition_policy_snapshot_fk
+    FOREIGN KEY(host_id, agent_def_id, policy_snapshot_id)
+    REFERENCES agent_policy_snapshot_t(host_id, agent_def_id, policy_snapshot_id)
+    ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS agent_session_t (
     host_id UUID NOT NULL REFERENCES host_t(host_id) ON DELETE RESTRICT,

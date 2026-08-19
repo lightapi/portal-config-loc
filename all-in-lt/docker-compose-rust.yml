@@ -2,6 +2,21 @@
 
 services:
 
+  agent-schema-migration:
+    image: timescale/timescaledb:latest-pg17
+    entrypoint: ["/migrations/init-light-agent.sh"]
+    volumes:
+      - ../light-agent/migrations:/migrations:ro,Z
+    environment:
+      PGHOST: postgres
+      POSTGRES_USER: postgres
+      PGPASSWORD: secret
+      LIGHT_AGENT_SEED_LOCAL_POLICY: "true"
+      LIGHT_AGENT_HOST_ID: "${LIGHT_AGENT_HOST_ID:-01964b05-552a-7c4b-9184-6857e7f3dc5f}"
+      LIGHT_AGENT_AGENT_DEF_ID: "${LIGHT_AGENT_AGENT_DEF_ID:-019e5748-dc1b-748b-908b-89d579f03af9}"
+    depends_on:
+      postgres: {condition: service_healthy}
+
   knowledge-schema-migration:
     image: timescale/timescaledb:latest-pg17
     entrypoint: ["/docker-entrypoint-initdb.d/zz-init-knowledge.sh"]
@@ -343,6 +358,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      agent-schema-migration:
+        condition: service_completed_successfully
       controller:
         condition: service_healthy
       config-server:
