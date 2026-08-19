@@ -1,9 +1,22 @@
 ---
 services:
 
+  knowledge-schema-migration:
+    profiles: ["knowledge"]
+    image: timescale/timescaledb:latest-pg17
+    entrypoint: ["/docker-entrypoint-initdb.d/zz-init-knowledge.sh"]
+    volumes:
+      - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
+    environment:
+      PGHOST: postgres
+      POSTGRES_USER: postgres
+      PGPASSWORD: secret
+    depends_on:
+      postgres: {condition: service_healthy}
+
   hybrid-command:
     environment:
-      KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-light-knowledge-worker}
+      KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-light-knowledge-worker,light-knowledge}
 
   controller:
     image: networknt/controller-rs:latest
@@ -165,33 +178,13 @@ services:
       - ../light-knowledge/config:/config:ro,Z
       - ../light-knowledge/secrets:/run/secrets:ro,Z
       - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
-    environment:
-      LIGHT_KNOWLEDGE_CONFIG_FILE: /config/knowledge.yml
-    depends_on:
-      postgres: {condition: service_healthy}
-
-  light-knowledge-projector:
-    profiles: ["knowledge"]
-    image: ${LIGHT_KNOWLEDGE_WORKER_IMAGE:-networknt/light-knowledge-worker:latest}
-    command: ["project-loop"]
-    volumes:
-      - ../light-knowledge/config:/config:ro,Z
-      - ../light-knowledge/secrets:/run/secrets:ro,Z
-    environment:
-      LIGHT_KNOWLEDGE_WORKER_CONFIG_FILE: /config/worker.yml
-    depends_on:
-      postgres: {condition: service_healthy}
-
-  light-knowledge-builder:
-    profiles: ["knowledge"]
-    image: ${LIGHT_KNOWLEDGE_WORKER_IMAGE:-networknt/light-knowledge-worker:latest}
-    command: ["build-loop"]
-    volumes:
-      - ../light-knowledge/config:/config:ro,Z
-      - ../light-knowledge/secrets:/run/secrets:ro,Z
-      - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
       - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
     environment:
-      LIGHT_KNOWLEDGE_WORKER_CONFIG_FILE: /config/worker.yml
+      LIGHT_KNOWLEDGE_CONFIG_FILE: /config/knowledge.yml
+      LIGHT_KNOWLEDGE_DATABASE_URL: ${LIGHT_KNOWLEDGE_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
+      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: ${LIGHT_KNOWLEDGE_WORKER_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
+      LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL: ${LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
+      LIGHT_KNOWLEDGE_CONTROL_EVENT_DATABASE_URL: ${LIGHT_KNOWLEDGE_CONTROL_EVENT_DATABASE_URL:-postgres://postgres:secret@postgres:5432/configserver}
     depends_on:
       postgres: {condition: service_healthy}
+      knowledge-schema-migration: {condition: service_completed_successfully}

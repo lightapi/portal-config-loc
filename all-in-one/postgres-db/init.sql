@@ -393,6 +393,8 @@ CREATE TABLE event_store_t (
 
 -- Index for efficient lookup by aggregate
 CREATE INDEX idx_event_store_aggregate ON event_store_t (aggregate_id);
+CREATE INDEX idx_event_store_event_ts_id ON event_store_t (event_ts, id)
+    WHERE event_type LIKE 'Knowledge%' OR event_type LIKE 'AgentKnowledgeBase%';
 
 CREATE TABLE entity_aggregate_t (
     aggregate_type   VARCHAR(255) NOT NULL,
