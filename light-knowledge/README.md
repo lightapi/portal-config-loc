@@ -1,14 +1,15 @@
 # Local Knowledge runtime
 
-The `all-in-lt` Compose stack creates the Knowledge runtime configuration in
-the `light-knowledge-runtime` named volume. Developers do not create or manage
-service-token or database-URL files.
+The Knowledge image supplies the canonical `knowledge.yml`, `worker.yml`, and
+bootstrap configuration. Deployment overrides come from the Config Server
+snapshot for `lk` version `1.0.0`; this repository does not mount local copies
+of those files into the container.
 
-`light-knowledge-bootstrap` derives the local PostgreSQL URLs from the Compose
-service, writes deterministic local-only delegation/cache/heartbeat values,
-and writes the checked-in local `light-knowledge` service token to the three
-runtime authorization files. The same token is used for Portal promotion
-acknowledgements and the protected `kb-index`/`kb-query` embedding lanes.
+Compose supplies database URLs and local-only delegation/cache/heartbeat
+values through environment variables. `LIGHT_PORTAL_AUTHORIZATION` is the
+long-lived service token used to fetch the Config Server snapshot and register
+with the controller. The protected Portal command and `kb-index`/`kb-query`
+lanes may still use independently scoped authorization values.
 
 The builder trusts the development CA committed at
 `all-in-lt/light-controller-rust/ca.pem`. Compose mounts that repository-local
@@ -19,7 +20,7 @@ must use a CA-issued certificate with a matching SAN and enable hostname
 verification.
 
 When the periodically rotated service token changes, override the shared value
-with `LIGHT_KNOWLEDGE_AUTHORIZATION` or update its Compose default. The three
+with `LIGHT_PORTAL_AUTHORIZATION` or update its Compose default. The three
 call paths can still be overridden independently with:
 
 - `KNOWLEDGE_PORTAL_AUTHORIZATION`

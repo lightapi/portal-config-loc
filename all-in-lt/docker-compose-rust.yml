@@ -366,12 +366,12 @@ services:
     working_dir: /tmp
     ports: ["${LIGHT_KNOWLEDGE_PORT:-8092}:8092"]
     volumes:
-      - ../light-knowledge/config:/tmp/config:ro,Z
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
       - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
       - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
     environment:
-      LIGHT_KNOWLEDGE_CONFIG_FILE: /tmp/config/knowledge.yml
+      CLIENT_VERIFYHOSTNAME: "false"
+      CLIENT_CACERTPATH: /keystore/ca.pem
       LIGHT_KNOWLEDGE_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
       LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
       LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
@@ -379,13 +379,13 @@ services:
       LIGHT_AGENT_DELEGATION_SECRET: ${LIGHT_AGENT_DELEGATION_SECRET:-change-me-light-knowledge-local-secret}
       LIGHT_KNOWLEDGE_QUERY_CACHE_KEY: ${LIGHT_KNOWLEDGE_QUERY_CACHE_KEY:-local-query-cache-key-0123456789abcdef0123456789abcdef}
       LIGHT_KNOWLEDGE_HEARTBEAT_SECRET: ${LIGHT_KNOWLEDGE_HEARTBEAT_SECRET:-local-heartbeat-key-0123456789abcdef0123456789abcdef}
-      LIGHT_KNOWLEDGE_AUTHORIZATION: ${LIGHT_KNOWLEDGE_AUTHORIZATION:-eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWZmMmY3LWU1NmUtNzU4YS1hMTdiLTQ1YjA1NzU1NjMyNiIsImV4cCI6MjEwMTkyNDg3MCwianRpIjoicGVIWjljTFdRZksxcW9qc3VNS3ZJdyIsImlhdCI6MTc4NjU2NDg3MCwibmJmIjoxNzg2NTY0NzUwLCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlmZjJmNy1lNTZlLTc1OGEtYTE3Yi00NWIwNTc1NTYzMjYiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlmZjJmNy1lNTZlLTc1OGEtYTE3Yi00NWIwNTc1NTYzMjYiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQubGlnaHQta25vd2xlZGdlLTEuMC4wIiwidWlkIjoiMDE5NjRiMDUtNTUzMi03Yzc5LThjZGUtMTkxZGNiZDQyMWI4IiwidXR5IjoiRiJ9.d1OdH6yJXSeuVyZJ-TLMzAL3BoTzl7OsugtLU6v_LoMRuMrzT-pG5u7x5Zd_iHyhmFThJM7MuL9sDNYCOj-bqpyxhtq1R9nAKjVOilwRO32hrO5V1HFLvXjSqBPWyeXuHvlFgENxCy1QfdAZXw4g5rXjMGiBwyEYIA-yXrY3up1tkY3HtkfuAYaIWuPSJ8JagiJzaWE-dkpNoz7ofxIyQW3GDjPP1qkREo5lT80cabWOnxwO-8HDWK1rWORP0NoKx9blEomGPMUET0OT5iCxAabJmQC0Vt7Oks83pfml8jTRRJqQMiZMpp8OIv5Jwmt2CUhp3j5T6CzQpVugMgfT9A}
+      LIGHT_PORTAL_AUTHORIZATION: ${LIGHT_PORTAL_AUTHORIZATION:-eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWZmMmY3LWU1NmUtNzU4YS1hMTdiLTQ1YjA1NzU1NjMyNiIsImV4cCI6MjEwMTkyNDg3MCwianRpIjoicGVIWjljTFdRZksxcW9qc3VNS3ZJdyIsImlhdCI6MTc4NjU2NDg3MCwibmJmIjoxNzg2NTY0NzUwLCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlmZjJmNy1lNTZlLTc1OGEtYTE3Yi00NWIwNTc1NTYzMjYiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlmZjJmNy1lNTZlLTc1OGEtYTE3Yi00NWIwNTc1NTYzMjYiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQubGlnaHQta25vd2xlZGdlLTEuMC4wIiwidWlkIjoiMDE5NjRiMDUtNTUzMi03Yzc5LThjZGUtMTkxZGNiZDQyMWI4IiwidXR5IjoiRiJ9.d1OdH6yJXSeuVyZJ-TLMzAL3BoTzl7OsugtLU6v_LoMRuMrzT-pG5u7x5Zd_iHyhmFThJM7MuL9sDNYCOj-bqpyxhtq1R9nAKjVOilwRO32hrO5V1HFLvXjSqBPWyeXuHvlFgENxCy1QfdAZXw4g5rXjMGiBwyEYIA-yXrY3up1tkY3HtkfuAYaIWuPSJ8JagiJzaWE-dkpNoz7ofxIyQW3GDjPP1qkREo5lT80cabWOnxwO-8HDWK1rWORP0NoKx9blEomGPMUET0OT5iCxAabJmQC0Vt7Oks83pfml8jTRRJqQMiZMpp8OIv5Jwmt2CUhp3j5T6CzQpVugMgfT9A}
       KNOWLEDGE_PORTAL_AUTHORIZATION: ${KNOWLEDGE_PORTAL_AUTHORIZATION:-}
-      KNOWLEDGE_INDEX_EMBEDDING_AUTHORIZATION: ${KNOWLEDGE_INDEX_EMBEDDING_AUTHORIZATION:-}
-      KNOWLEDGE_QUERY_EMBEDDING_AUTHORIZATION: ${KNOWLEDGE_QUERY_EMBEDDING_AUTHORIZATION:-}
     depends_on:
       postgres: {condition: service_healthy}
       knowledge-schema-migration: {condition: service_completed_successfully}
+      config-server: {condition: service_healthy}
+      controller: {condition: service_healthy}
       llm-gateway: {condition: service_started}
 
 volumes:

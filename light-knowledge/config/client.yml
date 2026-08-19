@@ -1,3 +1,0 @@
-tls:
-  verifyHostname: ${client.verifyHostname:true}
-  caCertPath: ${client.caCertPath:}
