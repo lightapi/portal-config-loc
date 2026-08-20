@@ -557,28 +557,40 @@ wait_for_baseline_projection_cursor() {
     local interval="${EVENT_PROJECTION_CURSOR_INTERVAL:-1}"
     local attempt=1
     local state=""
+    local cursor=""
+    local target=""
 
     while [ "$attempt" -le "$max_attempts" ]; do
         state="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
             psql -h localhost -U postgres -d configserver -tAc "
-                SELECT CASE WHEN COALESCE((
+                SELECT COALESCE((
                   SELECT next_offset
                   FROM consumer_offsets
                   WHERE group_id = 'user-query-group'
                     AND topic_id = 1
                     AND partition_id = 0
-                ), 0) >= (SELECT next_offset FROM log_counter WHERE id = 1)
-                THEN 'ready' ELSE 'waiting' END;
+                ), 0) || '|' || (SELECT next_offset FROM log_counter WHERE id = 1);
             " 2>/dev/null | tr -d '[:space:]' || true)"
-        if [[ "$state" == "ready" ]]; then
-            return 0
+        if [[ "$state" =~ ^([0-9]+)\|([0-9]+)$ ]]; then
+            cursor="${BASH_REMATCH[1]}"
+            target="${BASH_REMATCH[2]}"
+            if [ "$cursor" -ge "$target" ]; then
+                return 0
+            fi
+        else
+            cursor="unavailable"
+            target="unavailable"
+        fi
+
+        if (( attempt == 1 || attempt % 10 == 0 )); then
+            log_info "Projection cursor is not ready: cursor=$cursor target=$target attempt=$attempt/$max_attempts"
         fi
 
         sleep "$interval"
         attempt=$((attempt + 1))
     done
 
-    log_error "Event projection cursor did not catch up after $max_attempts attempts"
+    log_error "Event projection cursor did not catch up after $max_attempts attempts: cursor=$cursor target=$target"
     return 1
 }
 
@@ -742,13 +754,6 @@ import_events() {
         return 1
     fi
 
-    ensure_event_file || return 1
-
-    if [ ! -f "$event_file" ]; then
-        log_error "Event import file not found: $event_file"
-        return 1
-    fi
-
     if event_count="$(wait_for_event_store_count)"; then
         if [[ "$import_mode_lower" == "auto" && "$event_count" -gt 0 ]]; then
             log_info "Event store already has $event_count rows; skipping automatic import."
@@ -759,6 +764,13 @@ import_events() {
         return 0
     else
         log_error "Cannot read event_store_t count before event import."
+        return 1
+    fi
+
+    ensure_event_file || return 1
+
+    if [ ! -f "$event_file" ]; then
+        log_error "Event import file not found: $event_file"
         return 1
     fi
 
