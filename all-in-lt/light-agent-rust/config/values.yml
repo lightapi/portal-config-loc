@@ -26,11 +26,6 @@ mcp-client.timeoutMs: 10000
 client.verifyHostname: false
 client.caCertPath: /keystore/ca.pem
 
-model-provider.provider: codex
-model-provider.model: ${LIGHT_AGENT_MODEL:gpt-5.5}
-model-provider.temperature: ${LIGHT_AGENT_TEMPERATURE:0.7}
-
-codex.apiKey: ${CODEX_API_KEY:}
-codex.accountId: ${CODEX_ACCOUNT_ID:}
-codex.reasoningEffort: ${CODEX_REASONING_EFFORT:low}
-codex.model: ${LIGHT_AGENT_MODEL:gpt-5.5}
+# The complete runtimePolicy and agentPolicy namespaces are published by Light
+# Portal in the immutable Config Server values.yml snapshot. Local deployment
+# values contain only bootstrap and transport settings.
