@@ -552,6 +552,36 @@ wait_for_event_store_count() {
     return 1
 }
 
+wait_for_baseline_projection_cursor() {
+    local max_attempts="${EVENT_PROJECTION_CURSOR_ATTEMPTS:-300}"
+    local interval="${EVENT_PROJECTION_CURSOR_INTERVAL:-1}"
+    local attempt=1
+    local state=""
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        state="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+            psql -h localhost -U postgres -d configserver -tAc "
+                SELECT CASE WHEN COALESCE((
+                  SELECT next_offset
+                  FROM consumer_offsets
+                  WHERE group_id = 'user-query-group'
+                    AND topic_id = 1
+                    AND partition_id = 0
+                ), 0) >= (SELECT next_offset FROM log_counter WHERE id = 1)
+                THEN 'ready' ELSE 'waiting' END;
+            " 2>/dev/null | tr -d '[:space:]' || true)"
+        if [[ "$state" == "ready" ]]; then
+            return 0
+        fi
+
+        sleep "$interval"
+        attempt=$((attempt + 1))
+    done
+
+    log_error "Event projection cursor did not catch up after $max_attempts attempts"
+    return 1
+}
+
 run_container_event_importer() {
     local event_file="$1"
     local importer_image="$2"
@@ -692,7 +722,6 @@ import_events() {
     local import_runner_lower
     local importer_image
     local extra_args=()
-    local bootstrap_operator_id="${EVENT_IMPORT_BOOTSTRAP_OPERATOR_ID:-01964b05-5532-7c79-8cde-191dcbd421b8}"
     local event_count=""
 
     case "$import_mode_lower" in
@@ -747,10 +776,17 @@ import_events() {
             *)
                 extra_args+=(
                     --bootstrap-import
-                    --legacy-write-fenced
-                    --bootstrap-operator-id "$bootstrap_operator_id"
+                    --physical-chunk-events "${EVENT_IMPORT_PHYSICAL_CHUNK_EVENTS:-500}"
+                    --physical-chunk-bytes "${EVENT_IMPORT_PHYSICAL_CHUNK_BYTES:-16777216}"
+                    --max-event-bytes "${EVENT_IMPORT_MAX_EVENT_BYTES:-67108864}"
                 )
-                log_info "Empty destination detected; enabling guarded baseline bootstrap import"
+                [[ "${EVENT_IMPORT_SYNCHRONOUS_COMMIT_OFF:-false}" =~ ^(1|true|TRUE|yes|YES)$ ]] &&
+                    extra_args+=(--bootstrap-synchronous-commit-off)
+                [[ "${EVENT_IMPORT_DIAGNOSE_FAILED_CHUNK:-false}" =~ ^(1|true|TRUE|yes|YES)$ ]] &&
+                    extra_args+=(--diagnose-failed-chunk)
+                [[ "${EVENT_IMPORT_PHYSICAL_CHUNKING_DISABLED:-false}" =~ ^(1|true|TRUE|yes|YES)$ ]] &&
+                    extra_args+=(--physical-chunking-disabled)
+                log_info "Empty destination detected; enabling direct event-table bootstrap import"
                 ;;
         esac
     fi
@@ -807,7 +843,9 @@ bootstrap_events_if_requested() {
     fi
 
     start_event_bootstrap_services || return 1
-    import_events
+    import_events || return 1
+    log_info "Waiting for asynchronous baseline projection cursor before full-stack startup"
+    wait_for_baseline_projection_cursor
 }
 
 # Show deployment summary
@@ -929,7 +967,9 @@ case "${1:-}" in
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
         echo "  EVENT_IMPORTER_CMD=...            Override local importer command when EVENT_IMPORT_RUNNER=local"
-        echo "  EVENT_IMPORT_BOOTSTRAP_OPERATOR_ID=UUID  Override the identity-materialization audit operator for automatic empty-DB bootstrap"
+        echo "  EVENT_IMPORT_PHYSICAL_CHUNK_EVENTS=500  Events per physical bootstrap commit (default and maximum: 500)"
+        echo "  EVENT_PROJECTION_CURSOR_ATTEMPTS=300     Maximum projection cursor readiness attempts"
+        echo "  EVENT_PROJECTION_CURSOR_INTERVAL=1      Seconds between projection cursor checks"
         echo "  EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced'  Recover a preserved pre-graph-metadata snapshot instead of automatic bootstrap"
         echo "  RELEASE_IMAGE_ENV_FILE=...        Compose image env file path"
         echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
