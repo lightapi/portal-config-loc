@@ -34,14 +34,8 @@ db-provider.username: portal_runtime
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
 
-# Light Knowledge administration reads. Phase 4 is compatibility-only: the
-# delegated UI bearer token is forwarded, both paths are compared in dev, and
-# the legacy Config Server result remains authoritative until Phase 5 cutover.
-knowledge-admin-client.enabled: true
-knowledge-admin-client.shadow: false
-knowledge-admin-client.cutover: true
-knowledge-admin-client.legacyAuthoritative: false
-knowledge-admin-client.shadowEnvironments: []
+# Light Knowledge administration reads are authoritative and forward the
+# delegated UI bearer token unchanged.
 knowledge-admin-client.discoveryEnabled: false
 knowledge-admin-client.serviceUrl: http://light-knowledge-admin:8093
 knowledge-admin-client.serviceId: com.networknt.light-knowledge-admin-1.0.0
