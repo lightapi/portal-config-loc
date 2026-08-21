@@ -4,9 +4,11 @@ services:
 
   knowledge-schema-migration:
     image: timescale/timescaledb:latest-pg17
-    entrypoint: ["/docker-entrypoint-initdb.d/zz-init-knowledge.sh"]
+    entrypoint: ["/bin/sh", "-ec", "/docker-entrypoint-initdb.d/zz-init-knowledge.sh && psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql"]
     volumes:
       - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
+      - ./postgres-db/knowledge:/docker-entrypoint-initdb.d/knowledge:ro,Z
+      - ./postgres-db/zzz-local-knowledge-runtime.sql:/docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql:ro,Z
     environment:
       PGHOST: postgres
       POSTGRES_USER: postgres
@@ -363,10 +365,8 @@ services:
     environment:
       CLIENT_VERIFYHOSTNAME: "false"
       CLIENT_CACERTPATH: /keystore/ca.pem
-      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
-      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
-      LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL: postgres://postgres:secret@postgres:5432/knowledge
-      LIGHT_KNOWLEDGE_CONTROL_EVENT_DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
+      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_runtime:knowledge-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://light_knowledge_runtime:knowledge-local-secret@postgres:5432/knowledge
       LIGHT_AGENT_DELEGATION_SECRET: ${LIGHT_AGENT_DELEGATION_SECRET:-change-me-light-knowledge-local-secret}
       LIGHT_KNOWLEDGE_QUERY_CACHE_KEY: ${LIGHT_KNOWLEDGE_QUERY_CACHE_KEY:-local-query-cache-key-0123456789abcdef0123456789abcdef}
       LIGHT_KNOWLEDGE_HEARTBEAT_SECRET: ${LIGHT_KNOWLEDGE_HEARTBEAT_SECRET:-local-heartbeat-key-0123456789abcdef0123456789abcdef}
@@ -375,9 +375,66 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       knowledge-schema-migration: {condition: service_completed_successfully}
+      knowledge-control-snapshot-sync: {condition: service_completed_successfully}
+      knowledge-control-snapshot-refresh: {condition: service_started}
       config-server: {condition: service_healthy}
       controller: {condition: service_healthy}
       llm-gateway: {condition: service_started}
+
+  light-knowledge-admin:
+    image: ${LIGHT_KNOWLEDGE_ADMIN_IMAGE:-networknt/light-knowledge-admin:latest}
+    expose: ["8093"]
+    environment:
+      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_admin_runtime:knowledge-admin-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_ADMIN_OPAQUE_ACTOR_KEY: ${LIGHT_KNOWLEDGE_ADMIN_OPAQUE_ACTOR_KEY:-local-opaque-actor-key-0123456789abcdef}
+      LIGHT_KNOWLEDGE_CONTROL_SNAPSHOT_SIGNING_KEY: ${LIGHT_KNOWLEDGE_CONTROL_SNAPSHOT_SIGNING_KEY:-local-control-snapshot-signing-key-0123456789abcdef}
+      CLIENT_TLS_VERIFYHOSTNAME: "false"
+      CLIENT_TLS_TRUSTEDCERTIFICATES: "[/keystore/ca.pem]"
+      CLIENT_KEYSERVICE_SERVERURL: https://light-oauth:6881
+      SECURITY_AUDIENCE: "[urn:com.networknt]"
+      SECURITY_ISSUER: urn:com:networknt:oauth2:v1
+      knowledgeAdmin.ignoreJwtExpiry: "true"
+    volumes:
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
+    depends_on:
+      postgres: {condition: service_healthy}
+      knowledge-schema-migration: {condition: service_completed_successfully}
+      light-oauth: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8093/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  knowledge-control-snapshot-sync:
+    image: curlimages/curl:8.12.1
+    entrypoint: ["/opt/light-knowledge/sync-control-snapshot.sh", "once"]
+    volumes:
+      - ./light-knowledge/sync-control-snapshot.sh:/opt/light-knowledge/sync-control-snapshot.sh:ro,Z
+    environment:
+      SNAPSHOT_AUTHORIZATION: ${KNOWLEDGE_SNAPSHOT_AUTHORIZATION:-${KNOWLEDGE_PORTAL_AUTHORIZATION:-}}
+      SNAPSHOT_ENVIRONMENT: ${KNOWLEDGE_SNAPSHOT_ENVIRONMENT:-dev}
+      SNAPSHOT_QUERY_URL: https://hybrid-query:8440/portal/query
+      SNAPSHOT_APPLY_URL: http://light-knowledge-admin:8093/v1/knowledge/admin/control-snapshots:apply
+    depends_on:
+      hybrid-query: {condition: service_started}
+      light-knowledge-admin: {condition: service_healthy}
+
+  knowledge-control-snapshot-refresh:
+    image: curlimages/curl:8.12.1
+    entrypoint: ["/opt/light-knowledge/sync-control-snapshot.sh", "loop"]
+    restart: unless-stopped
+    volumes:
+      - ./light-knowledge/sync-control-snapshot.sh:/opt/light-knowledge/sync-control-snapshot.sh:ro,Z
+    environment:
+      SNAPSHOT_AUTHORIZATION: ${KNOWLEDGE_SNAPSHOT_AUTHORIZATION:-${KNOWLEDGE_PORTAL_AUTHORIZATION:-}}
+      SNAPSHOT_ENVIRONMENT: ${KNOWLEDGE_SNAPSHOT_ENVIRONMENT:-dev}
+      SNAPSHOT_REFRESH_SECONDS: ${KNOWLEDGE_SNAPSHOT_REFRESH_SECONDS:-60}
+      SNAPSHOT_QUERY_URL: https://hybrid-query:8440/portal/query
+      SNAPSHOT_APPLY_URL: http://light-knowledge-admin:8093/v1/knowledge/admin/control-snapshots:apply
+    depends_on:
+      knowledge-control-snapshot-sync: {condition: service_completed_successfully}
 
 volumes:
   llm-gateway-data:

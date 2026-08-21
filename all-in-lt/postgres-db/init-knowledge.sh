@@ -1,82 +1,98 @@
 #!/bin/sh
 set -eu
 
-psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d configserver \
-    -c "CREATE INDEX IF NOT EXISTS idx_event_store_event_ts_id ON event_store_t(event_ts,id) WHERE event_type LIKE 'Knowledge%' OR event_type LIKE 'AgentKnowledgeBase%'"
-
 knowledge_database_exists="$(psql -U "$POSTGRES_USER" -d postgres -tAc \
     "SELECT 1 FROM pg_database WHERE datname='knowledge'")"
 if [ "$knowledge_database_exists" = "1" ]; then
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+        -c "REVOKE CONNECT ON DATABASE knowledge FROM PUBLIC"
     knowledge_database_ready="$(psql -U "$POSTGRES_USER" -d knowledge -tAc \
         "SELECT to_regclass('knowledge_job_t') IS NOT NULL
-             AND to_regclass('knowledge_projection_source_cursor_t') IS NOT NULL
+             AND (to_regclass('knowledge_control_snapshot_t') IS NOT NULL
+                  OR to_regclass('knowledge_projection_source_cursor_t') IS NOT NULL)
              AND to_regclass('knowledge_embedding_profile_runtime_v') IS NOT NULL
              AND to_regclass('event_store_t') IS NULL")"
     [ "$knowledge_database_ready" = "t" ] || {
         echo "existing knowledge database failed the boundary contract" >&2
         exit 1
     }
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+        -f /docker-entrypoint-initdb.d/knowledge/roles.sql
+    phase2_ready="$(psql -U "$POSTGRES_USER" -d knowledge -tAc \
+        "SELECT to_regclass('knowledge_control_snapshot_t') IS NOT NULL")"
+    if [ "$phase2_ready" != "t" ]; then
+        psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+            -f /docker-entrypoint-initdb.d/knowledge/patch_20260821_02_canonical_knowledge_boundary.sql
+        psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+            -f /docker-entrypoint-initdb.d/knowledge/patch_20260821_03_snapshot_command_boundary.sql
+    fi
+    phase3_ready="$(psql -U "$POSTGRES_USER" -d knowledge -tAc \
+        "SELECT to_regclass('knowledge_admin_audit_t') IS NOT NULL")"
+    if [ "$phase3_ready" != "t" ]; then
+        psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+            -f /docker-entrypoint-initdb.d/knowledge/patch_20260821_05_admin_api.sql
+    fi
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d configserver \
+        -f /docker-entrypoint-initdb.d/knowledge/patch_20260821_04_configserver_knowledge_control_only.sql
     exit 0
 fi
 
-psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres   -c "CREATE DATABASE knowledge"
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+    -c "CREATE DATABASE knowledge"
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+    -c "REVOKE CONNECT ON DATABASE knowledge FROM PUBLIC"
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+    -f /docker-entrypoint-initdb.d/knowledge/roles.sql
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge \
+    -f /docker-entrypoint-initdb.d/knowledge/ddl.sql
 
-pg_dump -U "$POSTGRES_USER" -d configserver --schema-only --no-owner   | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge >/dev/null
+# Preserve Knowledge state when upgrading a co-located installation. Selection
+# is closed over the versioned allowlist; relation-name discovery and wildcard
+# export are forbidden because new Config Server control tables must never
+# become operational state by accident.
+set --
+while IFS= read -r relation_name; do
+    case "$relation_name" in
+        ''|'#'*) continue ;;
+        *[!a-z0-9_]*)
+            echo "invalid Knowledge migration relation: $relation_name" >&2
+            exit 1
+            ;;
+    esac
+    relation_exists="$(psql -U "$POSTGRES_USER" -d configserver -tAc \
+        "SELECT to_regclass('public.$relation_name') IS NOT NULL")"
+    if [ "$relation_exists" = "t" ]; then
+        set -- "$@" "--table=public.$relation_name"
+    fi
+done < /docker-entrypoint-initdb.d/knowledge/data-migration-relations-v1.txt
 
-pg_dump -U "$POSTGRES_USER" -d configserver --data-only --no-owner \
-  --disable-triggers --table='public.knowledge_*' \
-  --table='public.agent_knowledge_base_t' \
-  | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge >/dev/null
+if [ "$#" -gt 0 ]; then
+    pg_dump -U "$POSTGRES_USER" -d configserver --data-only --no-owner \
+        --disable-triggers "$@" \
+        | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge >/dev/null
+fi
+
+# Prove exact row-count parity before the Config Server runtime tables are
+# removed. Legacy projection and promotion rows are intentionally retained only
+# by the rollback-evidence capture in the cleanup patch.
+while IFS= read -r relation_name; do
+    case "$relation_name" in ''|'#'*) continue ;; esac
+    source_exists="$(psql -U "$POSTGRES_USER" -d configserver -tAc \
+        "SELECT to_regclass('public.$relation_name') IS NOT NULL")"
+    [ "$source_exists" = "t" ] || continue
+    source_count="$(psql -U "$POSTGRES_USER" -d configserver -tAc \
+        "SELECT count(*) FROM public.$relation_name")"
+    target_count="$(psql -U "$POSTGRES_USER" -d knowledge -tAc \
+        "SELECT count(*) FROM public.$relation_name")"
+    [ "$source_count" = "$target_count" ] || {
+        echo "Knowledge migration count mismatch for $relation_name: $source_count != $target_count" >&2
+        exit 1
+    }
+done < /docker-entrypoint-initdb.d/knowledge/data-migration-relations-v1.txt
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d configserver   -c "COPY cascade_relationship_policy_t TO STDOUT"   | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge       -c "COPY cascade_relationship_policy_t FROM STDIN"
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d knowledge <<'SQL'
-DROP VIEW IF EXISTS knowledge_embedding_profile_runtime_v;
-DROP TRIGGER IF EXISTS knowledge_embedding_profile_qualification_trg
-    ON knowledge_embedding_profile_t;
-ALTER TABLE knowledge_embedding_profile_t
-    ADD COLUMN IF NOT EXISTS alias_name VARCHAR(255);
-UPDATE knowledge_embedding_profile_t SET alias_name='kb-index' WHERE alias_name IS NULL;
-ALTER TABLE knowledge_embedding_profile_t
-    ALTER COLUMN alias_name SET DEFAULT 'kb-index',
-    ALTER COLUMN alias_name SET NOT NULL;
-
-DO $$
-DECLARE relation RECORD;
-BEGIN
-    FOR relation IN
-        SELECT tablename AS name, 'TABLE' AS kind
-          FROM pg_tables
-         WHERE schemaname = 'public'
-           AND tablename NOT LIKE 'knowledge\_%' ESCAPE '\'
-           AND tablename NOT IN ('agent_knowledge_base_t',
-                                 'cascade_relationship_policy_t')
-        UNION ALL
-        SELECT viewname AS name, 'VIEW' AS kind
-          FROM pg_views
-         WHERE schemaname = 'public'
-           AND viewname NOT LIKE 'knowledge\_%' ESCAPE '\'
-           AND viewname <> 'cascade_relationships_v'
-    LOOP
-        EXECUTE format('DROP %s IF EXISTS %I CASCADE', relation.kind, relation.name);
-    END LOOP;
-END
-$$;
-
-CREATE VIEW knowledge_embedding_profile_runtime_v
-WITH (security_barrier = true) AS
-SELECT profile.profile_id, profile.profile_revision,
-       profile.expected_space_id, profile.expected_space_revision,
-       profile.dimension, profile.document_input_transform_version,
-       profile.query_input_transform_version, profile.alias_name
-  FROM knowledge_embedding_profile_t profile
- WHERE profile.active = TRUE;
-
-GRANT SELECT ON TABLE knowledge_embedding_profile_runtime_v
-    TO light_knowledge_api_role,
-       light_knowledge_portal_projector_role,
-       light_knowledge_worker_role;
-
 DELETE FROM cascade_relationship_policy_t policy
  WHERE NOT EXISTS (
     SELECT 1
@@ -93,10 +109,13 @@ BEGIN
         RAISE EXCEPTION 'Knowledge database retained Config Server event_store_t';
     END IF;
     IF to_regclass('knowledge_job_t') IS NULL
-       OR to_regclass('knowledge_projection_source_cursor_t') IS NULL
+       OR to_regclass('knowledge_control_snapshot_t') IS NULL
        OR to_regclass('knowledge_embedding_profile_runtime_v') IS NULL THEN
         RAISE EXCEPTION 'Knowledge database is missing required data-plane relations';
     END IF;
 END
 $$;
 SQL
+
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d configserver \
+    -f /docker-entrypoint-initdb.d/knowledge/patch_20260821_04_configserver_knowledge_control_only.sql
