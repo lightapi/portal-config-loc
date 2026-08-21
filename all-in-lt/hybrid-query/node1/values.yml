@@ -34,6 +34,26 @@ db-provider.username: postgres
 db-provider.password: secret
 db-provider.maximumPoolSize: 3
 
+# Light Knowledge administration reads. Phase 4 is compatibility-only: the
+# delegated UI bearer token is forwarded, both paths are compared in dev, and
+# the legacy Config Server result remains authoritative until Phase 5 cutover.
+knowledge-admin-client.enabled: true
+knowledge-admin-client.shadow: true
+knowledge-admin-client.cutover: false
+knowledge-admin-client.legacyAuthoritative: true
+knowledge-admin-client.shadowEnvironments: [dev]
+knowledge-admin-client.discoveryEnabled: false
+knowledge-admin-client.serviceUrl: http://light-knowledge-admin:8093
+knowledge-admin-client.serviceId: com.networknt.light-knowledge-admin-1.0.0
+knowledge-admin-client.protocol: http
+knowledge-admin-client.environmentTag:
+knowledge-admin-client.timeoutMillis: 2000
+knowledge-admin-client.safeReadRetries: 1
+knowledge-admin-client.retryBackoffMillis: 10
+knowledge-admin-client.circuitFailureThreshold: 5
+knowledge-admin-client.circuitOpenMillis: 5000
+knowledge-admin-client.maximumResponseBytes: 1048576
+
 # operational-cleanup.yml
 operational-cleanup.enabled: true
 operational-cleanup.initialDelaySeconds: 60
