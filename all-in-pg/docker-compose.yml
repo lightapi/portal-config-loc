@@ -17,7 +17,6 @@ services:
       # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
       - postgres-data:/var/lib/postgresql/data
       - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
-      - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
     environment:
       POSTGRES_PASSWORD: secret
     command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10

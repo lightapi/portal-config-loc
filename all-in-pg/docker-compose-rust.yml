@@ -2,7 +2,7 @@
 services:
 
   knowledge-schema-migration:
-    profiles: ["knowledge"]
+    profiles: ["knowledge-legacy-unsupported"]
     image: timescale/timescaledb:latest-pg17
     entrypoint: ["/docker-entrypoint-initdb.d/zz-init-knowledge.sh"]
     volumes:
@@ -171,7 +171,7 @@ services:
       start_period: 10s
 
   light-knowledge:
-    profiles: ["knowledge"]
+    profiles: ["knowledge-legacy-unsupported"]
     image: ${LIGHT_KNOWLEDGE_IMAGE:-networknt/light-knowledge:latest}
     ports: ["${LIGHT_KNOWLEDGE_PORT:-8092}:8092"]
     volumes:
@@ -185,7 +185,6 @@ services:
       LIGHT_KNOWLEDGE_DATABASE_URL: ${LIGHT_KNOWLEDGE_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
       LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: ${LIGHT_KNOWLEDGE_WORKER_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
       LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL: ${LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
-      LIGHT_KNOWLEDGE_CONTROL_EVENT_DATABASE_URL: ${LIGHT_KNOWLEDGE_CONTROL_EVENT_DATABASE_URL:-postgres://postgres:secret@postgres:5432/configserver}
       LIGHT_PORTAL_AUTHORIZATION: ${LIGHT_PORTAL_AUTHORIZATION:-}
     depends_on:
       postgres: {condition: service_healthy}

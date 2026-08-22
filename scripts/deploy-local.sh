@@ -156,6 +156,50 @@ configure_light_portal_env() {
     fi
 }
 
+configure_local_reasoning_seal_key() {
+    local configured_value=""
+    local secret_file="$RELEASE_STATE_DIR/llm-reasoning-seal-key"
+    local temporary_file="${secret_file}.tmp"
+
+    if [[ -n "${LLM_REASONING_SEAL_KEY:-}" ]]; then
+        return 0
+    fi
+    if [[ -f "$LIGHT_PORTAL_ENV_FILE" ]]; then
+        configured_value="$(awk -F= '$1 == "LLM_REASONING_SEAL_KEY" { sub(/^[^=]*=/, ""); print; exit }' "$LIGHT_PORTAL_ENV_FILE")"
+        if [[ -n "$configured_value" ]]; then
+            export LLM_REASONING_SEAL_KEY="$configured_value"
+            return 0
+        fi
+    fi
+
+    mkdir -p "$RELEASE_STATE_DIR"
+    if [[ -s "$secret_file" ]]; then
+        export LLM_REASONING_SEAL_KEY="$(<"$secret_file")"
+        return 0
+    fi
+    if "$CONTAINER_RUNTIME_CMD" inspect llm-gateway >/dev/null 2>&1; then
+        configured_value="$("$CONTAINER_RUNTIME_CMD" inspect llm-gateway \
+            --format '{{range .Config.Env}}{{println .}}{{end}}' \
+            | awk -F= '$1 == "LLM_REASONING_SEAL_KEY" { sub(/^[^=]*=/, ""); print; exit }')"
+        if [[ -n "$configured_value" ]]; then
+            umask 077
+            printf '%s' "$configured_value" > "$temporary_file"
+            mv "$temporary_file" "$secret_file"
+            chmod 600 "$secret_file"
+            export LLM_REASONING_SEAL_KEY="$configured_value"
+            log_info "Preserved the running local LLM reasoning seal key in $secret_file"
+            return 0
+        fi
+    fi
+
+    umask 077
+    openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n' > "$temporary_file"
+    mv "$temporary_file" "$secret_file"
+    chmod 600 "$secret_file"
+    log_info "Generated a persistent local LLM reasoning seal key in $secret_file"
+    export LLM_REASONING_SEAL_KEY="$(<"$secret_file")"
+}
+
 configure_local_runtime_identity() {
     export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
     export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
@@ -918,6 +962,7 @@ case "${1:-}" in
     *)
         configure_release_image_env
         configure_light_portal_env
+        configure_local_reasoning_seal_key
         configure_local_runtime_identity
         ;;
 esac
@@ -969,6 +1014,7 @@ case "${1:-}" in
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
         echo "  LLM_GATEWAY_HOST_PORT=8444        Dedicated LLM gateway host port (default 8444)"
         echo "  LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'  LLM gateway service token"
+        echo "  KNOWLEDGE_SNAPSHOT_AUTHORIZATION='...'  Token used by light-knowledge-admin snapshot refresh"
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
         echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
