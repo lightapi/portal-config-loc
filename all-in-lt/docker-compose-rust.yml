@@ -4,7 +4,7 @@ services:
 
   knowledge-schema-migration:
     image: timescale/timescaledb:latest-pg17
-    entrypoint: ["/bin/sh", "-ec", "/docker-entrypoint-initdb.d/zz-init-knowledge.sh && psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql"]
+    entrypoint: ["/bin/sh", "-ec", "/bin/sh /docker-entrypoint-initdb.d/zz-init-knowledge.sh && psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql"]
     volumes:
       - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
       - ./postgres-db/knowledge:/docker-entrypoint-initdb.d/knowledge:ro,Z
