@@ -1,7 +1,6 @@
-When the `knowledge` Compose profile is enabled, `install.sh` creates separate
-local PostgreSQL login identities for the API, administration service, and
-embedded job engine and materializes their URL files. It also generates the
-query-cache, opaque-actor, and control-snapshot signing keys.
+The default Compose application starts the Knowledge API, administration
+service, and worker without an opt-in profile. Keep their PostgreSQL identities,
+query-cache key, opaque-actor key, and control-snapshot signing key separate.
 Provide the externally issued delegation and workload tokens through `.env`;
 the installer copies them into mode-0600 runtime-only files. The complete file
 set is:

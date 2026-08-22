@@ -1,19 +1,6 @@
 ---
 services:
 
-  knowledge-schema-migration:
-    profiles: ["knowledge-legacy-unsupported"]
-    image: timescale/timescaledb:latest-pg17
-    entrypoint: ["/docker-entrypoint-initdb.d/zz-init-knowledge.sh"]
-    volumes:
-      - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
-    environment:
-      PGHOST: postgres
-      POSTGRES_USER: postgres
-      PGPASSWORD: secret
-    depends_on:
-      postgres: {condition: service_healthy}
-
   hybrid-command:
     environment:
       KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-light-knowledge-worker,light-knowledge}
@@ -169,25 +156,3 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-
-  light-knowledge:
-    profiles: ["knowledge-legacy-unsupported"]
-    image: ${LIGHT_KNOWLEDGE_IMAGE:-networknt/light-knowledge:latest}
-    ports: ["${LIGHT_KNOWLEDGE_PORT:-8092}:8092"]
-    volumes:
-      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,Z
-      - ../light-knowledge/secrets:/run/secrets:ro,Z
-      - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
-      - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
-    environment:
-      CLIENT_VERIFYHOSTNAME: "false"
-      CLIENT_CACERTPATH: /keystore/ca.pem
-      LIGHT_KNOWLEDGE_DATABASE_URL: ${LIGHT_KNOWLEDGE_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
-      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: ${LIGHT_KNOWLEDGE_WORKER_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
-      LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL: ${LIGHT_KNOWLEDGE_PROJECTOR_DATABASE_URL:-postgres://postgres:secret@postgres:5432/knowledge}
-      LIGHT_PORTAL_AUTHORIZATION: ${LIGHT_PORTAL_AUTHORIZATION:-}
-    depends_on:
-      postgres: {condition: service_healthy}
-      knowledge-schema-migration: {condition: service_completed_successfully}
-      config-server: {condition: service_healthy}
-      controller: {condition: service_healthy}
