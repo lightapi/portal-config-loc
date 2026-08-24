@@ -1,9 +1,0 @@
-enabled: true
-accessRuleLogic: any
-defaultDeny: true
-defaultInclude: false
-skipPathPrefixes:
-  - workflow_mcp_smoke
-  - customer_360
-logFullCelContext: false
-claimMappings: {}
