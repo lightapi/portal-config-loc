@@ -44,6 +44,16 @@ removing the Postgres named volume. An empty destination automatically enables
 the importer's direct event-table bootstrap mode; no `EVENT_IMPORT_ARGS` are
 required.
 
+The supported `all-in-lt` stack uses separate `configserver` and `knowledge`
+databases. Application objects are rendered into the `configserver` and
+`knowledge` schemas; `public` contains only database-local extension objects.
+Runtime roles select their schema, so service URLs remain ordinary database
+URLs without schema query parameters. Shared-database, environment-scoped
+schemas remain an explicit `portal-db` option for constrained installations.
+An existing volume whose application tables are still in `public` must be
+rebuilt with the `CLEAN_VOLUMES=true` command below; this topology change does
+not move tables in place.
+
 To force a fresh database and import the latest baseline from the CDN, use both
 `REFRESH_RELEASE_ASSETS=true` and `CLEAN_VOLUMES=true`:
 

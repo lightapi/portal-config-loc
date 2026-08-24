@@ -4,15 +4,18 @@ services:
 
   knowledge-schema-migration:
     image: timescale/timescaledb:latest-pg17
-    entrypoint: ["/bin/sh", "-ec", "/bin/sh /docker-entrypoint-initdb.d/zz-init-knowledge.sh && psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql"]
+    entrypoint: ["/bin/sh", "-ec", "/bin/bash /docker-entrypoint-initdb.d/validate-environment.sh && psql -v ON_ERROR_STOP=1 -U postgres -d postgres -v database_user=postgres -v configserver_database=configserver -v knowledge_database=knowledge -v configserver_schema=configserver -v knowledge_schema=knowledge -f /docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql"]
     volumes:
-      - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
+      - ./postgres-db/validate-environment.sh:/docker-entrypoint-initdb.d/validate-environment.sh:ro,Z
       - ./postgres-db/knowledge:/docker-entrypoint-initdb.d/knowledge:ro,Z
       - ./postgres-db/zzz-local-knowledge-runtime.sql:/docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql:ro,Z
     environment:
       PGHOST: postgres
       POSTGRES_USER: postgres
       PGPASSWORD: secret
+      PORTAL_DB_TOPOLOGY: separate
+      PORTAL_DB_NAME: configserver
+      PORTAL_DB_KNOWLEDGE_NAME: knowledge
     depends_on:
       postgres: {condition: service_healthy}
 
@@ -31,7 +34,7 @@ services:
       CONTROLLER_TLS_CERT_PATH: /keystore/server.pem
       CONTROLLER_TLS_KEY_PATH: /keystore/server.key
       CONTROLLER_TLS_TRUST_CERT_PATH: /keystore/server.pem
-      DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
+      DATABASE_URL: postgres://portal_loc_runtime:secret@postgres:5432/configserver
       DATABASE_MAXIMUM_POOL_SIZE: 3
       MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
       MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
@@ -330,7 +333,7 @@ services:
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
-      DATABASE_URL: postgres://postgres:secret@postgres:5432/configserver
+      DATABASE_URL: postgres://portal_loc_runtime:secret@postgres:5432/configserver
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_AGENT_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJraWQiOiJBWnAwMk1DdWNydVpmRkpieXlGd3VnIiwiYWxnIjoiUlMyNTYifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsImV4cCI6MjA5MTQwODU2NiwianRpIjoiaEI0bXlkUzBleEQwSjJLSVNSTU5HQSIsImlhdCI6MTc3NjA0ODU2NiwibmJmIjoxNzc2MDQ4NDQ2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlkODM0OS00MWM2LTcyZWYtOTVjMi00NDI4YTQwZDBlNDkiLCJzY3AiOlsicG9ydGFsLnciLCJwb3J0YWwuciJdLCJob3N0IjoiMDE5NjRiMDUtNTUyYS03YzRiLTkxODQtNjg1N2U3ZjNkYzVmIiwic2lkIjoiY29tLm5ldHdvcmtudC5hZ2VudC5hY2NvdW50LTEuMC4wIn0.XcZEkr_fD1U3IWRYs9BS7aYVlcrj7zlayPjZ8s9_5MCTN2CYwIMuW1t_a7U_eRUTn3UtjRbV0v7tKBZ53sDIKbn3de6RJ4o_Iynf2_WX-yHEoggljkF-blIo8HarF1sn_v4Fp1eEh7V8m6D_lHC9FVkkIFDSvKl5GPAgjd9-dq8AkIkOGJ26IAOeuiKIskpUNkCmu6wahGInDYdsYk0GTydLu2jYIkhcPOoAOgFpQXBIPVXFZ8C1CRpPw39gfPyyATP_1qh2iGXlfSGTJiIp0pb9EXLIVcexPhdGh_LhSkrOMDUqxme5HC94T9do8yPQGzgfNFPcLywVeTgEco4bBQ}"
       RUST_LOG: "${LIGHT_AGENT_RUST_LOG:-info}"
       AGENT_LOG_ANSI: "false"
@@ -370,8 +373,8 @@ services:
     environment:
       CLIENT_VERIFYHOSTNAME: "false"
       CLIENT_CACERTPATH: /keystore/ca.pem
-      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_runtime:knowledge-local-secret@postgres:5432/knowledge
-      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://light_knowledge_runtime:knowledge-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_loc_runtime:knowledge-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://light_knowledge_loc_runtime:knowledge-local-secret@postgres:5432/knowledge
       knowledgeWorker.jobExecutionMode: "external"
       LIGHT_AGENT_DELEGATION_SECRET: ${LIGHT_AGENT_DELEGATION_SECRET:-change-me-light-knowledge-local-secret}
       LIGHT_KNOWLEDGE_QUERY_CACHE_KEY: ${LIGHT_KNOWLEDGE_QUERY_CACHE_KEY:-local-query-cache-key-0123456789abcdef0123456789abcdef}
@@ -394,7 +397,7 @@ services:
       - ../light-knowledge/objects:/var/lib/light-knowledge/objects:Z
       - ../light-knowledge/checkouts:/var/lib/light-knowledge/checkouts:Z
     environment:
-      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://light_knowledge_runtime:knowledge-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_WORKER_DATABASE_URL: postgres://light_knowledge_loc_runtime:knowledge-local-secret@postgres:5432/knowledge
       LIGHT_KNOWLEDGE_EXPECTED_DATABASE: knowledge
       LIGHT_PORTAL_AUTHORIZATION: *knowledge_embedding_authorization
       # The checked-in local certificate is issued to localhost, not the
@@ -411,7 +414,7 @@ services:
     image: ${LIGHT_KNOWLEDGE_ADMIN_IMAGE:-networknt/light-knowledge-admin:latest}
     expose: ["8093"]
     environment:
-      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_admin_runtime:knowledge-admin-local-secret@postgres:5432/knowledge
+      LIGHT_KNOWLEDGE_DATABASE_URL: postgres://light_knowledge_loc_admin_runtime:knowledge-admin-local-secret@postgres:5432/knowledge
       LIGHT_KNOWLEDGE_ADMIN_OPAQUE_ACTOR_KEY: ${LIGHT_KNOWLEDGE_ADMIN_OPAQUE_ACTOR_KEY:-local-opaque-actor-key-0123456789abcdef}
       LIGHT_KNOWLEDGE_CONTROL_SNAPSHOT_SIGNING_KEY: ${LIGHT_KNOWLEDGE_CONTROL_SNAPSHOT_SIGNING_KEY:-local-control-snapshot-signing-key-0123456789abcdef}
       CLIENT_VERIFYHOSTNAME: "false"

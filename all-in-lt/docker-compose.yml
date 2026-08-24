@@ -17,12 +17,16 @@ services:
     volumes:
       # - ./postgres-db/pgdata:/var/lib/postgresql/pgdata
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
-      - ./postgres-db/init-knowledge.sh:/docker-entrypoint-initdb.d/zz-init-knowledge.sh:ro,Z
-      - ./postgres-db/knowledge:/docker-entrypoint-initdb.d/knowledge:ro,Z
-      - ./postgres-db/zzz-local-knowledge-runtime.sql:/docker-entrypoint-initdb.d/zzz-local-knowledge-runtime.sql:ro,Z
+      - ./postgres-db/init-environment.sh:/docker-entrypoint-initdb.d/00-init-environment.sh:ro,Z
+      - ./postgres-db/lib:/docker-entrypoint-initdb.d/lib:ro,Z
+      - ./postgres-db/init.sql:/docker-entrypoint-initdb.d/schema-source/configserver.sql:ro,Z
+      - ./postgres-db/knowledge:/docker-entrypoint-initdb.d/schema-source/knowledge:ro,Z
+      - ./postgres-db/zzz-local-knowledge-runtime.sql:/docker-entrypoint-initdb.d/schema-source/runtime-grants.sql:ro,Z
     environment:
       POSTGRES_PASSWORD: secret
+      PORTAL_DB_TOPOLOGY: separate
+      PORTAL_DB_NAME: configserver
+      PORTAL_DB_KNOWLEDGE_NAME: knowledge
     command: postgres -c wal_level=logical -c max_replication_slots=10 -c max_wal_senders=10
     ports:
       - 5432:5432
