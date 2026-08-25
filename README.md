@@ -78,6 +78,42 @@ before the new database is populated. Without the refresh flag, a recreated
 database can import an older cached event baseline that no longer matches the
 current schema.
 
+### Patch a Preserved Local Database
+
+During active development, keep the local `portal-config-loc` data volume and
+apply only the new canonical patches from the sibling `portal-db` checkout.
+Pass the exact patch files to the normal deployment command; it stops the
+application stack, starts only Postgres, applies the patches in filename order,
+and then continues startup:
+
+```bash
+PORTAL_DB_PATCHES='../portal-db/postgres/patch_20260825_01_config_snapshot_logical_identity.sql ../portal-db/postgres/patch_20260825_02_instance_environment_identity.sql ../portal-db/postgres/patch_20260825_03_config_snapshot_env_tag_writer.sql' \
+IMPORT_EVENTS=false \
+./scripts/deploy-local.sh lt rust
+```
+
+The runner records each filename and SHA-256 checksum in
+`configserver.portal_schema_patch_t`. Re-running the same command skips applied
+patches; changing an already applied patch fails with a checksum-drift error.
+Patch files must therefore remain immutable. `PORTAL_DB_PATCHES` is ignored
+when `CLEAN_VOLUMES=true`, because `init.sql` creates the current schema on the
+new volume.
+
+To apply patches without running the rest of deployment, first leave only the
+local Postgres container running, then invoke the runner directly:
+
+```bash
+CONTAINER_CMD=docker \
+./scripts/apply-db-patches.sh configserver \
+  ../portal-db/postgres/patch_20260825_01_config_snapshot_logical_identity.sql \
+  ../portal-db/postgres/patch_20260825_02_instance_environment_identity.sql \
+  ../portal-db/postgres/patch_20260825_03_config_snapshot_env_tag_writer.sql
+```
+
+The daily release remains the promotion boundary: export and convert the
+validated local state to `events.json`, then let `portal-config-dev` and
+`light-portal-install` recreate their databases from that baseline.
+
 ### Recover a Preserved Historical Baseline
 
 Use this only for a disposable local database when the preserved `events.json`

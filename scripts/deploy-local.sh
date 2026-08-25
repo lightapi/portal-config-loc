@@ -904,6 +904,44 @@ bootstrap_events_if_requested() {
     wait_for_baseline_projection_cursor
 }
 
+apply_requested_db_patches() {
+    local patch_args=()
+    local target_schema="public"
+
+    if [[ -z "${PORTAL_DB_PATCHES:-}" ]]; then
+        return 0
+    fi
+    if is_true "${CLEAN_VOLUMES:-false}"; then
+        log_info "Skipping PORTAL_DB_PATCHES because CLEAN_VOLUMES recreates the database from current init.sql."
+        return 0
+    fi
+
+    read -r -a patch_args <<< "$PORTAL_DB_PATCHES"
+    if ((${#patch_args[@]} == 0)); then
+        log_error "PORTAL_DB_PATCHES did not contain any patch paths"
+        return 1
+    fi
+
+    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+        target_schema="configserver"
+    fi
+
+    log_info "Starting Postgres to apply ${#patch_args[@]} requested database patch(es)..."
+    (
+        cd "$DOCKER_COMPOSE_DIR" || exit 1
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d postgres
+    ) || return 1
+    wait_for_postgres_ready || {
+        log_error "Postgres did not become ready for database patching"
+        return 1
+    }
+
+    log_info "Applying requested database patches to schema $target_schema"
+    CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
+        "$SCRIPT_DIR/apply-db-patches.sh" "$target_schema" "${patch_args[@]}"
+    log_success "Requested database patches applied"
+}
+
 # Show deployment summary
 show_summary() {
     log_info "=== Deployment Summary ==="
@@ -935,20 +973,23 @@ main() {
     # Step 2: Stop Compose
     stop_docker_compose
 
-    # Step 3: Import events before starting services that require OAuth keys.
+    # Step 3: Upgrade a preserved database before any application service starts.
+    apply_requested_db_patches || exit 1
+
+    # Step 4: Import events before starting services that require OAuth keys.
     if [[ -z "${IMPORT_EVENTS+x}" ]]; then
         log_info "IMPORT_EVENTS not set; defaulting to auto for full deployment."
         IMPORT_EVENTS=auto
     fi
     bootstrap_events_if_requested || exit 1
 
-    # Step 4: Start Compose
+    # Step 5: Start Compose
     if ! start_docker_compose; then
         log_error "Failed to start Compose"
         exit 1
     fi
 
-    # Step 5: Show summary
+    # Step 6: Show summary
     show_summary
 
     log_success "Deployment completed successfully!"
@@ -1021,6 +1062,7 @@ case "${1:-}" in
         echo "  IMPORT_EVENTS=auto                Import downloaded events.json only when event_store_t is empty (default for full deployment)"
         echo "  IMPORT_EVENTS=false               Skip event import"
         echo "  IMPORT_EVENTS=true                Import downloaded events.json even when rows already exist"
+        echo "  PORTAL_DB_PATCHES='path ...'      Apply these ordered SQL patches to a preserved local database"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
