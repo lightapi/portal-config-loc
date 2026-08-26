@@ -434,11 +434,33 @@ The checked Phase 2 helper and both demo lanes are documented in
 
 ## Light Agent Codex Settings
 
-The Rust compose stacks include `light-agent` for the account agent. It defaults
-to the Codex provider with `gpt-5.5` and low reasoning effort. The local
-development compose files include the account-agent portal token by default,
-matching the existing `light-gateway` local-token pattern. Keep Codex
-credentials outside git and pass them through the environment:
+The `all-in-lt` Rust stack includes three Agent services backed by the shared
+`light-agent` image and configuration templates:
+
+| Service | Service ID | Host port |
+| --- | --- | --- |
+| `light-agent` | `com.networknt.agent.account-1.0.0` | `8083` |
+| `light-agent-advisor` | `com.networknt.agent.advisor-1.0.0` | `8084` |
+| `light-agent-tech-support` | `com.networknt.agent.tech-support-1.0.0` | `8088` |
+
+All three select the shared `dev` Config Server environment. The local-only
+Compose file includes a different long-lived development token for each Agent.
+Each token contains the matching `sid`, the local host identity, and `env=dev`.
+The defaults can be overridden when testing a replacement token:
+
+```bash
+export LIGHT_AGENT_ACCOUNT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
+export LIGHT_AGENT_ADVISOR_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
+export LIGHT_AGENT_TECH_SUPPORT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
+```
+
+The historical tokens formerly embedded in the `light-fabric` `run-*` scripts
+did not contain an `env` claim. The Compose defaults were minted from the same
+local OAuth clients with `env=dev` so they satisfy the current Config Server
+request contract and remain reusable by local developers.
+
+The Agents default to the Codex provider with `gpt-5.5` and low reasoning
+effort. Keep Codex credentials outside Git and pass them through the environment:
 
 ```bash
 export CODEX_API_KEY=...
@@ -452,7 +474,9 @@ export LIGHT_AGENT_AGENT_DEF_ID=019e5748-dc1b-748b-908b-89d579f03af9
 export LIGHT_AGENT_MODEL=gpt-5.5
 export CODEX_REASONING_EFFORT=low
 export LIGHT_AGENT_IMAGE=networknt/light-agent:latest
-export LIGHT_AGENT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
+export LIGHT_AGENT_ACCOUNT_PORT=8083
+export LIGHT_AGENT_ADVISOR_PORT=8084
+export LIGHT_AGENT_TECH_SUPPORT_PORT=8088
 ```
 
 For a locally built image from `light-fabric`, build it there and point compose
