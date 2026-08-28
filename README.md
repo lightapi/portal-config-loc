@@ -110,6 +110,46 @@ CONTAINER_CMD=docker \
   ../portal-db/postgres/patch_20260825_03_config_snapshot_env_tag_writer.sql
 ```
 
+For example, apply the Product Version promotion patch to a preserved
+`all-in-lt` database from the `portal-config-loc` repository root:
+
+```bash
+cd ~/lightapi/portal-config-loc
+
+./scripts/apply-db-patches.sh configserver \
+  ../portal-db/postgres/patch_20260828_01_product_version_promotion.sql
+```
+
+The `postgres` container must be running. No PostgreSQL restart is required.
+The command is safe to rerun: the patch ledger reports the patch as already
+applied when its recorded checksum still matches.
+
+Verify the new tables and patch-ledger entry:
+
+```bash
+docker exec -e PGPASSWORD=secret postgres \
+  psql -h localhost -U postgres -d configserver -c \
+  "\dt configserver.promotion*"
+
+docker exec -e PGPASSWORD=secret postgres \
+  psql -h localhost -U postgres -d configserver -c \
+  "SELECT patch_id, applied_ts
+     FROM configserver.portal_schema_patch_t
+    WHERE patch_id = 'patch_20260828_01_product_version_promotion';"
+```
+
+The expected tables are `configserver.promotion_t` and
+`configserver.promotion_item_t`, accompanied by the matching ledger row. Do not
+create these objects manually or execute the raw patch directly in pgAdmin for
+`all-in-lt`: its application objects belong in the `configserver` schema, while
+an unrendered patch can create unqualified objects in `public`. The patch runner
+renders the correct search path and applies the schema changes and ledger entry
+in one transaction.
+
+If the database was recreated after `all-in-lt/postgres-db/init.sql` was
+regenerated with these tables, this patch is not needed because the fresh
+database already contains the current schema.
+
 The daily release remains the promotion boundary: export and convert the
 validated local state to `events.json`, then let `portal-config-dev` and
 `light-portal-install` recreate their databases from that baseline.
