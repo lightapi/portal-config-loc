@@ -110,14 +110,15 @@ CONTAINER_CMD=docker \
   ../portal-db/postgres/patch_20260825_03_config_snapshot_env_tag_writer.sql
 ```
 
-For example, apply the Product Version promotion patch to a preserved
-`all-in-lt` database from the `portal-config-loc` repository root:
+For example, apply the selective-promotion P0-P6 patches, in order, to a
+preserved `all-in-lt` database from the `portal-config-loc` repository root:
 
 ```bash
 cd ~/lightapi/portal-config-loc
 
 ./scripts/apply-db-patches.sh configserver \
-  ../portal-db/postgres/patch_20260828_01_product_version_promotion.sql
+  ../portal-db/postgres/patch_20260828_01_product_version_promotion.sql \
+  ../portal-db/postgres/patch_20260828_02_promotion_lifecycle.sql
 ```
 
 The `postgres` container must be running. No PostgreSQL restart is required.
@@ -135,11 +136,18 @@ docker exec -e PGPASSWORD=secret postgres \
   psql -h localhost -U postgres -d configserver -c \
   "SELECT patch_id, applied_ts
      FROM configserver.portal_schema_patch_t
-    WHERE patch_id = 'patch_20260828_01_product_version_promotion';"
+    WHERE patch_id IN (
+      'patch_20260828_01_product_version_promotion',
+      'patch_20260828_02_promotion_lifecycle'
+    )
+    ORDER BY patch_id;"
 ```
 
 The expected tables are `configserver.promotion_t` and
-`configserver.promotion_item_t`, accompanied by the matching ledger row. Do not
+`configserver.promotion_item_t`, plus `configserver.promotion_recovery_t`,
+accompanied by both ledger rows. The second patch adds projection completion,
+timeout/failure diagnostics, and the audited recheck/reconcile/replan ledger.
+Do not
 create these objects manually or execute the raw patch directly in pgAdmin for
 `all-in-lt`: its application objects belong in the `configserver` schema, while
 an unrendered patch can create unqualified objects in `public`. The patch runner
