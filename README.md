@@ -61,7 +61,7 @@ To force a fresh database and import the latest baseline from the CDN, use both
 cd ~/lightapi/portal-config-loc
 REFRESH_RELEASE_ASSETS=true \
 CLEAN_VOLUMES=true \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 The bootstrap importer defaults to 500 events per physical database commit.
@@ -89,7 +89,7 @@ and then continues startup:
 ```bash
 PORTAL_DB_PATCHES='../portal-db/postgres/patch_20260825_01_config_snapshot_logical_identity.sql ../portal-db/postgres/patch_20260825_02_instance_environment_identity.sql ../portal-db/postgres/patch_20260825_03_config_snapshot_env_tag_writer.sql' \
 IMPORT_EVENTS=false \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 The runner records each filename and SHA-256 checksum in
@@ -173,7 +173,7 @@ write-fenced import mode:
 REFRESH_RELEASE_ASSETS=false \
 CLEAN_VOLUMES=true \
 EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced' \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 Never use this mode against a live or shared database. It preserves normal
@@ -199,7 +199,7 @@ cp /path/to/events.candidate.json ~/lightapi/.release-state/assets/events.json
 REFRESH_RELEASE_ASSETS=false \
 CLEAN_VOLUMES=true \
 EVENT_IMPORTER_IMAGE=networknt/event-importer:latest \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 The importer refuses bootstrap mode unless the destination event tables are
@@ -215,7 +215,7 @@ import and omit `REFRESH_RELEASE_ASSETS=true`, which would overwrite it:
 ```bash
 mkdir -p ~/lightapi/.release-state/assets
 cp /path/to/your/events.json ~/lightapi/.release-state/assets/events.json
-CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt rust
+CLEAN_VOLUMES=true ./scripts/deploy-local.sh lt
 ```
 
 The importer always reads `~/lightapi/.release-state/assets/events.json`.
@@ -230,7 +230,7 @@ cd ~/lightapi/portal-config-loc
 COMPOSE_CMD="docker compose" \
 CONTAINER_CMD=docker \
 RUST_LOG=info \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 Podman Compose:
@@ -240,14 +240,14 @@ cd ~/lightapi/portal-config-loc
 COMPOSE_CMD="podman compose" \
 CONTAINER_CMD=podman \
 RUST_LOG=info \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 After startup:
 
 ```bash
-COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust status
-COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt rust logs
+COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt status
+COMPOSE_CMD="podman compose" ./scripts/deploy-local.sh lt logs
 ```
 
 The automatic import path uses the event-importer container image through the
@@ -298,7 +298,7 @@ COMPOSE_CMD="podman compose" \
 CONTAINER_CMD=podman \
 IMPORT_EVENTS=auto \
 RUST_LOG=info \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 ## Released assets
@@ -325,9 +325,8 @@ docker-images.env
 The script extracts the service archives into the selected compose profile and
 extracts the UI archives into the gateway asset directories. For `all-in-pg`,
 that means `all-in-pg/light-gateway/lightapi/dist` and
-`all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates both
-`all-in-lt/light-gateway-java/...` and `all-in-lt/light-gateway-rust/...` so
-either gateway variant can be selected.
+`all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates
+`all-in-lt/light-gateway-rust/...`.
 
 Set `REFRESH_RELEASE_ASSETS=true` to refresh the cached release archives and
 replace the extracted hybrid service JARs, even when their target directories
@@ -335,7 +334,7 @@ are already populated. Populated gateway UI directories are left intact:
 
 ```bash
 cd ~/lightapi/portal-config-loc
-REFRESH_RELEASE_ASSETS=true ./scripts/deploy-local.sh lt rust
+REFRESH_RELEASE_ASSETS=true ./scripts/deploy-local.sh lt
 ```
 
 Before qualifying or publishing a signin release, validate the exact archive
@@ -344,7 +343,6 @@ and every extracted directory that will be mounted by Compose:
 ```bash
 node scripts/verify-signin-assets.mjs \
   /path/to/signin.zip \
-  all-in-lt/light-gateway-java/signin/dist \
   all-in-lt/light-gateway-rust/signin/dist
 ```
 
@@ -360,7 +358,7 @@ When recreating the database at the same time, combine it with
 Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
 
 ```bash
-LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt rust
+LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt
 ```
 
 ## Optional: Copy locally built jars
@@ -403,7 +401,7 @@ cd ~/lightapi/portal-config-loc/all-in-pg
 docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.service-local.yml up -d
 ```
 
-For the `all-in-lt` Rust stack, `docker-compose-rust.yml` uses published
+For the `all-in-lt` Rust stack, `docker-compose.yml` uses published
 images for `light-workflow`, `demo-customer-profile-api`, and
 `demo-offer-decision-api`. Runtime configuration lives in service folders under
 `all-in-lt`, not in the source repositories:
@@ -414,7 +412,7 @@ all-in-lt/demo-customer-profile-api-rust/config
 all-in-lt/demo-offer-decision-api-rust/config
 ```
 
-This keeps `./scripts/deploy-local.sh lt rust` working in a clean `~/lightapi`
+This keeps `./scripts/deploy-local.sh lt` working in a clean `~/lightapi`
 checkout without requiring sibling source repositories. If you are actively
 developing those Rust services, build the images from their source repositories
 first, then point compose at those image tags:
@@ -424,7 +422,7 @@ DEMO_CUSTOMER_PROFILE_API_IMAGE=networknt/demo-customer-profile-api:0.1.0 \
 DEMO_OFFER_DECISION_API_IMAGE=networknt/demo-offer-decision-api:0.1.0 \
 DEMO_INSURANCE_CLAIM_MCP_SERVER_IMAGE=networknt/demo-insurance-claim-mcp-server:latest \
 LIGHT_WORKFLOW_IMAGE=networknt/light-workflow:2.3.5 \
-./scripts/deploy-local.sh lt rust
+./scripts/deploy-local.sh lt
 ```
 
 ## Tool Embedding API Key
@@ -568,7 +566,7 @@ reduce repeated logs, start or recreate the stack with a quieter level:
 
 ```bash
 RUST_LOG=info ./scripts/deploy-local.sh pg rust
-RUST_LOG=info ./scripts/deploy-local.sh lt rust
+RUST_LOG=info ./scripts/deploy-local.sh lt
 ```
 
 To change one service after the stack is already running, recreate that service
@@ -576,7 +574,7 @@ from the selected compose directory:
 
 ```bash
 cd all-in-lt
-RUST_LOG=warn podman compose -f docker-compose.yml -f docker-compose-rust.yml up -d --force-recreate light-gateway
+RUST_LOG=warn podman compose up -d --force-recreate light-gateway
 ```
 
 Use the same `RUST_LOG` value on later `podman compose up`, `docker compose up`,

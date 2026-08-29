@@ -35,7 +35,7 @@ fi
 
 DOCKER_COMPOSE_FILES=(-f "$DOCKER_COMPOSE_DIR/docker-compose.yml")
 
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]] || [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
     CONTROLLER_TYPE="${1:-java}"
 
     case "$CONTROLLER_TYPE" in
@@ -56,6 +56,24 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]] || [[ 
 
             CONTROLLER_TYPE="java"
             DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose-java.yml")
+            ;;
+    esac
+elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+    CONTROLLER_TYPE="rust"
+    case "${1:-}" in
+        rust)
+            shift
+            ;;
+        java)
+            echo "The all-in-lt Java service profile has been removed; use the Rust stack."
+            exit 1
+            ;;
+        ""|stop|start|restart|status|logs|help|-h|--help)
+            ;;
+        *)
+            echo "Invalid service type: $1"
+            echo "Usage: $0 lt [rust] [command]"
+            exit 1
             ;;
     esac
 fi
@@ -349,9 +367,8 @@ ensure_release_assets() {
     extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" true || exit 1
     extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" true || exit 1
 
-    if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] || [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
-        [ -d "$DOCKER_COMPOSE_DIR/light-gateway-java" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-java")
-        [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ] && gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-rust")
+    if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
+        gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-rust")
     else
         gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway")
     fi
@@ -1036,9 +1053,9 @@ case "${1:-}" in
         echo "  pg              Use Postgres configuration"
         echo "  lt              Use Light Postgres configuration (one hybrid-query)"
         echo ""
-        echo "Service type (optional, pg and lt only):"
-        echo "  java            Use Java service overrides (default for pg and lt)"
-        echo "  rust            Use Rust service overrides"
+        echo "Service type (optional):"
+        echo "  java            Use Java service overrides (pg only; default for pg)"
+        echo "  rust            Use Rust services (pg override; accepted for lt compatibility)"
         echo ""
         echo "Commands:"
         echo "  (no command)    Full deployment (stop, start, optional event import)"
