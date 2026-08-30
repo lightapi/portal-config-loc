@@ -224,6 +224,25 @@ configure_local_runtime_identity() {
     log_info "Using local runtime identity: ${LOCAL_UID}:${LOCAL_GID}"
 }
 
+prepare_operational_database_secret() {
+    local prepare_script
+
+    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    case "${1:-}" in
+        stop|status|logs) return 0 ;;
+    esac
+
+    prepare_script="$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/prepare-operational-secret.sh"
+    [[ -x "$prepare_script" ]] || {
+        log_error "Operational database secret initializer is missing: $prepare_script"
+        return 1
+    }
+
+    OPERATIONAL_SECRET_DIR="$DOCKER_COMPOSE_DIR/postgres-db/secrets" \
+        "$prepare_script" >/dev/null
+    log_info "Operational database URL file is ready (content redacted)"
+}
+
 load_env_file_var() {
     local name="$1"
     local value=""
@@ -1022,6 +1041,7 @@ case "${1:-}" in
         configure_light_portal_env
         configure_local_reasoning_seal_key
         configure_local_runtime_identity
+        prepare_operational_database_secret "${1:-}"
         ;;
 esac
 

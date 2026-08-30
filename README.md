@@ -614,3 +614,52 @@ export INSTANCE_CLONE_PLAN_HMAC_KEY_ID='v1'
 
 Do not import a real secret into configuration snapshots. Command and all query
 nodes must use the same key and key identifier.
+
+## Operational Database Through Phase 6
+
+The active `all-in-lt` profile now creates an additive `operations` database
+beside `configserver` and `knowledge`. Startup prepares an ignored,
+owner-readable Agent URL file, applies the checksum-pinned operational metadata
+bundle, and validates the Host/environment binding before the Controller or
+Agents start. Controller keeps its primary Config Server connection and its
+Phase 3 execution connection. Every Agent now reads only the mounted
+`operations_agent_runtime` URL and persists Agent and embedded-memory state
+in `operations.agent_ops`; Workflow, A2A, Gateway evidence, tenant audit, and
+artifact metadata use their own schemas and credentials in the same scoped
+database. No operational rows are copied from Config Server.
+
+Direct Compose users must prepare the secret before `docker compose up`:
+
+```bash
+cd all-in-lt
+OPERATIONAL_SECRET_DIR=postgres-db/secrets \
+  postgres-db/operations/bin/prepare-operational-secret.sh
+docker compose up -d
+```
+
+The normal `./scripts/deploy-local.sh lt` path does this automatically.
+`CLEAN_VOLUMES=true` explicitly destroys the named PostgreSQL volume and all
+three databases. Before any operational runtime has written application data,
+the narrower Phase 1 fallback removes only `operations`:
+
+```bash
+cd all-in-lt
+OPERATIONAL_RESET_CONFIRM=DELETE_EMPTY_OPERATIONS \
+  docker compose run --rm --no-deps \
+  --entrypoint /opt/operational-store/bin/reset-empty-operational-store.sh \
+  operational-store-bootstrap
+```
+
+The reset refuses to run when any service-owned operational schema contains a
+table and always verifies that `configserver` and `knowledge` remain present.
+For the early-development Agent fallback, use
+`OPERATIONAL_RESET_CONFIRM=RESET_AGENT_OPS` with
+`postgres-db/operations/bin/reset-agent-store.sh`; it truncates only
+`agent_ops`.
+
+Phase 6 enables the bounded `light-gateway` evidence spool and the explicit
+development-only `stdout://collector` sink. Production must replace that sink
+with an approved external collector. Artifact rows contain object references,
+never bytes. Gateway, audit, and artifact development resets require
+`RESET_GATEWAY_OPS`, `RESET_AUDIT_OPS`, and `RESET_ARTIFACT_OPS` respectively
+and clear only their own schema.
