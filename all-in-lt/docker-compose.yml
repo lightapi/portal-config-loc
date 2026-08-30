@@ -137,11 +137,47 @@ services:
       OPERATIONAL_ENVIRONMENT: dev
       OPERATIONAL_CONTRACT_GENERATION: 1
       PORTAL_DB_NAME: configserver
-      PORTAL_DB_CONFIGSERVER_SCHEMA: public
+      PORTAL_DB_CONFIGSERVER_SCHEMA: configserver
       CONFIGSERVER_RUNTIME_ROLE: portal_loc_runtime
     depends_on:
       operational-store-bootstrap: {condition: service_completed_successfully}
     restart: "no"
+
+  operational-store-provisioner:
+    profiles: ["operational-store-provisioning"]
+    build:
+      context: ./postgres-db/operations
+      dockerfile: Dockerfile.provisioner
+    user: "0:0"
+    entrypoint:
+      - /bin/bash
+      - ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/postgres-db/operations/bin/operational-store-provisioner.sh
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/.release-state:${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/.release-state:Z
+      - ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/postgres-db/operations:${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/postgres-db/operations:ro,Z
+      - ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/light-gateway-rust/config/ca.pem:${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/light-gateway-rust/config/ca.pem:ro,z
+    environment:
+      PORTAL_CONTROL_DATABASE_URL_FILE: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/.release-state/operational-store-control-database-url
+      PORTAL_COMMAND_URL: https://localhost:8439/portal/command
+      PORTAL_COMMAND_CONNECT_TO: localhost:8439:hybrid-command:8439
+      PORTAL_COMMAND_CA_FILE: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/light-gateway-rust/config/ca.pem
+      PORTAL_COMMAND_TOKEN_FILE: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/.release-state/operational-store-provisioner-token
+      OPERATIONAL_PROVISIONING_SECRET_ROOT: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/.release-state/operational-store-bindings
+      OPERATIONAL_DOCKER_NETWORK: all-in-lt_default
+      OPERATIONAL_BUNDLE_ROOT: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/postgres-db/operations/bundle
+      OPERATIONAL_SCRIPT_ROOT: ${PORTAL_WORKSPACE_ROOT:-/home/steve/workspace}/portal-config-loc/all-in-lt/postgres-db/operations/bin
+      OPERATIONAL_PROVISIONER_LEASE_SECONDS: ${OPERATIONAL_PROVISIONER_LEASE_SECONDS:-600}
+      OPERATIONAL_BOOTSTRAP_BINDING_ID: ${OPERATIONAL_BOOTSTRAP_BINDING_ID:-f3a3579a-868e-43fa-8d74-33fddab752e3}
+      OPERATIONAL_BOOTSTRAP_HOST_ID: ${OPERATIONAL_BOOTSTRAP_HOST_ID:-01964b05-552a-7c4b-9184-6857e7f3dc5f}
+      OPERATIONAL_BOOTSTRAP_ENVIRONMENT: ${OPERATIONAL_BOOTSTRAP_ENVIRONMENT:-dev}
+      OPERATIONAL_BOOTSTRAP_CONTAINER: ${OPERATIONAL_BOOTSTRAP_CONTAINER:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hybrid-command:
+        condition: service_started
+    restart: unless-stopped
 
   hybrid-command:
     image: ${PORTAL_HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.2.1}

@@ -68,7 +68,7 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; the
             echo "The all-in-lt Java service profile has been removed; use the Rust stack."
             exit 1
             ;;
-        ""|stop|start|restart|status|logs|help|-h|--help)
+        ""|stop|start|restart|status|logs|provisioner-start|provisioner-stop|provisioner-status|help|-h|--help)
             ;;
         *)
             echo "Invalid service type: $1"
@@ -221,11 +221,15 @@ configure_local_reasoning_seal_key() {
 configure_local_runtime_identity() {
     export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
     export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
+    export PORTAL_WORKSPACE_ROOT="${PORTAL_WORKSPACE_ROOT:-$BASE_DIR}"
     log_info "Using local runtime identity: ${LOCAL_UID}:${LOCAL_GID}"
 }
 
 prepare_operational_database_secret() {
     local prepare_script
+    local secret_dir
+    local runtime_uid="${OPERATIONAL_RUNTIME_UID:-999}"
+    local runtime_gid="${OPERATIONAL_RUNTIME_GID:-999}"
 
     [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
     case "${1:-}" in
@@ -233,14 +237,96 @@ prepare_operational_database_secret() {
     esac
 
     prepare_script="$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/prepare-operational-secret.sh"
+    secret_dir="$DOCKER_COMPOSE_DIR/postgres-db/secrets"
     [[ -x "$prepare_script" ]] || {
         log_error "Operational database secret initializer is missing: $prepare_script"
         return 1
     }
 
-    OPERATIONAL_SECRET_DIR="$DOCKER_COMPOSE_DIR/postgres-db/secrets" \
-        "$prepare_script" >/dev/null
+    mkdir -p "$secret_dir"
+    "$CONTAINER_RUNTIME_CMD" run --rm --user 0:0 \
+        -v "$secret_dir:/runtime-secrets:Z" \
+        timescale/timescaledb:latest-pg17 \
+        chown -R "${LOCAL_UID}:${LOCAL_GID}" /runtime-secrets || {
+        log_error "Failed to make operational secrets available for validation"
+        return 1
+    }
+
+    OPERATIONAL_SECRET_DIR="$secret_dir" \
+        "$prepare_script" >/dev/null || {
+        log_error "Failed to prepare operational database secrets"
+        return 1
+    }
+    "$CONTAINER_RUNTIME_CMD" run --rm --user 0:0 \
+        -v "$secret_dir:/runtime-secrets:Z" \
+        timescale/timescaledb:latest-pg17 \
+        /bin/sh -ec 'find /runtime-secrets -mindepth 1 -maxdepth 1 -type f \( -name ".operations-*" -o -name "*-database-url" -o -name "a2a-authorized-context-key" \) -exec chown "$1:$2" {} +' \
+        runtime-secret-owner "$runtime_uid" "$runtime_gid" || {
+        log_error "Failed to assign operational secrets to the runtime identity"
+        return 1
+    }
     log_info "Operational database URL file is ready (content redacted)"
+}
+
+operational_provisioner_paths() {
+    OPERATIONAL_PROVISIONER_SCRIPT="$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/operational-store-provisioner.sh"
+    OPERATIONAL_PROVISIONER_TOKEN_FILE="${OPERATIONAL_PROVISIONER_TOKEN_FILE:-$RELEASE_STATE_DIR/operational-store-provisioner-token}"
+    OPERATIONAL_PROVISIONER_CONTROL_URL_FILE="${OPERATIONAL_PROVISIONER_CONTROL_URL_FILE:-$RELEASE_STATE_DIR/operational-store-control-database-url}"
+    OPERATIONAL_PROVISIONER_SECRET_ROOT="${OPERATIONAL_PROVISIONER_SECRET_ROOT:-$RELEASE_STATE_DIR/operational-store-bindings}"
+}
+
+prepare_operational_provisioner_runtime() {
+    local temporary_file
+
+    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    operational_provisioner_paths
+    mkdir -p "$RELEASE_STATE_DIR" "$OPERATIONAL_PROVISIONER_SECRET_ROOT"
+    chmod 700 "$OPERATIONAL_PROVISIONER_SECRET_ROOT"
+    temporary_file="${OPERATIONAL_PROVISIONER_CONTROL_URL_FILE}.tmp"
+    umask 077
+    printf '%s' 'postgresql://postgres:secret@postgres:5432/configserver?options=-csearch_path%3Dconfigserver' > "$temporary_file"
+    mv "$temporary_file" "$OPERATIONAL_PROVISIONER_CONTROL_URL_FILE"
+    chmod 600 "$OPERATIONAL_PROVISIONER_CONTROL_URL_FILE"
+}
+
+stop_operational_store_provisioner() {
+    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    cd "$DOCKER_COMPOSE_DIR" || return 1
+    if [[ -n "$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner 2>/dev/null)" ]]; then
+        log_info "Stopping operational-store provisioner"
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning stop operational-store-provisioner
+    fi
+}
+
+start_operational_store_provisioner() {
+    local container_id=""
+    local state=""
+
+    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    prepare_operational_provisioner_runtime
+    [[ -x "$OPERATIONAL_PROVISIONER_SCRIPT" ]] || {
+        log_error "Operational-store provisioner is missing: $OPERATIONAL_PROVISIONER_SCRIPT"
+        return 1
+    }
+    if [[ ! -s "$OPERATIONAL_PROVISIONER_TOKEN_FILE" ]]; then
+        log_warning "Operational-store provisioner is not started because its token file is missing: $OPERATIONAL_PROVISIONER_TOKEN_FILE"
+        log_warning "Create a client-credentials service token with only the operational-store-provisioner role, store it with mode 600, then run deploy-local.sh lt start."
+        return 0
+    fi
+    chmod 600 "$OPERATIONAL_PROVISIONER_TOKEN_FILE"
+    cd "$DOCKER_COMPOSE_DIR" || return 1
+    log_info "Starting operational-store provisioner Compose service"
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning \
+        up -d --build operational-store-provisioner || return 1
+    sleep 2
+    container_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner)"
+    state="$([[ -n "$container_id" ]] && "$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+    if [[ "$state" != "running" ]]; then
+        log_error "Operational-store provisioner failed to stay running"
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning logs --tail=80 operational-store-provisioner || true
+        return 1
+    fi
+    log_success "Operational-store provisioner Compose service is running"
 }
 
 load_env_file_var() {
@@ -467,6 +553,8 @@ check_prerequisites() {
 stop_docker_compose() {
     log_info "Stopping Compose services..."
 
+    stop_operational_store_provisioner
+
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
         exit 1
@@ -498,7 +586,12 @@ start_docker_compose() {
     # Start services in detached mode
     log_info "Starting services..."
     if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
-        log_success "Compose services started"
+        log_info "Compose services were created; qualifying required runtime services..."
+
+        start_operational_store_provisioner || return 1
+        validate_operational_property_projection || return 1
+        wait_for_required_runtime_services || return 1
+        log_success "Compose services started and passed runtime qualification"
 
         # Show status
         log_info "Current service status:"
@@ -511,6 +604,164 @@ start_docker_compose() {
         log_error "Failed to start Compose services"
         return 1
     fi
+}
+
+required_runtime_services() {
+    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+        printf '%s\n' \
+            postgres \
+            light-oauth \
+            controller \
+            config-server \
+            hybrid-command \
+            hybrid-query \
+            portal-service \
+            light-gateway \
+            llm-gateway \
+            light-workflow \
+            demo-customer-profile-api \
+            demo-offer-decision-api \
+            demo-insurance-claim-mcp-server \
+            light-agent \
+            light-agent-advisor \
+            light-agent-tech-support \
+            light-knowledge-admin \
+            light-knowledge \
+            light-knowledge-worker
+        return 0
+    fi
+
+    # Other local profiles do not currently declare a separate qualification
+    # contract. Preserve their existing startup behavior.
+    return 0
+}
+
+log_required_service_diagnostics() {
+    local service="$1"
+    local container_id="${2:-}"
+    local status="unknown"
+
+    if [[ -n "$container_id" ]]; then
+        status="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}} exit={{.State.ExitCode}}' "$container_id" 2>/dev/null || true)"
+    fi
+    log_error "Required service $service failed runtime qualification (status: ${status:-unknown})"
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs --tail=80 "$service" 2>&1 | tee -a "$LOG_FILE" || true
+}
+
+wait_for_required_runtime_services() {
+    local timeout_seconds="${RUNTIME_QUALIFICATION_TIMEOUT_SECONDS:-120}"
+    local interval="${RUNTIME_QUALIFICATION_INTERVAL_SECONDS:-2}"
+    local elapsed=0
+    local service=""
+    local container_id=""
+    local state=""
+    local health=""
+    local pending=()
+    local services=()
+
+    mapfile -t services < <(required_runtime_services)
+    if ((${#services[@]} == 0)); then
+        return 0
+    fi
+    if [[ ! "$timeout_seconds" =~ ^[1-9][0-9]*$ || ! "$interval" =~ ^[1-9][0-9]*$ ]]; then
+        log_error "Runtime qualification timeout and interval must be positive integers"
+        return 1
+    fi
+
+    while [ "$elapsed" -le "$timeout_seconds" ]; do
+        pending=()
+        for service in "${services[@]}"; do
+            container_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps -a -q "$service" 2>/dev/null | head -n 1 || true)"
+            if [[ -z "$container_id" ]]; then
+                pending+=("$service(absent)")
+                continue
+            fi
+
+            state="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+            health="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+            case "$state" in
+                exited|dead|removing)
+                    log_required_service_diagnostics "$service" "$container_id"
+                    return 1
+                    ;;
+                running)
+                    case "$health" in
+                        ""|healthy) ;;
+                        unhealthy)
+                            log_required_service_diagnostics "$service" "$container_id"
+                            return 1
+                            ;;
+                        *) pending+=("$service($health)") ;;
+                    esac
+                    ;;
+                *) pending+=("$service(${state:-unknown})") ;;
+            esac
+        done
+
+        if ((${#pending[@]} == 0)); then
+            return 0
+        fi
+        if [ $((elapsed % 10)) -eq 0 ]; then
+            log_info "Waiting for runtime qualification (${elapsed}s/${timeout_seconds}s): ${pending[*]}"
+        fi
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    log_error "Required runtime services did not become ready within ${timeout_seconds} seconds: ${pending[*]}"
+    for service in "${services[@]}"; do
+        container_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" ps -a -q "$service" 2>/dev/null | head -n 1 || true)"
+        state="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+        health="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+        if [[ "$state" != "running" || ( -n "$health" && "$health" != "healthy" ) ]]; then
+            log_required_service_diagnostics "$service" "$container_id"
+        fi
+    done
+    return 1
+}
+
+validate_operational_property_projection() {
+    local required_property_count="15"
+    local agent_snapshot_count="0"
+    local catalog_property_count="0"
+    local catalog_path="${OPERATIONAL_PROPERTY_CATALOG_FILE:-$BASE_DIR/implementation/light-portal/development-database-topology/phase7/operational-store-config-metadata.cloud.json}"
+    local required_properties="'operationalStore.contractVersion','operationalStore.bindingId','operationalStore.bindingDigest','operationalStore.profileId','operationalStore.deploymentProfile','operationalStore.scopeKind','operationalStore.scopeId','operationalStore.hostId','operationalStore.environment','operationalStore.serviceOwner','operationalStore.schema','operationalStore.minimumSchemaVersion','operationalStore.expectedDatabase','operationalStore.databaseUrlFile','operationalStore.credentialGeneration'"
+
+    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    wait_for_postgres_ready || {
+        log_error "Cannot validate operational-store properties because Postgres is not ready"
+        return 1
+    }
+
+    catalog_property_count="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+        psql -h localhost -U postgres -d configserver -tAc \
+        "SELECT count(DISTINCT property_name) FROM configserver.config_property_t WHERE active AND property_name IN ($required_properties);" \
+        2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ ! "$catalog_property_count" =~ ^[0-9]+$ ]]; then
+        log_error "Cannot query the operational-store property catalog in configserver.config_property_t"
+        return 1
+    fi
+    if [[ "$catalog_property_count" != "$required_property_count" ]]; then
+        log_error "Operational-store property catalog is incomplete (${catalog_property_count:-0}/${required_property_count} required Agent properties)."
+        log_error "Import $catalog_path, assign the complete catalog to each Agent product version, and regenerate the Agent instance snapshots."
+        return 1
+    fi
+
+    agent_snapshot_count="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+        psql -h localhost -U postgres -d configserver -tAc \
+        "SELECT count(*) FROM (SELECT s.service_id FROM configserver.config_snapshot_t s JOIN configserver.config_snapshot_property_t p ON p.snapshot_id = s.snapshot_id WHERE s.current AND s.service_id IN ('com.networknt.agent.account-1.0.0','com.networknt.agent.advisor-1.0.0','com.networknt.agent.tech-support-1.0.0') AND p.property_name IN ($required_properties) AND NULLIF(btrim(p.property_value), '') IS NOT NULL GROUP BY s.service_id HAVING count(DISTINCT p.property_name) = $required_property_count) ready_agent_snapshots;" \
+        2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ ! "$agent_snapshot_count" =~ ^[0-9]+$ ]]; then
+        log_error "Cannot query current Agent snapshot properties"
+        return 1
+    fi
+    if [[ "$agent_snapshot_count" != "3" ]]; then
+        log_error "Only ${agent_snapshot_count:-0}/3 current Agent snapshots contain the complete operational-store projection."
+        log_error "Assign the operational-store property catalog to the three Agent product versions and regenerate their instance snapshots before deployment."
+        return 1
+    fi
+
+    log_info "Validated the operational-store property catalog and 3 current Agent snapshots"
 }
 
 start_event_bootstrap_services() {
@@ -952,7 +1203,9 @@ apply_requested_db_patches() {
         return 0
     fi
 
-    read -r -a patch_args <<< "$PORTAL_DB_PATCHES"
+    # Consume the complete value so a readable multiline patch list behaves
+    # the same as a single whitespace-separated line.
+    IFS=$' \t\n' read -r -d '' -a patch_args < <(printf '%s\0' "$PORTAL_DB_PATCHES")
     if ((${#patch_args[@]} == 0)); then
         log_error "PORTAL_DB_PATCHES did not contain any patch paths"
         return 1
@@ -974,7 +1227,10 @@ apply_requested_db_patches() {
 
     log_info "Applying requested database patches to schema $target_schema"
     CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
-        "$SCRIPT_DIR/apply-db-patches.sh" "$target_schema" "${patch_args[@]}"
+        "$SCRIPT_DIR/apply-db-patches.sh" "$target_schema" "${patch_args[@]}" || {
+        log_error "Failed to apply requested database patches"
+        return 1
+    }
     log_success "Requested database patches applied"
 }
 
@@ -1065,6 +1321,23 @@ case "${1:-}" in
     "logs")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
         ;;
+    "provisioner-start")
+        start_operational_store_provisioner
+        ;;
+    "provisioner-stop")
+        stop_operational_store_provisioner
+        ;;
+    "provisioner-status")
+        cd "$DOCKER_COMPOSE_DIR" || exit 1
+        provisioner_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner)"
+        if [[ -n "$provisioner_id" ]] &&
+           [[ "$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$provisioner_id" 2>/dev/null)" == "running" ]]; then
+            echo "operational-store provisioner Compose service is running"
+        else
+            echo "operational-store provisioner Compose service is not running"
+            exit 1
+        fi
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [config] [service-type] [command]"
         echo ""
@@ -1084,6 +1357,9 @@ case "${1:-}" in
         echo "  restart         Restart Compose services"
         echo "  status          Show Compose status"
         echo "  logs            Follow Compose logs"
+        echo "  provisioner-start   Start only the operational-store provisioner Compose service"
+        echo "  provisioner-stop    Stop only the operational-store provisioner Compose service"
+        echo "  provisioner-status  Show operational-store provisioner Compose service status"
         echo "  help            Show this help message"
         echo ""
         echo "Environment:"
@@ -1100,6 +1376,11 @@ case "${1:-}" in
         echo "  IMPORT_EVENTS=false               Skip event import"
         echo "  IMPORT_EVENTS=true                Import downloaded events.json even when rows already exist"
         echo "  PORTAL_DB_PATCHES='path ...'      Apply these ordered SQL patches to a preserved local database"
+        echo "  OPERATIONAL_PROPERTY_CATALOG_FILE=...  Operational-store property catalog event file used in preflight guidance"
+        echo "  OPERATIONAL_PROVISIONER_TOKEN_FILE=...  Mode-600 service token for the operational-store worker"
+        echo "  OPERATIONAL_PROVISIONER_LEASE_SECONDS=600  Local provider lease duration for initial database bootstrap"
+        echo "  RUNTIME_QUALIFICATION_TIMEOUT_SECONDS=120  Maximum wait for required all-in-lt services"
+        echo "  RUNTIME_QUALIFICATION_INTERVAL_SECONDS=2   Seconds between required-service checks"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
