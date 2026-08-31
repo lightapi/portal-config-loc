@@ -11,6 +11,7 @@ x-light-agent-common: &light-agent-common
     - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     - ./postgres-db/secrets/operational-database-url:/run/secrets/operational-database-url:ro,z
     - ./postgres-db/secrets/a2a-authorized-context-key:/run/secrets/a2a-authorized-context-key:ro,z
+    - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
   depends_on:
     postgres:
       condition: service_healthy
@@ -114,7 +115,7 @@ services:
       OPERATIONAL_ENVIRONMENT: dev
       OPERATIONAL_DEPLOYMENT_PROFILE: DEV_DEDICATED
       OPERATIONAL_CONTRACT_GENERATION: 1
-      OPERATIONAL_BUNDLE_VERSION: 1.4.0
+      OPERATIONAL_BUNDLE_VERSION: 1.9.0
     depends_on:
       postgres: {condition: service_healthy}
     restart: "no"
@@ -190,6 +191,7 @@ services:
       WORKFLOW_TOOL_ACCESS_APPROVAL_VERSION: 1.0.0
       WORKFLOW_TOOL_ACCESS_APPROVAL_DIGEST: sha256:29167fa1e53a00187685c8d459016fefbf69567dd974fc3a90d0d619ca3a887a
       KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-019ff2f7-e56e-758a-a17b-45b057556326,light-knowledge-worker,light-knowledge}
+      A2A_SIGNING_SERVICE_URL: ${A2A_SIGNING_SERVICE_URL:-https://light-oauth:6881}
     volumes:
       - ./hybrid-command/config:/config:Z
       - ./hybrid-command/service:/service:Z
@@ -202,6 +204,8 @@ services:
       postgres:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      light-oauth:
         condition: service_healthy
 
   hybrid-query:
@@ -283,6 +287,7 @@ services:
       # - 5005:5005
     volumes:
       - ./light-oauth-rust/config:/config:Z
+      - ./postgres-db/secrets/a2a-signing:/run/secrets/a2a-signing:ro,Z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       # The following environment variable will enable the debug in the container.
@@ -598,7 +603,9 @@ services:
       - ./light-a2a-rust/config:/config:ro,Z
       - ./light-gateway-rust/config/ca.pem:/keystore/ca.pem:ro,z
       - ./postgres-db/secrets/a2a-database-url:/run/secrets/operational-database-url:ro,z
+      - ./postgres-db/secrets/artifact-database-url:/run/secrets/artifact-database-url:ro,z
       - ./postgres-db/secrets/a2a-authorized-context-key:/run/secrets/a2a-authorized-context-key:ro,z
+      - a2a-artifacts:/var/lib/light-a2a/artifacts
     environment:
       LIGHT_RS_CONFIG_DIR: /config
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_A2A_LIGHT_PORTAL_AUTHORIZATION:-}"
@@ -606,6 +613,8 @@ services:
       RUST_LOG: "${LIGHT_A2A_RUST_LOG:-info}"
     hostname: light-a2a
     container_name: light-a2a
+    restart: unless-stopped
+    stop_grace_period: 35s
     depends_on:
       operational-schema-validation:
         condition: service_completed_successfully
@@ -614,7 +623,7 @@ services:
       config-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8448/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8448/_a2a/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -747,3 +756,5 @@ volumes:
   postgres-data:
   llm-gateway-data:
   light-workflow-config-cache:
+  a2a-artifacts:
+  agent-a2a-artifacts:
