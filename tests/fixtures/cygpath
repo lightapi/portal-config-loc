@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ "${1:-}" == "-m" ]]
+printf 'C:%s\n' "${2:?path is required}"

@@ -317,7 +317,7 @@ start_operational_store_provisioner() {
     cd "$DOCKER_COMPOSE_DIR" || return 1
     log_info "Starting operational-store provisioner Compose service"
     "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning \
-        up -d --build operational-store-provisioner || return 1
+        up -d --build --force-recreate operational-store-provisioner || return 1
     sleep 2
     container_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner)"
     state="$([[ -n "$container_id" ]] && "$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
@@ -428,11 +428,11 @@ extract_archive_if_missing() {
     fi
 }
 
-ensure_event_file() {
-    local event_file="$RELEASE_ASSET_CACHE_DIR/events.json"
+ensure_event_bundle() {
     local archive_path
 
-    if [[ -f "$event_file" ]] && ! is_true "$REFRESH_RELEASE_ASSETS"; then
+    archive_path="$RELEASE_ASSET_CACHE_DIR/events.zip"
+    if [[ -f "$archive_path" ]] && ! is_true "$REFRESH_RELEASE_ASSETS"; then
         return 0
     fi
 
@@ -440,17 +440,11 @@ ensure_event_file() {
         log_error "curl is required to download events.zip from $LIGHT_PORTAL_ASSET_BASE_URL"
         return 1
     }
-    command -v unzip >/dev/null 2>&1 || {
-        log_error "unzip is required to extract events.json from events.zip"
+    ensure_archive events.zip || return 1
+    [[ -s "$archive_path" ]] || {
+        log_error "Downloaded signed environment bundle is empty: $archive_path"
         return 1
     }
-
-    archive_path="$RELEASE_ASSET_CACHE_DIR/events.zip"
-    ensure_archive events.zip || return 1
-    log_info "Extracting events.json from $archive_path"
-    mkdir -p "$RELEASE_ASSET_CACHE_DIR"
-    unzip -p "$archive_path" events.json > "$event_file.tmp"
-    mv "$event_file.tmp" "$event_file"
 }
 
 container_runtime_is_podman() {
@@ -926,24 +920,27 @@ wait_for_baseline_projection_cursor() {
 }
 
 run_container_event_importer() {
-    local event_file="$1"
+    local event_bundle="$1"
     local importer_image="$2"
-    shift 2
+    local bundle_key_dir="$3"
+    shift 3
     local event_dir
     local event_name
     local import_network
     local db_jdbc_url
     local event_mount
+    local key_mount
     local mount_mode="ro,z"
     local disable_msys_pathconv=false
     local mount_source_dir
     local docker_mount_source_dir
+    local docker_key_source_dir
     local container_events_dir="/events"
     local container_event_file
-    local container_stdin_file="/dev/stdin"
 
-    event_dir="$(cd "$(dirname "$event_file")" && pwd)"
-    event_name="$(basename "$event_file")"
+    event_dir="$(cd "$(dirname "$event_bundle")" && pwd)"
+    event_name="$(basename "$event_bundle")"
+    bundle_key_dir="$(cd "$bundle_key_dir" && pwd)"
     import_network="${EVENT_IMPORT_NETWORK:-$(default_event_import_network)}"
     db_jdbc_url="${EVENT_IMPORT_DB_JDBC_URL:-jdbc:postgresql://postgres:5432/configserver}"
     # Always bind-mount the resolved event directory. A relative
@@ -951,6 +948,7 @@ run_container_event_importer() {
     # by Docker instead of the host directory checked below.
     mount_source_dir="$event_dir"
     docker_mount_source_dir="$mount_source_dir"
+    docker_key_source_dir="$bundle_key_dir"
 
     # Git Bash/MSYS can rewrite /path arguments into host Windows paths.
     # Disable conversion for container commands so /events paths remain in-container paths.
@@ -962,15 +960,19 @@ run_container_event_importer() {
         if ! container_runtime_is_podman; then
             if command -v cygpath >/dev/null 2>&1; then
                 docker_mount_source_dir="$(cygpath -m "$mount_source_dir")"
+                docker_key_source_dir="$(cygpath -m "$bundle_key_dir")"
             elif [[ "$mount_source_dir" =~ ^/([a-zA-Z])/(.*)$ ]]; then
                 docker_mount_source_dir="${BASH_REMATCH[1]}:/${BASH_REMATCH[2]}"
+                if [[ "$bundle_key_dir" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+                    docker_key_source_dir="${BASH_REMATCH[1]}:/${BASH_REMATCH[2]}"
+                fi
             fi
         fi
     fi
     container_event_file="$container_events_dir/$event_name"
 
     if [[ ! -f "$mount_source_dir/$event_name" ]]; then
-        log_error "Event import file not found at mount source: $mount_source_dir/$event_name"
+        log_error "Signed event bundle not found at mount source: $mount_source_dir/$event_name"
         return 1
     fi
 
@@ -980,32 +982,8 @@ run_container_event_importer() {
         mount_mode="ro"
     fi
 
-    if container_runtime_is_podman; then
-        log_info "Streaming $event_file to event-importer over stdin"
-            if [[ "$disable_msys_pathconv" == "true" ]]; then
-                MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$CONTAINER_RUNTIME_CMD" run --rm -i \
-                    --network "$import_network" \
-                    -e DB_JDBC_URL="$db_jdbc_url" \
-                    -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
-                    -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
-                    -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
-                    "$importer_image" \
-                    --filename "$container_stdin_file" \
-                    "$@" < "$event_file"
-            else
-                "$CONTAINER_RUNTIME_CMD" run --rm -i \
-                    --network "$import_network" \
-                    -e DB_JDBC_URL="$db_jdbc_url" \
-                    -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
-                    -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
-                    -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
-                    "$importer_image" \
-                    --filename "$container_stdin_file" \
-                    "$@" < "$event_file"
-            fi
-        return $?
-    fi
     event_mount="$docker_mount_source_dir:$container_events_dir:$mount_mode"
+    key_mount="$docker_key_source_dir:/bundle-keys:$mount_mode"
     log_info "Event importer mount: $docker_mount_source_dir -> $container_events_dir"
 
     log_info "Running $CONTAINER_RUNTIME_CMD event-importer image $importer_image on network $import_network"
@@ -1013,31 +991,36 @@ run_container_event_importer() {
         MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$CONTAINER_RUNTIME_CMD" run --rm \
             --network "$import_network" \
             -v "$event_mount" \
+            -v "$key_mount" \
             -e DB_JDBC_URL="$db_jdbc_url" \
             -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
             -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
             -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
             "$importer_image" \
-            --filename "$container_event_file" \
+            --bundle "$container_event_file" \
+            --bundle-key-dir /bundle-keys \
             "$@"
     else
         "$CONTAINER_RUNTIME_CMD" run --rm \
             --network "$import_network" \
             -v "$event_mount" \
+            -v "$key_mount" \
             -e DB_JDBC_URL="$db_jdbc_url" \
             -e DB_USERNAME="${EVENT_IMPORT_DB_USERNAME:-postgres}" \
             -e DB_PASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" \
             -e DB_MAXIMUM_POOL_SIZE="${EVENT_IMPORT_DB_MAXIMUM_POOL_SIZE:-3}" \
             "$importer_image" \
-            --filename "$container_event_file" \
+            --bundle "$container_event_file" \
+            --bundle-key-dir /bundle-keys \
             "$@"
     fi
 }
 
 run_local_event_importer() {
-    local event_file="$1"
+    local event_bundle="$1"
     local database_url="$2"
-    shift 2
+    local bundle_key_dir="$3"
+    shift 3
     local importer_cmd=()
     local importer_work_dir="$REPO_DIR"
 
@@ -1052,14 +1035,15 @@ run_local_event_importer() {
     (
         cd "$importer_work_dir" || exit 1
         export DATABASE_URL="$database_url"
-        "${importer_cmd[@]}" --filename "$event_file" "$@"
+        "${importer_cmd[@]}" --bundle "$event_bundle" --bundle-key-dir "$bundle_key_dir" "$@"
     )
 }
 
 import_events() {
     local import_mode="${IMPORT_EVENTS:-false}"
     local import_mode_lower="${import_mode,,}"
-    local event_file="$RELEASE_ASSET_CACHE_DIR/events.json"
+    local event_bundle="$RELEASE_ASSET_CACHE_DIR/events.zip"
+    local bundle_key_dir="${EVENT_BUNDLE_KEY_DIR:-$REPO_DIR/release-keys}"
     local database_url="${EVENT_IMPORT_DATABASE_URL:-postgres://postgres:secret@localhost:5432/configserver}"
     local import_runner="${EVENT_IMPORT_RUNNER:-container}"
     local import_runner_lower
@@ -1081,7 +1065,7 @@ import_events() {
     esac
 
     if [[ -n "${EVENT_IMPORT_FILE:-}" ]]; then
-        log_error "EVENT_IMPORT_FILE is not supported. Replace $event_file before starting deploy-local.sh if you need custom events."
+        log_error "EVENT_IMPORT_FILE is not supported. Release bootstrap requires a signed v2 bundle."
         return 1
     fi
 
@@ -1098,10 +1082,14 @@ import_events() {
         return 1
     fi
 
-    ensure_event_file || return 1
+    ensure_event_bundle || return 1
 
-    if [ ! -f "$event_file" ]; then
-        log_error "Event import file not found: $event_file"
+    if [ ! -f "$event_bundle" ]; then
+        log_error "Signed event bundle not found: $event_bundle"
+        return 1
+    fi
+    if [ ! -d "$bundle_key_dir" ]; then
+        log_error "Trusted bundle key directory not found: $bundle_key_dir"
         return 1
     fi
 
@@ -1112,10 +1100,10 @@ import_events() {
     if [[ "$event_count" -eq 0 ]]; then
         case " ${extra_args[*]} " in
             *" --historical-import "*)
-                log_warning "Using explicitly requested historical import for the empty destination"
+                log_error "Historical bare-array import is not supported by the release deployment path"
+                return 1
                 ;;
-            *" --bootstrap-import "*)
-                ;;
+            *" --bootstrap-import "*) ;;
             *)
                 extra_args+=(
                     --bootstrap-import
@@ -1132,30 +1120,33 @@ import_events() {
                 log_info "Empty destination detected; enabling direct event-table bootstrap import"
                 ;;
         esac
+    else
+        log_error "Environment baseline bundle requires an empty event store; use a signed host-delta bundle with --compose-import for an existing baseline"
+        return 1
     fi
 
     import_runner_lower="${import_runner,,}"
     load_env_file_var EVENT_IMPORTER_IMAGE
     importer_image="${EVENT_IMPORTER_IMAGE:-networknt/event-importer:latest}"
 
-    log_info "Importing events from $event_file"
+    log_info "Verifying and importing signed environment bundle $event_bundle"
     case "$import_runner_lower" in
         container|docker|podman)
-            if ! run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"; then
+            if ! run_container_event_importer "$event_bundle" "$importer_image" "$bundle_key_dir" "${extra_args[@]}"; then
                 log_error "Container event import failed"
                 return 1
             fi
             ;;
         local|host)
-            if ! run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"; then
+            if ! run_local_event_importer "$event_bundle" "$database_url" "$bundle_key_dir" "${extra_args[@]}"; then
                 log_error "Local event import failed"
                 return 1
             fi
             ;;
         auto)
-            if ! run_container_event_importer "$event_file" "$importer_image" "${extra_args[@]}"; then
+            if ! run_container_event_importer "$event_bundle" "$importer_image" "$bundle_key_dir" "${extra_args[@]}"; then
                 log_warning "Container event import failed; trying local importer fallback"
-                if ! run_local_event_importer "$event_file" "$database_url" "${extra_args[@]}"; then
+                if ! run_local_event_importer "$event_bundle" "$database_url" "$bundle_key_dir" "${extra_args[@]}"; then
                     log_error "Local event import fallback failed"
                     return 1
                 fi
@@ -1288,6 +1279,12 @@ main() {
     log_info "To view logs: ${DOCKER_COMPOSE_CMD[*]} ${DOCKER_COMPOSE_FILES[*]} logs -f"
 }
 
+# Tests may source the helper functions without running deployment setup or
+# command dispatch. Normal executions never set this variable.
+if [[ "${DEPLOY_LOCAL_SOURCE_ONLY:-false}" == "true" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
+
 # Handle script arguments
 case "${1:-}" in
     "help"|"-h"|"--help")
@@ -1372,9 +1369,9 @@ case "${1:-}" in
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
         echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
-        echo "  IMPORT_EVENTS=auto                Import downloaded events.json only when event_store_t is empty (default for full deployment)"
+        echo "  IMPORT_EVENTS=auto                Verify/import signed events.zip only when event_store_t is empty (default for full deployment)"
         echo "  IMPORT_EVENTS=false               Skip event import"
-        echo "  IMPORT_EVENTS=true                Import downloaded events.json even when rows already exist"
+        echo "  IMPORT_EVENTS=true                Require signed environment bootstrap (destination must be empty)"
         echo "  PORTAL_DB_PATCHES='path ...'      Apply these ordered SQL patches to a preserved local database"
         echo "  OPERATIONAL_PROPERTY_CATALOG_FILE=...  Operational-store property catalog event file used in preflight guidance"
         echo "  OPERATIONAL_PROVISIONER_TOKEN_FILE=...  Mode-600 service token for the operational-store worker"
@@ -1385,10 +1382,11 @@ case "${1:-}" in
         echo "  EVENT_IMPORTER_IMAGE=...          Container image for event import"
         echo "  EVENT_IMPORT_NETWORK=...          Override Compose network for event importer"
         echo "  EVENT_IMPORTER_CMD=...            Override local importer command when EVENT_IMPORT_RUNNER=local"
+        echo "  EVENT_BUNDLE_KEY_DIR=...          Trusted public keys named <manifest keyId>.pem (default: <repo>/release-keys)"
         echo "  EVENT_IMPORT_PHYSICAL_CHUNK_EVENTS=500  Events per physical bootstrap commit (default and maximum: 500)"
         echo "  EVENT_PROJECTION_CURSOR_ATTEMPTS=300     Maximum projection cursor readiness attempts"
         echo "  EVENT_PROJECTION_CURSOR_INTERVAL=1      Seconds between projection cursor checks"
-        echo "  EVENT_IMPORT_ARGS='--historical-import --legacy-write-fenced'  Recover a preserved pre-graph-metadata snapshot instead of automatic bootstrap"
+        echo "  EVENT_IMPORT_ARGS=...             Additional signed-bundle bootstrap options; historical bare arrays are rejected"
         echo "  RELEASE_IMAGE_ENV_FILE=...        Compose image env file path"
         echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
         echo "  RELEASE_IMAGE_ENV_S3_URI=...      Download docker-images.env with aws s3 cp when local file is missing"
