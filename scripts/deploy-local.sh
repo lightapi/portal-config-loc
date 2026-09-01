@@ -174,98 +174,11 @@ configure_light_portal_env() {
     fi
 }
 
-configure_local_reasoning_seal_key() {
-    local configured_value=""
-    local secret_file="$RELEASE_STATE_DIR/llm-reasoning-seal-key"
-    local temporary_file="${secret_file}.tmp"
-
-    if [[ -n "${LLM_REASONING_SEAL_KEY:-}" ]]; then
-        return 0
-    fi
-    if [[ -f "$LIGHT_PORTAL_ENV_FILE" ]]; then
-        configured_value="$(awk -F= '$1 == "LLM_REASONING_SEAL_KEY" { sub(/^[^=]*=/, ""); print; exit }' "$LIGHT_PORTAL_ENV_FILE")"
-        if [[ -n "$configured_value" ]]; then
-            export LLM_REASONING_SEAL_KEY="$configured_value"
-            return 0
-        fi
-    fi
-
-    mkdir -p "$RELEASE_STATE_DIR"
-    if [[ -s "$secret_file" ]]; then
-        export LLM_REASONING_SEAL_KEY="$(<"$secret_file")"
-        return 0
-    fi
-    if "$CONTAINER_RUNTIME_CMD" inspect llm-gateway >/dev/null 2>&1; then
-        configured_value="$("$CONTAINER_RUNTIME_CMD" inspect llm-gateway \
-            --format '{{range .Config.Env}}{{println .}}{{end}}' \
-            | awk -F= '$1 == "LLM_REASONING_SEAL_KEY" { sub(/^[^=]*=/, ""); print; exit }')"
-        if [[ -n "$configured_value" ]]; then
-            umask 077
-            printf '%s' "$configured_value" > "$temporary_file"
-            mv "$temporary_file" "$secret_file"
-            chmod 600 "$secret_file"
-            export LLM_REASONING_SEAL_KEY="$configured_value"
-            log_info "Preserved the running local LLM reasoning seal key in $secret_file"
-            return 0
-        fi
-    fi
-
-    umask 077
-    openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n' > "$temporary_file"
-    mv "$temporary_file" "$secret_file"
-    chmod 600 "$secret_file"
-    log_info "Generated a persistent local LLM reasoning seal key in $secret_file"
-    export LLM_REASONING_SEAL_KEY="$(<"$secret_file")"
-}
-
 configure_local_runtime_identity() {
     export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
     export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
     export PORTAL_WORKSPACE_ROOT="${PORTAL_WORKSPACE_ROOT:-$BASE_DIR}"
     log_info "Using local runtime identity: ${LOCAL_UID}:${LOCAL_GID}"
-}
-
-prepare_operational_database_secret() {
-    local prepare_script
-    local secret_dir
-    local runtime_uid="${OPERATIONAL_RUNTIME_UID:-999}"
-    local runtime_gid="${OPERATIONAL_RUNTIME_GID:-999}"
-
-    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
-    case "${1:-}" in
-        stop|status|logs) return 0 ;;
-    esac
-
-    prepare_script="$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/prepare-operational-secret.sh"
-    secret_dir="$DOCKER_COMPOSE_DIR/postgres-db/secrets"
-    [[ -x "$prepare_script" ]] || {
-        log_error "Operational database secret initializer is missing: $prepare_script"
-        return 1
-    }
-
-    mkdir -p "$secret_dir"
-    "$CONTAINER_RUNTIME_CMD" run --rm --user 0:0 \
-        -v "$secret_dir:/runtime-secrets:Z" \
-        timescale/timescaledb:latest-pg17 \
-        chown -R "${LOCAL_UID}:${LOCAL_GID}" /runtime-secrets || {
-        log_error "Failed to make operational secrets available for validation"
-        return 1
-    }
-
-    OPERATIONAL_SECRET_DIR="$secret_dir" \
-        "$prepare_script" >/dev/null || {
-        log_error "Failed to prepare operational database secrets"
-        return 1
-    }
-    "$CONTAINER_RUNTIME_CMD" run --rm --user 0:0 \
-        -v "$secret_dir:/runtime-secrets:Z" \
-        timescale/timescaledb:latest-pg17 \
-        /bin/sh -ec 'find /runtime-secrets -mindepth 1 -maxdepth 1 -type f \( -name ".operations-*" -o -name "*-database-url" -o -name "a2a-authorized-context-key" \) -exec chown "$1:$2" {} +' \
-        runtime-secret-owner "$runtime_uid" "$runtime_gid" || {
-        log_error "Failed to assign operational secrets to the runtime identity"
-        return 1
-    }
-    log_info "Operational database URL file is ready (content redacted)"
 }
 
 operational_provisioner_paths() {
@@ -582,7 +495,6 @@ start_docker_compose() {
     if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
         log_info "Compose services were created; qualifying required runtime services..."
 
-        start_operational_store_provisioner || return 1
         validate_operational_property_projection || return 1
         wait_for_required_runtime_services || return 1
         log_success "Compose services started and passed runtime qualification"
@@ -1292,9 +1204,7 @@ case "${1:-}" in
     *)
         configure_release_image_env
         configure_light_portal_env
-        configure_local_reasoning_seal_key
         configure_local_runtime_identity
-        prepare_operational_database_secret "${1:-}"
         ;;
 esac
 
@@ -1364,8 +1274,10 @@ case "${1:-}" in
         echo "  CONTAINER_CMD=podman              Container command for exec/inspect checks"
         echo "  LIGHT_GATEWAY_HOST_PORT=443       Gateway host port (default 443)"
         echo "  LLM_GATEWAY_HOST_PORT=8444        Dedicated LLM gateway host port (default 8444)"
-        echo "  LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'  LLM gateway service token"
-        echo "  KNOWLEDGE_SNAPSHOT_AUTHORIZATION='...'  Token used by light-knowledge-admin snapshot refresh"
+        echo "  CODEX_API_KEY=...                 Optional Codex provider API key"
+        echo "  GROQ_API_KEY=...                  Optional Groq provider API key"
+        echo "  GEMINI_API_KEY=...                Optional Gemini provider API key"
+        echo "  NVIDIA_API_KEY=...                Optional NVIDIA provider API key"
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
         echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
@@ -1391,7 +1303,7 @@ case "${1:-}" in
         echo "  RELEASE_IMAGE_ENV_URL=...         Download docker-images.env with curl when local file is missing"
         echo "  RELEASE_IMAGE_ENV_S3_URI=...      Download docker-images.env with aws s3 cp when local file is missing"
         echo "  RELEASE_IMAGE_ENV_CACHE=...       Default cache path for downloaded docker-images.env"
-        echo "  LIGHT_PORTAL_ENV_FILE=...         Local secret env file (default: ~/.config/lightapi/light-portal.env)"
+        echo "  LIGHT_PORTAL_ENV_FILE=...         Local LLM provider env file (default: ~/.config/lightapi/light-portal.env)"
         ;;
     *)
         main

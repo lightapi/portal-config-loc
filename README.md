@@ -444,18 +444,20 @@ the same `networknt/light-gateway` image as the Portal BFF. It loads the
 snapshot with the shared development `envTag` of `dev` and exposes HTTPS on
 host port `8444` by default.
 
-Keep its long-lived Portal token outside git in the local Portal environment
-file (by default `~/.config/lightapi/light-portal.env`):
+The checked-in local Compose configuration supplies its development Portal
+identity. The local Portal environment file (by default
+`~/.config/lightapi/light-portal.env`) is only for LLM provider API keys:
 
 ```bash
-LLM_GATEWAY_LIGHT_PORTAL_AUTHORIZATION="Bearer ..."
+GROQ_API_KEY=...
+GEMINI_API_KEY=...
+NVIDIA_API_KEY=...
+CODEX_API_KEY=...
 ```
 
-The token must carry `sid=com.networknt.llm.gateway-1.0.0`. Provider keys remain
-optional at startup. `GROQ_API_KEY`, `GEMINI_API_KEY`, or `NVIDIA_API_KEY` can
-be supplied through the same file; requests for an unconfigured provider fail
-at runtime without preventing the local service graph from starting. Optional
-overrides are:
+Provider keys remain optional at startup; requests for an unconfigured provider
+fail at runtime without preventing the local service graph from starting.
+Non-secret optional overrides are:
 
 ```bash
 LLM_GATEWAY_HOST_PORT=8444
@@ -487,14 +489,8 @@ The `all-in-lt` Rust stack includes three Agent services backed by the shared
 
 All three select the shared `dev` Config Server environment. The local-only
 Compose file includes a different long-lived development token for each Agent.
-Each token contains the matching `sid`, the local host identity, and `env=dev`.
-The defaults can be overridden when testing a replacement token:
-
-```bash
-export LIGHT_AGENT_ACCOUNT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
-export LIGHT_AGENT_ADVISOR_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
-export LIGHT_AGENT_TECH_SUPPORT_LIGHT_PORTAL_AUTHORIZATION='Bearer ...'
-```
+Each token contains the matching `sid`, the local host identity, and `env=dev`;
+developers do not need to supply or manage these values.
 
 The historical tokens formerly embedded in the `light-fabric` `run-*` scripts
 did not contain an `env` claim. The Compose defaults were minted from the same
@@ -600,40 +596,29 @@ steve.hu@lightapi.net
 
 The `all-in-lt`, `all-in-pg`, and `all-in-one` development variants provide
 identical, enabled `instance-clone.yml` policies for every hybrid-command/query
-process. They share a committed development-only fallback key. Override it for
-any shared or externally reachable environment:
-
-```bash
-export INSTANCE_CLONE_PLAN_HMAC_KEY='<local-secret>'
-export INSTANCE_CLONE_PLAN_HMAC_KEY_ID='v1'
-```
-
-Do not import a real secret into configuration snapshots. Command and all query
-nodes must use the same key and key identifier.
+process. They share a committed development-only key; developers do not need
+to configure it. Command and all query nodes use the same key and key
+identifier.
 
 ## Operational Database Through Phase 6
 
-The active `all-in-lt` profile now creates an additive `operations` database
-beside `configserver` and `knowledge`. Startup prepares an ignored,
-owner-readable Agent URL file, applies the checksum-pinned operational metadata
-bundle, and validates the Host/environment binding before the Controller or
-Agents start. Controller keeps its primary Config Server connection and its
-Phase 3 execution connection. Every Agent now reads only the mounted
-`operations_agent_runtime` URL and persists Agent and embedded-memory state
-in `operations.agent_ops`; Workflow, A2A, Gateway evidence, tenant audit, and
-artifact metadata use their own schemas and credentials in the same scoped
-database. No operational rows are copied from Config Server.
+The active `all-in-lt` profile creates an additive `operations` database beside
+`configserver` and `knowledge`. Fixed local database URLs are defined directly
+in Compose. Each non-root runtime materializes its required private
+compatibility file inside its own container before starting; no host secret
+directory or ownership-changing helper is involved. The checksum-pinned
+operational metadata bundle and Host/environment validation remain unchanged.
+Controller, Agent, Workflow, A2A, Gateway evidence, tenant audit, and artifact
+metadata retain their separate roles and schemas. No operational rows are
+copied from Config Server.
 
-Direct Compose users must prepare the secret before `docker compose up`:
+Direct Compose users can start immediately:
 
 ```bash
 cd all-in-lt
-OPERATIONAL_SECRET_DIR=postgres-db/secrets \
-  postgres-db/operations/bin/prepare-operational-secret.sh
 docker compose up -d
 ```
 
-The normal `./scripts/deploy-local.sh lt` path does this automatically.
 `CLEAN_VOLUMES=true` explicitly destroys the named PostgreSQL volume and all
 three databases. Before any operational runtime has written application data,
 the narrower Phase 1 fallback removes only `operations`:

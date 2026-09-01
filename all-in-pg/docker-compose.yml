@@ -34,9 +34,9 @@ services:
   hybrid-command:
     image: networknt/portal-hybrid-command:2.2.1
     environment:
-      NOREPLAY_EMAIL_PASSWORD: ${NOREPLAY_EMAIL_PASSWORD}
-      INSTANCE_CLONE_PLAN_HMAC_KEY: ${INSTANCE_CLONE_PLAN_HMAC_KEY:-light-portal-development-only-instance-clone-hmac-key-v1}
-      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: ${INSTANCE_CLONE_PLAN_HMAC_KEY_ID:-v1}
+      NOREPLAY_EMAIL_PASSWORD: ""
+      INSTANCE_CLONE_PLAN_HMAC_KEY: light-portal-development-only-instance-clone-hmac-key-v1
+      INSTANCE_CLONE_PLAN_HMAC_KEY_ID: v1
       WORKFLOW_TOOL_ACCESS_APPROVAL_WF_DEF_ID: 01a012f0-3ccb-792c-9aba-752269ec0b29
       WORKFLOW_TOOL_ACCESS_APPROVAL_VERSION: 1.0.0
       WORKFLOW_TOOL_ACCESS_APPROVAL_DIGEST: sha256:29167fa1e53a00187685c8d459016fefbf69567dd974fc3a90d0d619ca3a887a
@@ -150,10 +150,10 @@ services:
       - ./light-gateway/lightapi/dist:/lightapi/dist
       - ./light-gateway/signin/dist:/signin/dist
     environment:
-      STATELESSAUTH_BOOTSTRAPTOKEN: ${STATELESSAUTH_BOOTSTRAPTOKEN}
-      STATELESSAUTH_GITHUBCLIENTSECRET: ${STATELESSAUTH_GITHUBCLIENTSECRET}
-      STATELESSAUTH_GOOGLECLIENTSECRET: ${STATELESSAUTH_GOOGLECLIENTSECRET}
-      STATELESSAUTH_FACEBOOKCLIENTSECRET: ${STATELESSAUTH_FACEBOOKCLIENTSECRET}
+      STATELESSAUTH_BOOTSTRAPTOKEN: ""
+      STATELESSAUTH_GITHUBCLIENTSECRET: ""
+      STATELESSAUTH_GOOGLECLIENTSECRET: ""
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ""
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
       # The following environment varialbe will enable the debug in the container.
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
