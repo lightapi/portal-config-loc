@@ -26,24 +26,6 @@ mcp-client.timeoutMs: 10000
 client.verifyHostname: false
 client.caCertPath: /keystore/ca.pem
 
-# Non-secret Agent operational-store binding. The credential stays in the
-# deployment-owned 0400 file mounted at databaseUrlFile.
-operationalStore.contractVersion: 1
-operationalStore.bindingId: f3a3579a-868e-43fa-8d74-33fddab752e3
-operationalStore.bindingDigest: sha256:1fff74fd52bf824b411a535a5e2a990adcf9de5093d11d15bf93c0f10ba6c0c2
-operationalStore.profileId: loc-dev-dedicated
-operationalStore.deploymentProfile: DEV_DEDICATED
-operationalStore.scopeKind: HOST_ENVIRONMENT
-operationalStore.scopeId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
-operationalStore.hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
-operationalStore.environment: dev
-operationalStore.serviceOwner: light-agent
-operationalStore.schema: agent_ops
-operationalStore.minimumSchemaVersion: 1
-operationalStore.expectedDatabase: operations
-operationalStore.databaseUrlFile: /run/secrets/operational-database-url
-operationalStore.credentialGeneration: 1
-
 # The complete runtimePolicy and agentPolicy namespaces are published by Light
 # Portal in the immutable Config Server values.yml snapshot. Local deployment
 # values contain only bootstrap and transport settings.

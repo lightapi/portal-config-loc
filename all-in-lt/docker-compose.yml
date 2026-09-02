@@ -49,9 +49,9 @@ x-light-agent-environment: &light-agent-environment
   LIGHT_ENV_TAG: "${LIGHT_AGENT_ENV_TAG:-dev}"
   LIGHT_AGENT_OPERATIONAL_DATABASE_URL: postgres://operations_agent_runtime:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef@postgres:5432/operations
   LIGHT_A2A_AUTHORIZED_CONTEXT_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  OPERATIONALSTORE_DATABASEURLFILE: /tmp/operational-database-url
-  A2APOLICY_AUTHORIZATIONCONTEXTKEYFILE: /tmp/a2a-authorized-context-key
-  A2AOUTBOUND_AUTHORIZATIONCONTEXTKEYFILE: /tmp/a2a-authorized-context-key
+  AGENT_OPERATIONALSTORE_DATABASEURLFILE: /tmp/operational-database-url
+  AGENT_A2APOLICY_AUTHORIZATIONCONTEXTKEYFILE: /tmp/a2a-authorized-context-key
+  AGENT_A2AOUTBOUND_AUTHORIZATIONCONTEXTKEYFILE: /tmp/a2a-authorized-context-key
 
 services:
 
@@ -677,7 +677,6 @@ services:
       <<: *light-agent-environment
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_AGENT_ACCOUNT_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWQ4MzQ5LTQxYzYtNzJlZi05NWMyLTQ0MjhhNDBkMGU0OSIsImV4cCI6MjEwMzA2MzAyNiwianRpIjoiNG0zNVhTNk5TU3VsUEI3bXN6ZnhadyIsImlhdCI6MTc4NzcwMzAyNiwibmJmIjoxNzg3NzAyOTA2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlkODM0OS00MWM2LTcyZWYtOTVjMi00NDI4YTQwZDBlNDkiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlkODM0OS00MWM2LTcyZWYtOTVjMi00NDI4YTQwZDBlNDkiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQuYWdlbnQuYWNjb3VudC0xLjAuMCJ9.octgBNpXANACvSjvS9Lm4kUGxIS0drTKiFjHScUAKgrZLUUcuS3r9E_U17ivzFREIXwhOJ7ssxyhJQNXPtj4GLuQwc7y1JW_smWkyco-TNCNZLXnGYkyhHMyNgw05bfSmNNLItQr22-ta0sCiLoifEtdGzZ_3Y8sb6GhumD4JVRds29zCmst-LMXPZA4OqoEi3OsODrZ6uLu5wVNZb9plp9SBSaUOuZxQNchdWD8w-uUv1rzYmDR3KerW9XEUD0O2Y8ZLNUZFEZ1oKth11iuOLQ6ml8SwyumkpgC9eD1_mmugBzs1OHxpsInILvlWn_olQYOc9kLfRbZn_C-zyBqGw}"
       LIGHT_AGENT_SERVICE_ID: com.networknt.agent.account-1.0.0
-      AGENTPOLICY_AGENTDEFID: 019d82bf-ab5e-791a-885c-d08aafa2b614
       SERVER_SERVICEID: com.networknt.agent.account-1.0.0
       LIGHT_AGENT_ADVERTISED_ADDRESS: light-agent
     hostname: light-agent
@@ -686,12 +685,17 @@ services:
   light-agent-advisor:
     <<: *light-agent-common
     ports:
-      - ${LIGHT_AGENT_ADVISOR_PORT:-8084}:8083
+      - ${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     environment:
       <<: *light-agent-environment
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_AGENT_ADVISOR_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWQ4MzQ4LWE2MWEtNzAyMC1iMTFjLTg0NmZjODE1YmUxZCIsImV4cCI6MjEwMzA2MzAyNiwianRpIjoieTlfYnpROVBTN21WQzFTOGpxa3BBUSIsImlhdCI6MTc4NzcwMzAyNiwibmJmIjoxNzg3NzAyOTA2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlkODM0OC1hNjFhLTcwMjAtYjExYy04NDZmYzgxNWJlMWQiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlkODM0OC1hNjFhLTcwMjAtYjExYy04NDZmYzgxNWJlMWQiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQuYWdlbnQuYWR2aXNvci0xLjAuMCJ9.6YZRtsJaZ4w35-2nOcJRyiZ5vYEPgAaaP5aZaD1vY5HS_qpoVMVMfdkfcll6p-dbXq-sE_qJtVeniDZTKRjvWrtrrmOTTo3FzjJcqMWHlplTplLdoY4D_3bDelpkIX5vac133_lMmwBX4RmJC1gRRfukXD7TzJ-BNfzPdzwmt4eTbbbo8V5ehohCPUqqFMNCEyvORVgVX-EIHO6-7Q2ZCkn7kC8KXDJgGouTwuPF331wyF7jzHP6Q8UTxznNYnOm5bziJaWKLJeeE7cFMzHY21iIyzZAfNeygM1Rc1W6dBCEbl_Eq68EazA970urmLVfZxNaxNHF_4Wzhru4ZKXEvQ}"
       LIGHT_AGENT_SERVICE_ID: com.networknt.agent.advisor-1.0.0
-      AGENTPOLICY_AGENTDEFID: 019d82be-e151-7ca5-8155-cdb04b2eb350
       SERVER_SERVICEID: com.networknt.agent.advisor-1.0.0
       LIGHT_AGENT_ADVERTISED_ADDRESS: light-agent-advisor
     hostname: light-agent-advisor
@@ -700,12 +704,17 @@ services:
   light-agent-tech-support:
     <<: *light-agent-common
     ports:
-      - ${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8083
+      - ${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     environment:
       <<: *light-agent-environment
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_AGENT_TECH_SUPPORT_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWQ4MzM3LTA1YzYtN2I2OS05Y2VlLWYxZjJmOTE3ZjAyYiIsImV4cCI6MjEwMzA2MzAyNiwianRpIjoiQ2s4LWw5NmFScXVuc21saTE4T3pfUSIsImlhdCI6MTc4NzcwMzAyNiwibmJmIjoxNzg3NzAyOTA2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlkODMzNy0wNWM2LTdiNjktOWNlZS1mMWYyZjkxN2YwMmIiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlkODMzNy0wNWM2LTdiNjktOWNlZS1mMWYyZjkxN2YwMmIiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQuYWdlbnQudGVjaC1zdXBwb3J0LTEuMC4wIn0.GfbPZCdMqmcjJ2ndmyrB33GW8dYk1ZqCCDwMvpMo1OOE9VaIwpAsiB8ssjhfbpwwqJhQiwqjgERXvS5MG-E9YR2Jl8niWeNgRl5dQD9cu9x73OWwSK125VdWRR7-xPk2qBnhUphuTiJANBzGR7DtpzxPqsKqoiIr_6XR-SbdQSXFHHHhbg4knm-mm3bSIZHKnMkPLoYUqgyw1yDk1UytEId_DR-j5AfemChA4s51W04ts8dNYrK7WUk_S-WErrTdJMM0329LhudVk7Z_zshRc7X4MeQoSDHtxc1biWrQ1LjBkd-HCaEgFgaP8M3HmSXvA6J0-_0XqAjGZ1cdVidV4Q}"
       LIGHT_AGENT_SERVICE_ID: com.networknt.agent.tech-support-1.0.0
-      AGENTPOLICY_AGENTDEFID: 019d82bd-dc73-7638-bc58-aaa33cb638c3
       SERVER_SERVICEID: com.networknt.agent.tech-support-1.0.0
       LIGHT_AGENT_ADVERTISED_ADDRESS: light-agent-tech-support
     hostname: light-agent-tech-support

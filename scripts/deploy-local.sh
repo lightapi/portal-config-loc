@@ -478,6 +478,35 @@ stop_docker_compose() {
     log_success "Compose services stopped"
 }
 
+# Keep preserved databases aligned with the first-boot runtime role contract.
+ensure_portal_runtime_database_access() {
+    log_info "Ensuring the Portal runtime database identity"
+    "$CONTAINER_RUNTIME_CMD" exec -i -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+        psql -h localhost -U postgres -d configserver -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'portal_loc_runtime') THEN
+        CREATE ROLE portal_loc_runtime LOGIN;
+    END IF;
+END
+$$;
+ALTER ROLE portal_loc_runtime LOGIN PASSWORD 'secret';
+GRANT CONNECT ON DATABASE configserver TO portal_loc_runtime;
+GRANT USAGE ON SCHEMA configserver, public TO portal_loc_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA configserver TO portal_loc_runtime;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA configserver TO portal_loc_runtime;
+GRANT EXECUTE ON ALL ROUTINES IN SCHEMA configserver TO portal_loc_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA configserver
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO portal_loc_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA configserver
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO portal_loc_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA configserver
+    GRANT EXECUTE ON ROUTINES TO portal_loc_runtime;
+ALTER ROLE portal_loc_runtime IN DATABASE configserver
+    SET search_path = configserver, public;
+SQL
+}
+
 # Start Compose
 start_docker_compose() {
     log_info "Starting Compose services..."
@@ -489,6 +518,11 @@ start_docker_compose() {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
         exit 1
     }
+
+    # Repair preserved databases before any projection writer starts.
+    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d postgres || return 1
+    wait_for_postgres_ready || return 1
+    ensure_portal_runtime_database_access || return 1
 
     # Start services in detached mode
     log_info "Starting services..."
@@ -628,10 +662,13 @@ wait_for_required_runtime_services() {
 
 validate_operational_property_projection() {
     local required_property_count="15"
+    local required_agent_policy_property_count="33"
     local agent_snapshot_count="0"
+    local runnable_agent_snapshot_count="0"
     local catalog_property_count="0"
     local catalog_path="${OPERATIONAL_PROPERTY_CATALOG_FILE:-$BASE_DIR/implementation/light-portal/development-database-topology/phase7/operational-store-config-metadata.cloud.json}"
     local required_properties="'operationalStore.contractVersion','operationalStore.bindingId','operationalStore.bindingDigest','operationalStore.profileId','operationalStore.deploymentProfile','operationalStore.scopeKind','operationalStore.scopeId','operationalStore.hostId','operationalStore.environment','operationalStore.serviceOwner','operationalStore.schema','operationalStore.minimumSchemaVersion','operationalStore.expectedDatabase','operationalStore.databaseUrlFile','operationalStore.credentialGeneration'"
+    local required_agent_policy_properties="'runtimePolicy.publicationId','runtimePolicy.releaseVersion','runtimePolicy.policySnapshotId','runtimePolicy.policyVersion','runtimePolicy.policyDigest','runtimePolicy.contentDigest','runtimePolicy.audience','runtimePolicy.host','runtimePolicy.serviceId','runtimePolicy.envTag','runtimePolicy.sourceEventSequence','runtimePolicy.schemaVersion','runtimePolicy.createdAt','runtimePolicy.validFrom','runtimePolicy.refreshAfter','runtimePolicy.expiresAt','runtimePolicy.revocationEpoch','runtimePolicy.compatibilityGeneration','portalAssociation.runtimeInstanceId','agentPolicy.agentDefId','agentPolicy.definitionVersion','agentPolicy.prompt.system','agentPolicy.model.alias','agentPolicy.policySnapshot.snapshotId','agentPolicy.policySnapshot.definitionDigest','agentPolicy.policySnapshot.productProfileDigest','agentPolicy.policySnapshot.modelDigest','agentPolicy.policySnapshot.catalogDigest','agentPolicy.policySnapshot.memoryDigest','agentPolicy.policySnapshot.executionDigest','agentPolicy.policySnapshot.channelDigest','agentPolicy.policySnapshot.dataBoundaryDigest','agentPolicy.policySnapshot.tools'"
 
     [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
     wait_for_postgres_ready || {
@@ -667,7 +704,21 @@ validate_operational_property_projection() {
         return 1
     fi
 
-    log_info "Validated the operational-store property catalog and 3 current Agent snapshots"
+    runnable_agent_snapshot_count="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
+        psql -h localhost -U postgres -d configserver -tAc \
+        "SELECT count(*) FROM (SELECT s.snapshot_id FROM configserver.config_snapshot_t s JOIN configserver.config_snapshot_property_t p ON p.snapshot_id=s.snapshot_id WHERE s.current AND s.service_id IN ('com.networknt.agent.account-1.0.0','com.networknt.agent.advisor-1.0.0','com.networknt.agent.tech-support-1.0.0') AND p.property_name IN ($required_agent_policy_properties) AND NULLIF(btrim(p.property_value), '') IS NOT NULL GROUP BY s.snapshot_id HAVING count(DISTINCT p.property_name) = $required_agent_policy_property_count) runnable_agent_snapshots;" \
+        2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ ! "$runnable_agent_snapshot_count" =~ ^[0-9]+$ ]]; then
+        log_error "Cannot query mandatory Agent policy snapshot properties"
+        return 1
+    fi
+    if [[ "$runnable_agent_snapshot_count" != "3" ]]; then
+        log_error "Only ${runnable_agent_snapshot_count:-0}/3 current Agent snapshots contain the complete mandatory runtimePolicy, portalAssociation, and agentPolicy projection."
+        log_error "Publish and activate the base Agent policy for all three local Agent runtimes before deployment; an operational-store-only snapshot is not runnable."
+        return 1
+    fi
+
+    log_info "Validated the operational-store property catalog and 3 runnable Agent snapshots"
 }
 
 start_event_bootstrap_services() {
@@ -689,6 +740,11 @@ start_event_bootstrap_services() {
 
     wait_for_postgres_ready || {
         log_error "Postgres did not become ready"
+        return 1
+    }
+
+    ensure_portal_runtime_database_access || {
+        log_error "Cannot prepare the Portal runtime database identity"
         return 1
     }
 
