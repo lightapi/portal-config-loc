@@ -68,7 +68,7 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; the
             echo "The all-in-lt Java service profile has been removed; use the Rust stack."
             exit 1
             ;;
-        ""|stop|start|restart|status|logs|provisioner-start|provisioner-stop|provisioner-status|help|-h|--help)
+        ""|stop|start|restart|status|logs|help|-h|--help)
             ;;
         *)
             echo "Invalid service type: $1"
@@ -179,67 +179,6 @@ configure_local_runtime_identity() {
     export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
     export PORTAL_WORKSPACE_ROOT="${PORTAL_WORKSPACE_ROOT:-$BASE_DIR}"
     log_info "Using local runtime identity: ${LOCAL_UID}:${LOCAL_GID}"
-}
-
-operational_provisioner_paths() {
-    OPERATIONAL_PROVISIONER_SCRIPT="$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/operational-store-provisioner.sh"
-    OPERATIONAL_PROVISIONER_TOKEN_FILE="${OPERATIONAL_PROVISIONER_TOKEN_FILE:-$RELEASE_STATE_DIR/operational-store-provisioner-token}"
-    OPERATIONAL_PROVISIONER_CONTROL_URL_FILE="${OPERATIONAL_PROVISIONER_CONTROL_URL_FILE:-$RELEASE_STATE_DIR/operational-store-control-database-url}"
-    OPERATIONAL_PROVISIONER_SECRET_ROOT="${OPERATIONAL_PROVISIONER_SECRET_ROOT:-$RELEASE_STATE_DIR/operational-store-bindings}"
-}
-
-prepare_operational_provisioner_runtime() {
-    local temporary_file
-
-    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
-    operational_provisioner_paths
-    mkdir -p "$RELEASE_STATE_DIR" "$OPERATIONAL_PROVISIONER_SECRET_ROOT"
-    chmod 700 "$OPERATIONAL_PROVISIONER_SECRET_ROOT"
-    temporary_file="${OPERATIONAL_PROVISIONER_CONTROL_URL_FILE}.tmp"
-    umask 077
-    printf '%s' 'postgresql://postgres:secret@postgres:5432/configserver?options=-csearch_path%3Dconfigserver' > "$temporary_file"
-    mv "$temporary_file" "$OPERATIONAL_PROVISIONER_CONTROL_URL_FILE"
-    chmod 600 "$OPERATIONAL_PROVISIONER_CONTROL_URL_FILE"
-}
-
-stop_operational_store_provisioner() {
-    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
-    cd "$DOCKER_COMPOSE_DIR" || return 1
-    if [[ -n "$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner 2>/dev/null)" ]]; then
-        log_info "Stopping operational-store provisioner"
-        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning stop operational-store-provisioner
-    fi
-}
-
-start_operational_store_provisioner() {
-    local container_id=""
-    local state=""
-
-    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
-    prepare_operational_provisioner_runtime
-    [[ -x "$OPERATIONAL_PROVISIONER_SCRIPT" ]] || {
-        log_error "Operational-store provisioner is missing: $OPERATIONAL_PROVISIONER_SCRIPT"
-        return 1
-    }
-    if [[ ! -s "$OPERATIONAL_PROVISIONER_TOKEN_FILE" ]]; then
-        log_warning "Operational-store provisioner is not started because its token file is missing: $OPERATIONAL_PROVISIONER_TOKEN_FILE"
-        log_warning "Create a client-credentials service token with only the operational-store-provisioner role, store it with mode 600, then run deploy-local.sh lt start."
-        return 0
-    fi
-    chmod 600 "$OPERATIONAL_PROVISIONER_TOKEN_FILE"
-    cd "$DOCKER_COMPOSE_DIR" || return 1
-    log_info "Starting operational-store provisioner Compose service"
-    "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning \
-        up -d --build --force-recreate operational-store-provisioner || return 1
-    sleep 2
-    container_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner)"
-    state="$([[ -n "$container_id" ]] && "$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
-    if [[ "$state" != "running" ]]; then
-        log_error "Operational-store provisioner failed to stay running"
-        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning logs --tail=80 operational-store-provisioner || true
-        return 1
-    fi
-    log_success "Operational-store provisioner Compose service is running"
 }
 
 load_env_file_var() {
@@ -459,8 +398,6 @@ check_prerequisites() {
 # Stop Compose
 stop_docker_compose() {
     log_info "Stopping Compose services..."
-
-    stop_operational_store_provisioner
 
     cd "$DOCKER_COMPOSE_DIR" || {
         log_error "Cannot cd to $DOCKER_COMPOSE_DIR"
@@ -692,14 +629,14 @@ validate_operational_property_projection() {
 
     agent_snapshot_count="$("$CONTAINER_RUNTIME_CMD" exec -e PGPASSWORD="${EVENT_IMPORT_DB_PASSWORD:-secret}" postgres \
         psql -h localhost -U postgres -d configserver -tAc \
-        "SELECT count(*) FROM (SELECT s.service_id FROM configserver.config_snapshot_t s JOIN configserver.config_snapshot_property_t p ON p.snapshot_id = s.snapshot_id WHERE s.current AND s.service_id IN ('com.networknt.agent.account-1.0.0','com.networknt.agent.advisor-1.0.0','com.networknt.agent.tech-support-1.0.0') AND p.property_name IN ($required_properties) AND NULLIF(btrim(p.property_value), '') IS NOT NULL GROUP BY s.service_id HAVING count(DISTINCT p.property_name) = $required_property_count) ready_agent_snapshots;" \
+        "SELECT count(*) FROM (SELECT s.snapshot_id FROM configserver.config_snapshot_t s JOIN configserver.config_snapshot_property_t p ON p.snapshot_id = s.snapshot_id WHERE s.current AND s.service_id IN ('com.networknt.agent.account-1.0.0','com.networknt.agent.advisor-1.0.0','com.networknt.agent.tech-support-1.0.0') AND p.property_name IN ($required_properties) AND NULLIF(btrim(p.property_value), '') IS NOT NULL GROUP BY s.snapshot_id, s.host_id, s.env_tag HAVING count(DISTINCT p.property_name) = $required_property_count AND max(CASE WHEN p.property_name='operationalStore.contractVersion' THEN p.property_value END)='2' AND max(CASE WHEN p.property_name='operationalStore.deploymentProfile' THEN p.property_value END)='CUSTOMER_MANAGED' AND max(CASE WHEN p.property_name='operationalStore.scopeKind' THEN p.property_value END)='HOST' AND max(CASE WHEN p.property_name='operationalStore.scopeId' THEN p.property_value END)=s.host_id::text AND max(CASE WHEN p.property_name='operationalStore.hostId' THEN p.property_value END)=s.host_id::text AND max(CASE WHEN p.property_name='operationalStore.environment' THEN p.property_value END)=s.env_tag AND max(CASE WHEN p.property_name='operationalStore.serviceOwner' THEN p.property_value END)='light-agent' AND max(CASE WHEN p.property_name='operationalStore.schema' THEN p.property_value END)='agent_ops') ready_agent_snapshots;" \
         2>/dev/null | tr -d '[:space:]' || true)"
     if [[ ! "$agent_snapshot_count" =~ ^[0-9]+$ ]]; then
         log_error "Cannot query current Agent snapshot properties"
         return 1
     fi
     if [[ "$agent_snapshot_count" != "3" ]]; then
-        log_error "Only ${agent_snapshot_count:-0}/3 current Agent snapshots contain the complete operational-store projection."
+        log_error "Only ${agent_snapshot_count:-0}/3 current Agent snapshots contain a complete, authority-matching v2 operational-store projection."
         log_error "Assign the operational-store property catalog to the three Agent product versions and regenerate their instance snapshots before deployment."
         return 1
     fi
@@ -1148,23 +1085,50 @@ bootstrap_events_if_requested() {
     import_events || return 1
     log_info "Waiting for asynchronous baseline projection cursor before full-stack startup"
     wait_for_baseline_projection_cursor
+    # IMPORT_EVENTS=auto returns early for an existing event store, before
+    # import_events resolves EVENT_IMPORTER_IMAGE. Resolve it here as well so
+    # the delta importer cannot silently fall back to an unrelated :latest
+    # image whose event-creation policy may not match the running Portal.
+    load_env_file_var EVENT_IMPORTER_IMAGE
+    CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" COMPOSE_CMD="${DOCKER_COMPOSE_CMD[*]}" \
+        EVENT_IMPORTER_IMAGE="${EVENT_IMPORTER_IMAGE:-}" \
+        RELEASE_IMAGE_ENV_FILE="$RELEASE_IMAGE_ENV_FILE" \
+        PORTAL_STACK_DIR="$DOCKER_COMPOSE_DIR" \
+        "$SCRIPT_DIR/import-event-deltas.sh" || return 1
+    local registration_manifest="$DOCKER_COMPOSE_DIR/postgres-db/operations/operational-databases.tsv"
+    if [[ -f "$registration_manifest" ]]; then
+        log_info "Waiting for the three operational-store registrations and publications"
+        wait_for_baseline_projection_cursor || return 1
+        CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
+            OPERATIONAL_DATABASE_MANIFEST="$registration_manifest" \
+            "$SCRIPT_DIR/wait-for-operational-store-registrations.sh" || return 1
+    fi
+    log_info "Refreshing current config snapshots after event deltas"
+    CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
+        "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
 }
 
 apply_requested_db_patches() {
     local patch_args=()
     local target_schema="public"
+    local default_registration_patch="$DOCKER_COMPOSE_DIR/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
     if [[ -z "${PORTAL_DB_PATCHES:-}" ]]; then
-        return 0
+        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" && -f "$default_registration_patch" ]]; then
+            patch_args=("$default_registration_patch")
+        else
+            return 0
+        fi
+    else
+        # Consume the complete value so a readable multiline patch list behaves
+        # the same as a single whitespace-separated line.
+        IFS=$' \t\n' read -r -d '' -a patch_args < <(printf '%s\0' "$PORTAL_DB_PATCHES")
     fi
     if is_true "${CLEAN_VOLUMES:-false}"; then
         log_info "Skipping PORTAL_DB_PATCHES because CLEAN_VOLUMES recreates the database from current init.sql."
         return 0
     fi
 
-    # Consume the complete value so a readable multiline patch list behaves
-    # the same as a single whitespace-separated line.
-    IFS=$' \t\n' read -r -d '' -a patch_args < <(printf '%s\0' "$PORTAL_DB_PATCHES")
     if ((${#patch_args[@]} == 0)); then
         log_error "PORTAL_DB_PATCHES did not contain any patch paths"
         return 1
@@ -1269,12 +1233,16 @@ case "${1:-}" in
         stop_docker_compose
         ;;
     "start")
+        [[ -n "${IMPORT_EVENTS+x}" ]] || IMPORT_EVENTS=auto
+        apply_requested_db_patches || exit 1
         bootstrap_events_if_requested
         start_docker_compose
         ;;
     "restart")
         stop_docker_compose
         sleep 2
+        [[ -n "${IMPORT_EVENTS+x}" ]] || IMPORT_EVENTS=auto
+        apply_requested_db_patches || exit 1
         bootstrap_events_if_requested
         start_docker_compose
         ;;
@@ -1283,23 +1251,6 @@ case "${1:-}" in
         ;;
     "logs")
         cd "$DOCKER_COMPOSE_DIR" && "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" logs -f --tail=100
-        ;;
-    "provisioner-start")
-        start_operational_store_provisioner
-        ;;
-    "provisioner-stop")
-        stop_operational_store_provisioner
-        ;;
-    "provisioner-status")
-        cd "$DOCKER_COMPOSE_DIR" || exit 1
-        provisioner_id="$("${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" --profile operational-store-provisioning ps -q operational-store-provisioner)"
-        if [[ -n "$provisioner_id" ]] &&
-           [[ "$("$CONTAINER_RUNTIME_CMD" inspect -f '{{.State.Status}}' "$provisioner_id" 2>/dev/null)" == "running" ]]; then
-            echo "operational-store provisioner Compose service is running"
-        else
-            echo "operational-store provisioner Compose service is not running"
-            exit 1
-        fi
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [config] [service-type] [command]"
@@ -1320,9 +1271,6 @@ case "${1:-}" in
         echo "  restart         Restart Compose services"
         echo "  status          Show Compose status"
         echo "  logs            Follow Compose logs"
-        echo "  provisioner-start   Start only the operational-store provisioner Compose service"
-        echo "  provisioner-stop    Stop only the operational-store provisioner Compose service"
-        echo "  provisioner-status  Show operational-store provisioner Compose service status"
         echo "  help            Show this help message"
         echo ""
         echo "Environment:"
@@ -1337,13 +1285,11 @@ case "${1:-}" in
         echo "  LIGHT_PORTAL_ASSET_BASE_URL=...   CDN base URL for released asset zip files"
         echo "  RELEASE_ASSET_CACHE_DIR=...       Cache directory for downloaded asset zip files"
         echo "  REFRESH_RELEASE_ASSETS=true       Refresh cached assets and replace service JARs"
-        echo "  IMPORT_EVENTS=auto                Verify/import signed events.zip only when event_store_t is empty (default for full deployment)"
+        echo "  IMPORT_EVENTS=auto                Verify/import the baseline when empty and apply release deltas (default for deploy/start/restart)"
         echo "  IMPORT_EVENTS=false               Skip event import"
         echo "  IMPORT_EVENTS=true                Require signed environment bootstrap (destination must be empty)"
         echo "  PORTAL_DB_PATCHES='path ...'      Apply these ordered SQL patches to a preserved local database"
         echo "  OPERATIONAL_PROPERTY_CATALOG_FILE=...  Operational-store property catalog event file used in preflight guidance"
-        echo "  OPERATIONAL_PROVISIONER_TOKEN_FILE=...  Mode-600 service token for the operational-store worker"
-        echo "  OPERATIONAL_PROVISIONER_LEASE_SECONDS=600  Local provider lease duration for initial database bootstrap"
         echo "  RUNTIME_QUALIFICATION_TIMEOUT_SECONDS=120  Maximum wait for required all-in-lt services"
         echo "  RUNTIME_QUALIFICATION_INTERVAL_SECONDS=2   Seconds between required-service checks"
         echo "  EVENT_IMPORT_RUNNER=container     Use container, local, or auto importer runner"

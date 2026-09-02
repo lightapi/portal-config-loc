@@ -1,5 +1,0 @@
-FROM docker:27-cli
-
-RUN apk add --no-cache bash coreutils curl openssl postgresql-client util-linux
-
-ENTRYPOINT ["/bin/bash"]

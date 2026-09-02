@@ -620,7 +620,7 @@ docker compose up -d
 ```
 
 `CLEAN_VOLUMES=true` explicitly destroys the named PostgreSQL volume and all
-three databases. Before any operational runtime has written application data,
+five databases. Before any operational runtime has written application data,
 the narrower Phase 1 fallback removes only `operations`:
 
 ```bash
