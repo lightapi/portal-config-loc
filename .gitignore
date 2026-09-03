@@ -30,6 +30,9 @@ all-in-one/log-monitor
 
 all-in-lt/postgres-db/data/
 
+# Instance-specific Host exports are private and must never enter release artifacts.
+data/private-event-deltas/
+
 all-in-pg/postgres-db/data/
 dist/
 .gitnexus

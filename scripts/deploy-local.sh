@@ -1095,6 +1095,15 @@ bootstrap_events_if_requested() {
         RELEASE_IMAGE_ENV_FILE="$RELEASE_IMAGE_ENV_FILE" \
         PORTAL_STACK_DIR="$DOCKER_COMPOSE_DIR" \
         "$SCRIPT_DIR/import-event-deltas.sh" || return 1
+    if [[ "${PORTAL_SKIP_INSTANCE_EVENT_DELTAS:-false}" == "true" ]]; then
+        log_info "Skipping private instance event deltas"
+    else
+        CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
+            EVENT_IMPORTER_IMAGE="${EVENT_IMPORTER_IMAGE:-}" \
+            RELEASE_IMAGE_ENV_FILE="$RELEASE_IMAGE_ENV_FILE" \
+            PORTAL_STACK_DIR="$DOCKER_COMPOSE_DIR" \
+            "$SCRIPT_DIR/import-instance-event-deltas.sh" || return 1
+    fi
     local registration_manifest="$DOCKER_COMPOSE_DIR/postgres-db/operations/operational-databases.tsv"
     if [[ -f "$registration_manifest" ]]; then
         log_info "Waiting for the three operational-store registrations and publications"
@@ -1103,7 +1112,7 @@ bootstrap_events_if_requested() {
             OPERATIONAL_DATABASE_MANIFEST="$registration_manifest" \
             "$SCRIPT_DIR/wait-for-operational-store-registrations.sh" || return 1
     fi
-    log_info "Refreshing current config snapshots after event deltas"
+    log_info "Refreshing current config snapshots after baseline/private event deltas"
     CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
         "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
 }
