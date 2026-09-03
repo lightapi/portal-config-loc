@@ -2,6 +2,10 @@
 
 This repository contains the local portal configuration and Docker Compose stacks used for service and UI development. It is intended for full-stack and front-end developers who need to work with both the backend services and the portal UI.
 
+The canonical service, environment-variable, secret, port, dependency, and
+operational-storage reference is the
+[portal-config-loc operations guide](https://doc.lightapi.net/operations/docker-compose/portal-config-loc.html).
+
 To use this repository, you must also clone the `portal-view` repository and run a local Node.js server to render the UI, which connects to the services started through the Docker Compose stacks in this repository.
 
 If you are a backend developer, or simply want to run the complete application without cloning additional GitHub repositories, follow the CLI installation instructions provided in the [light-portal-install](https://github.com/lightapi/light-portal-install) repository.
