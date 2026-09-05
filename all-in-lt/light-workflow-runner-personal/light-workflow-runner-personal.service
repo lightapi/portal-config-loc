@@ -1,0 +1,18 @@
+[Unit]
+Description=Local personal Codex execution runner
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/workspace/portal-config-loc/all-in-lt/light-workflow-runner-personal
+Environment=LIGHT_WORKFLOW_RUNNER_CONFIG_FILE=%h/workspace/portal-config-loc/all-in-lt/light-workflow-runner-personal/.runtime/runner.yml
+Environment=SSL_CERT_FILE=%h/workspace/portal-config-loc/all-in-lt/light-controller-rust/ca.pem
+Environment=RUST_LOG=info
+ExecStart=%h/workspace/portal-config-loc/all-in-lt/light-workflow-runner-personal/.runtime/light-workflow-runner
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=35
+UMask=0077
+
+[Install]
+WantedBy=default.target
