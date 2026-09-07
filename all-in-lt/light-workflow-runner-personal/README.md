@@ -28,6 +28,39 @@ Portal workflow product is configured to dispatch work to this personal pool.
 Do not start a second foreground runner while the user service is active:
 both would use the same enrollment, health port, and execution journal.
 
+## September 7 execution recovery
+
+A base deployment recreated Controller with `CONTROLLER_RUNNER_ENABLED=false`,
+so `/internal/execution/results` returned 404 and all three agents repeatedly
+logged `EXECUTION_SERVICE_ERROR`. Reapplying the private local overlay restored
+runner enablement, the admission mount, runner JWT audience, and agents'
+`execution.invoke` credentials. No Controller rebuild was required.
+
+The recovered overlay retains Controller image
+`networknt/controller-rs:2.3.5-dev.20260907.0302` and uses the locally built
+`networknt/light-agent:2.3.5-dev.20260907.chat-auth` for all three agents. The latter
+removes the incoming user token's agent-specific service-claim requirement.
+It has not been published to a registry. Authenticated execution-result probes
+returned HTTP 200 for Account, Advisor, and Tech Support, and the personal runner
+registered again.
+
+After future base deployments, update the overlay's image entries only to builds
+known to contain the required fixes. In particular, retain the local `chat-auth`
+agent image until a replacement release containing the service-claim removal is
+built and verified. A different machine cannot pull this unpublished tag: build
+it locally from the patched source, or use a published release that includes the
+fix. Switching to an older published tag restores the original chat failure.
+
+The overlay's explicit `image:` entries override the base Compose file's
+`${LIGHT_AGENT_IMAGE:-...}` setting. Changing that environment variable alone
+does not update agents when this overlay is applied. Check the merged image
+selection before running `start.sh`. The private overlay contains credentials;
+keep it untracked and do
+not paste its contents into logs. Its settings are still required in addition
+to the base Compose file. Merely setting `CONTROLLER_RUNNER_ENABLED=true` omits
+the required admission path and runner audience. Recreating the controller
+applies environment changes; a simple container restart does not.
+
 ## Remaining Portal coding prerequisite
 
 The sibling `light-portal` source now accepts a validated coding profile from
