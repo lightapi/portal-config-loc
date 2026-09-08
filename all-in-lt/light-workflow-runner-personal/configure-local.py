@@ -92,12 +92,7 @@ config['agentWorker'].update(originServiceId=agent_claims['sid'], executable=str
 env = dict(os.environ, LIGHT_WORKFLOW_RUNNER_CONFIG_FILE=str(runtime / 'runner.yml'))
 admission = output(str(runner), 'print-admission', subject, 'light-workflow', env=env)
 (runtime / 'admission.json').write_text(admission)
-services = {'controller': {'image': containers['controller']['Config']['Image'],
-    'ports': ['127.0.0.1:8438:8438'],
-    'environment': {'CONTROLLER_RUNNER_ENABLED': 'true',
-                    'CONTROLLER_RUNNER_ADMISSION_PATH': '/run/runner-admission.json',
-                    'CONTROLLER_RUNNER_JWT_AUDIENCE': 'urn:lightapi:runner'},
-    'volumes': [str(runtime / 'admission.json') + ':/run/runner-admission.json:ro']}}
+services = {}
 for name in ['light-agent', 'light-agent-advisor', 'light-agent-tech-support']:
     values = dict(v.split('=', 1) for v in containers[name]['Config']['Env'])
     token = values['LIGHT_PORTAL_AUTHORIZATION'].removeprefix('Bearer ')
@@ -107,7 +102,6 @@ for name in ['light-agent', 'light-agent-advisor', 'light-agent-tech-support']:
         scopes = scopes.split()
     claims['scp'] = sorted(set(scopes) | {'execution.invoke'})
     claims['scope'] = ' '.join(claims['scp'])
-    services[name] = {'image': containers[name]['Config']['Image'],
-                      'environment': {'LIGHT_PORTAL_AUTHORIZATION': 'Bearer ' + sign(claims)}}
-write_private(runtime / 'compose.yml', yaml.safe_dump({'services': services}, sort_keys=False))
-print('Generated exact runner admission and private local Compose overlay. Runner JWT expires in 30 days.')
+    services[name] = {'environment': {'LIGHT_PORTAL_AUTHORIZATION': 'Bearer ' + sign(claims)}}
+write_private(runtime / 'credentials.compose.yml', yaml.safe_dump({'services': services}, sort_keys=False))
+print('Generated exact runner admission and private credentials overlay (no image pins). Runner JWT expires in 30 days.')

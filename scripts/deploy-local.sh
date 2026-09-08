@@ -78,6 +78,20 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; the
     esac
 fi
 
+# A locally enrolled runner must survive normal stack redeployments. This private
+# file contains credentials only; image versions still come from release values.
+if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+   [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
+    if [[ ! -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/admission.json" ]]; then
+        echo "Personal runner credentials exist but admission.json is missing; run configure-local.py." >&2
+        exit 1
+    fi
+    DOCKER_COMPOSE_FILES+=(
+        -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/compose.yml"
+        -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml"
+    )
+fi
+
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
 RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"
@@ -157,6 +171,13 @@ configure_release_image_env() {
     fi
 
     ensure_release_image_env_file || true
+
+    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+       [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]] &&
+       [[ ! -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
+        log_error "An enrolled personal runner requires the release image env file: $RELEASE_IMAGE_ENV_FILE"
+        return 1
+    fi
 
     if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
        [[ "$CONTROLLER_TYPE" == "rust" ]] &&
@@ -381,13 +402,14 @@ check_prerequisites() {
         exit 1
     fi
 
-    if [ "${#DOCKER_COMPOSE_FILES[@]}" -gt 3 ]; then
-        local override_file="${DOCKER_COMPOSE_FILES[3]}"
-        if [ ! -f "$override_file" ]; then
-            log_error "docker-compose override file not found at $override_file"
+    local compose_index compose_file
+    for ((compose_index=1; compose_index<${#DOCKER_COMPOSE_FILES[@]}; compose_index+=2)); do
+        compose_file="${DOCKER_COMPOSE_FILES[$compose_index]}"
+        if [[ ! -f "$compose_file" ]]; then
+            log_error "Compose file not found: $compose_file"
             exit 1
         fi
-    fi
+    done
 
     check_gateway_host_port
     ensure_release_assets
@@ -1234,6 +1256,17 @@ case "${1:-}" in
         configure_release_image_env
         configure_light_portal_env
         configure_local_runtime_identity
+        ;;
+esac
+
+# Reject incompatible agent images before any stop/recreate or database mutation.
+case "${1:-}" in
+    ""|start|restart)
+        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+           [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
+            bash "$SCRIPT_DIR/verify-agent-image.sh" "$CONTAINER_RUNTIME_CMD" \
+                "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" || exit 1
+        fi
         ;;
 esac
 
