@@ -24,7 +24,10 @@ fi
 grep -q 'OPERATIONAL_DATABASE_URL:' "$compose_file"
 grep -q 'GATEWAY_DATABASE_URL:' "$compose_file"
 grep -q 'host_dir="/source/operational-hosts/\$${OPERATIONAL_RUNTIME_HOST:-dev.lightapi.net}"' "$compose_file"
-grep -q 'GATEWAYEVIDENCE_DATABASEURLFILE: /run/secrets/operational-database-url' "$compose_file"
+if grep -Eq 'GATEWAYEVIDENCE_|GATEWAY_EVIDENCE_|gatewayEvidence\.|gateway-evidence\.' "$compose_file"; then
+  echo "gateway evidence configuration must come from Portal instance properties" >&2
+  exit 1
+fi
 grep -q 'OPERATIONALSTORE_DATABASEURLFILE: /run/secrets/operational-database-url' "$compose_file"
 grep -q 'AGENT_OPERATIONALSTORE_DATABASEURLFILE: /run/secrets/operational-database-url' "$compose_file"
 if grep -Eq 'LIGHT_(AGENT_OPERATIONAL|WORKFLOW|GATEWAY_EVIDENCE|A2A)_DATABASE_URL:' "$compose_file"; then
