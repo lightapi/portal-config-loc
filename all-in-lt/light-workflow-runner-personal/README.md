@@ -169,3 +169,20 @@ generate the admission document with `light-workflow-runner print-admission`.
 The controller runner endpoint, admission file, and a JWT with `runner.connect`
 must be enabled separately; the subscription smoke does not weaken or bypass
 those platform authorization requirements.
+
+## codex-personal in the local stack
+
+The base `all-in-lt/docker-compose.yml` now includes `light-agent-codex-personal`
+and the controller runner admission settings. The prepared files
+`.runtime/codex-personal/service.jwt` and `.runtime/codex-personal/admission.json`
+are required and remain private. The native runner continues to run through the
+`light-workflow-runner-personal` user systemd service with its codex-personal
+configuration. The generated codex-personal Compose overlay is no longer needed
+for normal stack startup.
+
+The LLM gateway loads `${LIGHT_PORTAL_ENV_FILE}` (default
+`~/.config/lightapi/light-portal.env`) directly as its service environment file.
+Update provider credentials there. From `all-in-lt`, apply configuration changes
+with `docker compose up -d`; `docker compose restart` alone does not apply changed
+environment variables or add services. A fresh checkout must prepare the private
+codex-personal runtime files before starting this stack.

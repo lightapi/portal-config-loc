@@ -8,4 +8,4 @@ services:
       CONTROLLER_RUNNER_ADMISSION_PATH: /run/runner-admission.json
       CONTROLLER_RUNNER_JWT_AUDIENCE: urn:lightapi:runner
     volumes:
-      - ./light-workflow-runner-personal/.runtime/admission.json:/run/runner-admission.json:ro
+      - ./light-workflow-runner-personal/.runtime/codex-personal/admission.json:/run/runner-admission.json:ro,Z

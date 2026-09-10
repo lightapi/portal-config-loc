@@ -260,10 +260,11 @@ services:
         condition: service_healthy
 
   controller:
-    image: ${CONTROLLER_RS_IMAGE:-networknt/controller-rs:latest}
+    image: ${CONTROLLER_RS_IMAGE:-networknt/controller-rs:2.3.5-dev.20260909.2338}
     volumes:
       - ./light-controller-rust:/keystore:ro,z
       - controller-runtime-secrets:/run/secrets:ro
+      - ./light-workflow-runner-personal/.runtime/codex-personal/admission.json:/run/runner-admission.json:ro,Z
     environment:
       CONTROLLER_ADDR: 0.0.0.0:8438
       CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
@@ -284,13 +285,17 @@ services:
       CONTROLLER_EXECUTION_EXPECTED_DATABASE: operations
       CONTROLLER_EXECUTION_MINIMUM_SCHEMA_GENERATION: 1
       CONTROLLER_EXECUTION_REQUIRED_SCOPE: execution.invoke
-      CONTROLLER_RUNNER_ENABLED: "${CONTROLLER_RUNNER_ENABLED:-false}"
+      CONTROLLER_RUNNER_ENABLED: "${CONTROLLER_RUNNER_ENABLED:-true}"
+      CONTROLLER_RUNNER_ADMISSION_PATH: /run/runner-admission.json
+      CONTROLLER_RUNNER_JWT_AUDIENCE: urn:lightapi:runner
       MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
       MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
       MICROSERVICE_JWT_AUDIENCE: urn:com.networknt
       CONTROLLER_MCP_MUTATIONS_ENABLED: "true"
       RUST_LOG: "${RUST_LOG:-debug}"
       CONTROLLER_LOG_ANSI: "false"
+    ports:
+      - "127.0.0.1:8438:8438"
     hostname: controller
     container_name: controller
     depends_on:
@@ -594,6 +599,10 @@ services:
         condition: service_completed_successfully
 
   llm-gateway:
+    # Load provider credentials even for direct docker compose invocations.
+    # Do not override these with empty environment entries below.
+    env_file:
+      - ${LIGHT_PORTAL_ENV_FILE:-${HOME}/.config/lightapi/light-portal.env}
     image: ${LIGHT_GATEWAY_IMAGE:-networknt/light-gateway:2.3.5-dev.20260909.2338}
     ports:
       - "${LLM_GATEWAY_HOST_PORT:-8444}:8443"
@@ -612,10 +621,6 @@ services:
       llm-router.auditRuntime.sinkDatabaseUrlEnv: LIGHT_GATEWAY_LLM_AUDIT_DATABASE_URL
       llm-router.requestTimeoutMs: "${LLM_GATEWAY_REQUEST_TIMEOUT_MS:-300000}"
       llm-router.streamSetupTimeoutMs: "${LLM_GATEWAY_STREAM_SETUP_TIMEOUT_MS:-30000}"
-      GROQ_API_KEY: "${GROQ_API_KEY:-}"
-      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-      NVIDIA_API_KEY: "${NVIDIA_API_KEY:-}"
-      AWS_BEARER_TOKEN_BEDROCK: "${AWS_BEARER_TOKEN_BEDROCK:-}"
       LLM_REASONING_SEAL_KEY: "${LLM_REASONING_SEAL_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY}"
       CLIENT_VERIFYHOSTNAME: "false"
       CLIENT_CACERTPATH: /config/ca.pem
@@ -683,6 +688,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # Prepared by prepare-codex-personal.py; credentials remain Git-ignored.
+  light-agent-codex-personal:
+    <<: *light-agent-common
+    image: ${LIGHT_AGENT_CODEX_PERSONAL_IMAGE:-networknt/light-agent:2.3.5-dev.20260909.2338}
+    command:
+      - |
+        export LIGHT_PORTAL_AUTHORIZATION="Bearer $$(cat /run/codex-personal/service.jwt)"
+        umask 077
+        printf '%s' "$$LIGHT_A2A_AUTHORIZED_CONTEXT_KEY" > /tmp/a2a-authorized-context-key
+        exec /app/light-agent
+    ports:
+      - "127.0.0.1:${LIGHT_AGENT_CODEX_PERSONAL_PORT:-8089}:8083"
+    volumes:
+      - ./light-agent-rust/config:/config:ro,Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
+      - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
+      - agent-runtime-secrets:/run/secrets:ro
+      - ./light-workflow-runner-personal/.runtime/codex-personal/service.jwt:/run/codex-personal/service.jwt:ro,Z
+    environment:
+      <<: *light-agent-environment
+      LIGHT_AGENT_SERVICE_ID: com.networknt.agent.codex-personal-1.0.0
+      SERVER_SERVICEID: com.networknt.agent.codex-personal-1.0.0
+      LIGHT_AGENT_ADVERTISED_ADDRESS: light-agent-codex-personal
+      LIGHT_AGENT_STARTUP_HOST: dev.lightapi.net
+      LIGHT_AGENT_HTTP_PORT: "8083"
+    hostname: light-agent-codex-personal
+    container_name: light-agent-codex-personal
 
   # Keep the Account Agent on the historical light-agent DNS name for gateway compatibility.
   light-agent:
