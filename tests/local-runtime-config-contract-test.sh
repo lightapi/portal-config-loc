@@ -8,8 +8,6 @@ bootstrap_script="$repo_root/all-in-lt/postgres-db/operations/bin/bootstrap-oper
 workflow_projection_script="$repo_root/all-in-lt/postgres-db/operations/bin/publish-workflow-projections.sh"
 hybrid_command_values="$repo_root/all-in-lt/hybrid-command/config/values.yml"
 hybrid_query_values="$repo_root/all-in-lt/hybrid-query/node1/values.yml"
-agent_template="$repo_root/all-in-lt/light-agent-rust/config/agent.yml"
-agent_values="$repo_root/all-in-lt/light-agent-rust/config/values.yml"
 registration_patch="$repo_root/all-in-lt/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
 if grep -q './postgres-db/secrets/operational-database-url' "$compose_file"; then
@@ -40,13 +38,15 @@ if grep -q 'AGENTPOLICY_AGENTDEFID:' "$compose_file"; then
   echo "Agent definition identity must come from the immutable Agent snapshot" >&2
   exit 1
 fi
-grep -q '\${agent.runtimePolicy.publicationId:}' "$agent_template"
-grep -q '\${agent.portalAssociation.runtimeInstanceId:}' "$agent_template"
-grep -q '\${agent.agentPolicy.agentDefId:}' "$agent_template"
-if grep -Eq '\$\{(runtimePolicy|portalAssociation|agentPolicy)\.' "$agent_template"; then
-  echo "Agent template contains a Config Server value without the agent namespace" >&2
-  exit 1
-fi
+for agent in account advisor tech-support codex-personal; do
+  config_dir="$repo_root/all-in-lt/light-agent-$agent-rust/config"
+  [[ -f "$config_dir/startup.yml" && -f "$config_dir/ca.pem" ]]
+  [[ -f "$config_dir/cert.pem" && -f "$config_dir/key.pem" ]]
+  [[ "$(find "$config_dir" -maxdepth 1 -name '*.yml' | wc -l)" -eq 1 ]]
+  grep -q "com.networknt.agent.$agent-1.0.0" "$config_dir/startup.yml"
+  grep -q 'https://config-server:8435' "$config_dir/startup.yml"
+  grep -q "./light-agent-$agent-rust/config:/config:ro,Z" "$compose_file"
+done
 grep -q '\${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084' "$compose_file"
 grep -q 'curl -f http://localhost:8084/health' "$compose_file"
 grep -q '\${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082' "$compose_file"
@@ -101,10 +101,6 @@ snapshot_refresh_line="$(grep -nF '"$SCRIPT_DIR/refresh-config-snapshots.sh" || 
 [[ "$delta_import_line" -lt "$snapshot_refresh_line" ]]
 [[ "$(grep -Fc '[[ -n "${IMPORT_EVENTS+x}" ]] || IMPORT_EVENTS=auto' "$deploy_script")" -eq 2 ]]
 grep -q 'ADD COLUMN IF NOT EXISTS contract_version bigint' "$registration_patch"
-if grep -q '^operationalStore\.' "$agent_values"; then
-  echo "Agent bootstrap values contain dead unprefixed operationalStore keys" >&2
-  exit 1
-fi
 grep -q '^db-provider.username: postgres$' "$hybrid_command_values"
 grep -q '^db-provider.username: postgres$' "$hybrid_query_values"
 if grep -q '^db-provider.username: portal_loc_runtime$' \

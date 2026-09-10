@@ -5,7 +5,7 @@
 # Service names stay stable so downstream configuration does not need to change.
 
 x-light-agent-common: &light-agent-common
-  image: ${LIGHT_AGENT_IMAGE:-networknt/light-agent:2.3.5-dev.20260807.2117}
+  image: ${LIGHT_AGENT_IMAGE:-networknt/light-agent:2.3.5-dev.20260909.2338}
   entrypoint: ["/bin/sh", "-ec"]
   command:
     - |
@@ -13,7 +13,7 @@ x-light-agent-common: &light-agent-common
       printf '%s' "$$LIGHT_A2A_AUTHORIZED_CONTEXT_KEY" > /tmp/a2a-authorized-context-key
       exec /app/light-agent
   volumes:
-    - ./light-agent-rust/config:/config:ro,Z
+    - ./light-agent-account-rust/config:/config:ro,Z
     - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
     - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
     - agent-runtime-secrets:/run/secrets:ro
@@ -702,7 +702,7 @@ services:
     ports:
       - "127.0.0.1:${LIGHT_AGENT_CODEX_PERSONAL_PORT:-8089}:8083"
     volumes:
-      - ./light-agent-rust/config:/config:ro,Z
+      - ./light-agent-codex-personal-rust/config:/config:ro,Z
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
       - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
       - agent-runtime-secrets:/run/secrets:ro
@@ -733,6 +733,11 @@ services:
 
   light-agent-advisor:
     <<: *light-agent-common
+    volumes:
+      - ./light-agent-advisor-rust/config:/config:ro,Z
+      - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
+      - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
+      - agent-runtime-secrets:/run/secrets:ro
     ports:
       - ${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084
     healthcheck:
@@ -753,7 +758,7 @@ services:
   light-agent-tech-support:
     <<: *light-agent-common
     volumes:
-      - ./light-agent-rust/config:/config:ro,Z
+      - ./light-agent-tech-support-rust/config:/config:ro,Z
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
       - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
       - agent-runtime-secrets:/run/secrets:ro
