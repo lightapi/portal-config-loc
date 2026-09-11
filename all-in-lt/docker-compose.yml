@@ -264,7 +264,7 @@ services:
     volumes:
       - ./light-controller-rust:/keystore:ro,z
       - controller-runtime-secrets:/run/secrets:ro
-      - ./light-workflow-runner-personal/.runtime/codex-personal/admission.json:/run/runner-admission.json:ro,Z
+      - ./light-workflow-runner-personal/.runtime/admission.json:/run/runner-admission.json:ro,Z
     environment:
       CONTROLLER_ADDR: 0.0.0.0:8438
       CONTROLLER_HOST_ID: 01964b05-552a-7c4b-9184-6857e7f3dc5f
@@ -288,6 +288,8 @@ services:
       CONTROLLER_RUNNER_ENABLED: "${CONTROLLER_RUNNER_ENABLED:-true}"
       CONTROLLER_RUNNER_ADMISSION_PATH: /run/runner-admission.json
       CONTROLLER_RUNNER_JWT_AUDIENCE: urn:lightapi:runner
+      # Initial execution leases currently share this window. Worker turn limits still apply.
+      CONTROLLER_RUNNER_RESERVATION_TTL_SECS: "180"
       MICROSERVICE_JWKS_URL: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
       MICROSERVICE_JWKS_VERIFY_HOSTNAME: "false"
       MICROSERVICE_JWT_AUDIENCE: urn:com.networknt

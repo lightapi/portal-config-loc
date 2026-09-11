@@ -1,5 +1,10 @@
 # Personal Codex Runner
 
+For shared workspace tasks from GenAI Chat, follow
+[Shared workspace Chat deployment](workspace-chat.md). That deployment uses a
+versioned private runner directory and a systemd override; the enrollment notes
+below describe the earlier baseline.
+
 ## Enrollment status
 
 Enrollment was verified live on 2026-09-05. The running service uses
@@ -34,34 +39,27 @@ The base Compose file defaults `CONTROLLER_RUNNER_ENABLED` to false so a fresh
 installation can start without a locally enrolled runner. Enabling it requires
 an admission file plus a valid execution database credential, schema, and binding.
 Controller already defaults its runner JWT audience to `urn:lightapi:runner`;
-the overlay sets that value explicitly. Agent execution calls also require
+the base Compose file sets that value explicitly. Agent execution calls also require
 `execution.invoke` on their workload credentials.
 
-Local enrollment uses two overlays:
+Runner enablement, admission mount, audience, loopback port, and the 180-second
+initial execution lease are in the base `all-in-lt/docker-compose.yml`.
+The standard developer command is `scripts/deploy-local.sh lt` from this repo.
+No additional profile or workspace parameters are required. `start.sh` is a
+compatibility wrapper for that same command.
 
-- Tracked `compose.yml`: runner enablement, admission mount, audience, and loopback port.
-- Private `.runtime/credentials.compose.yml`: agent execution credentials only.
+The deploy script renders `.runtime/admission.json` from the installed native
+runner user service before starting Compose, then starts that service. Private
+`.runtime/credentials.compose.yml` credentials are included automatically.
+Images continue to come from the normal release image environment. A developer
+without enrollment starts with empty admission; the rest of the stack can run.
+Existing credentials without an installed runner service fail preparation with
+an actionable error instead of silently using stale admission.
 
-Neither overlay contains image pins. `start.sh` uses the same release image
-file as normal deployment (`RELEASE_IMAGE_ENV_FILE`, default
-`$workspace/.release-state/docker-images.env`) and optional `LIGHT_PORTAL_ENV_FILE`.
-It refuses to start without a release image file, admission, and credentials.
-Before stopping services, both deployment paths check the selected image for
-`io.lightapi.agent.session-lifecycle=1`. Build the corrected agent Dockerfile and
-select that image in the release environment before deploying. The label
-identifies support for independent session cleanup and structured initialization
-errors; a tag timestamp is not used as evidence because local tags may be reused.
-Images missing this capability are rejected, even if their tag is familiar.
-
-Use a release containing the chat authentication and memory fixes; the historical
-local-only `chat-auth` image was never published and is not a portable release.
-
-`deploy-local.sh lt` automatically includes these overlays when
-`.runtime/credentials.compose.yml` exists. It fails early if admission is missing.
-This keeps an enrolled local runner enabled across normal deployments without
-reverting controller/agent images. Setting `CONTROLLER_RUNNER_ENABLED=false`
-explicitly still disables runner execution. Direct use of the base Compose file
-alone does not include the runner enrollment.
+Before stopping services, deployment checks enrolled agents' selected image for
+`io.lightapi.agent.session-lifecycle=1`. A tag timestamp is not evidence of
+capability because local tags may be reused. Build all updated services through
+the normal release process.
 
 For an older installation with `.runtime/compose.yml`, regenerate enrollment
 using `configure-local.py` to create the credentials-only file. The old mixed
@@ -125,8 +123,8 @@ LIGHT_CODEX_SMOKE_MODEL=gpt-6-astra \
   ./portal-config-loc/all-in-lt/light-workflow-runner-personal/run-smoke.sh
 ```
 
-Use `start.sh` to apply enrollment directly, or use `deploy-local.sh lt` for a
-normal deployment after enrollment. Both use the tracked runner settings and
+Use `deploy-local.sh lt` for normal deployment after enrollment. The
+`start.sh` wrapper uses the same tracked runner settings and
 private execution credentials, with images selected by the release environment.
 
 Renew the runner token before 30 days, or regenerate admission after replacing

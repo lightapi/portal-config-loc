@@ -82,12 +82,7 @@ fi
 # file contains credentials only; image versions still come from release values.
 if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
    [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
-    if [[ ! -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/admission.json" ]]; then
-        echo "Personal runner credentials exist but admission.json is missing; run configure-local.py." >&2
-        exit 1
-    fi
     DOCKER_COMPOSE_FILES+=(
-        -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/compose.yml"
         -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml"
     )
 fi
@@ -490,6 +485,11 @@ start_docker_compose() {
 
         validate_operational_property_projection || return 1
         wait_for_required_runtime_services || return 1
+        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+           [[ "$(systemctl --user show light-workflow-runner-personal.service -p LoadState --value 2>/dev/null || true)" == "loaded" ]]; then
+            systemctl --user start light-workflow-runner-personal.service || return 1
+            log_info "Native personal runner started with its installed configuration"
+        fi
         log_success "Compose services started and passed runtime qualification"
 
         # Show status
@@ -1262,6 +1262,10 @@ esac
 # Reject incompatible agent images before any stop/recreate or database mutation.
 case "${1:-}" in
     ""|start|restart)
+        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+            python3 "$SCRIPT_DIR/sync-personal-runner-admission.py" \
+                "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime" || exit 1
+        fi
         if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
            [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
             bash "$SCRIPT_DIR/verify-agent-image.sh" "$CONTAINER_RUNTIME_CMD" \

@@ -30,9 +30,7 @@ before recreation. Fresh databases and installer release bundles must include
 these remote transport settings before using this layout. This migration does not
 publish the separate explicit-turn-policy feature.
 
-Use the normal deployment script to retain enrolled-runner credential overlays.
-For manual Compose commands on this enrolled installation, include
-`-f light-workflow-runner-personal/compose.yml` and
-`-f light-workflow-runner-personal/.runtime/credentials.compose.yml` along with
-`-f docker-compose.yml`; the private overlay contains execution-scoped credentials.
-No separate codex-personal Compose overlay is needed for the base service.
+Use `scripts/deploy-local.sh lt` from the repository root. Runner settings are
+part of the base Compose file. The script prepares admission from the installed
+native runner and automatically includes private execution credentials. No
+additional profile, workspace overlay, or parameter is required.

@@ -45,3 +45,6 @@ light-knowledge/checkouts/*
 !light-knowledge/checkouts/.gitkeep
 light-knowledge/objects/*
 !light-knowledge/objects/.gitkeep
+
+# Python runtime artifacts
+__pycache__/
