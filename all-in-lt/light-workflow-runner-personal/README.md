@@ -184,3 +184,8 @@ Update provider credentials there. From `all-in-lt`, apply configuration changes
 with `docker compose up -d`; `docker compose restart` alone does not apply changed
 environment variables or add services. A fresh checkout must prepare the private
 codex-personal runtime files before starting this stack.
+
+## Native Codex policy and workflow models
+
+See [the personal policy upgrade](codex-policy-upgrade.md) for the opt-in
+`codex-personal-policy-v1` contract, native permissions, and `coding.nativeModel`.
