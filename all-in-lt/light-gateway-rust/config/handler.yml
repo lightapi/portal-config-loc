@@ -1,0 +1,17 @@
+enabled: ${handler.enabled:true}
+reportHandlerDuration: ${handler.reportHandlerDuration:false}
+handlerMetricsLogLevel: ${handler.handlerMetricsLogLevel:INFO}
+basePath: ${handler.basePath:/}
+
+handlers: ${handler.handlers:[]}
+
+chains: ${handler.chains:{}}
+
+paths: ${handler.paths:[]}
+
+defaultHandlers: ${handler.defaultHandlers:[]}
+
+# Publication-owned additions preserve the base gateway routes.
+additionalHandlers: ${handler.additionalHandlers:[]}
+additionalChains: ${handler.additionalChains:{}}
+additionalPaths: ${handler.additionalPaths:[]}

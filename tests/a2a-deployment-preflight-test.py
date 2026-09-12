@@ -78,7 +78,7 @@ class Preflight(unittest.TestCase):
     def test_defaults_match_shipped_template(self):
         template = (ROOT / 'all-in-lt/light-a2a-rust/config/a2a.yml').read_text()
         for key, value in {'serviceId': self.identity['serviceId'], 'envTag': 'dev', 'audience': 'light-a2a'}.items():
-            self.assertIn('${runtimePolicy.' + key + ':' + value + '}', template)
+            self.assertIn('${a2a.runtimePolicy.' + key + ':' + value + '}', template)
 
     def test_null_and_wrong_types_are_operator_errors(self):
         for key in ('a2aPolicy.bindings', 'runtimePolicy.validFrom', 'runtimePolicy.expiresAt'):

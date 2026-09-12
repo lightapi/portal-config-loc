@@ -5,7 +5,7 @@ CREATE DATABASE configserver;
 -- PostgreSQL database dump
 --
 
-\restrict 5E8R5bpWf8E8G0qhQuemxc32BZgpsRV9zjzvWexyr57OayUayhORA3i6NVhiWbh
+\restrict 7NQrCLdc8hifFS8ZbdcWmCVZIbgc9aHO0NAkGbvfucbsiAU8eF0SMQvsYHjvLp3
 
 -- Dumped from database version 17.10 (Debian 17.10-1.pgdg12+1)
 -- Dumped by pg_dump version 17.10 (Debian 17.10-1.pgdg12+1)
@@ -45731,6 +45731,13 @@ CREATE INDEX idx_wf_definition_owner_user ON public.wf_definition_t USING btree 
 
 
 --
+-- Name: instance_api_agent_identity_uk; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX instance_api_agent_identity_uk ON public.instance_api_t USING btree (host_id, instance_api_id, api_version_id);
+
+
+--
 -- Name: instance_api_agent_runtime_identity_uk; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47089,7 +47096,7 @@ ALTER TABLE ONLY public.agent_a2a_binding_t
 --
 
 ALTER TABLE ONLY public.agent_a2a_binding_t
-    ADD CONSTRAINT agent_a2a_binding_instance_agent_fk FOREIGN KEY (host_id, instance_api_id, runtime_instance_id, agent_def_id) REFERENCES public.instance_api_t(host_id, instance_api_id, instance_id, api_version_id) ON DELETE CASCADE;
+    ADD CONSTRAINT agent_a2a_binding_instance_agent_fk FOREIGN KEY (host_id, instance_api_id, agent_def_id) REFERENCES public.instance_api_t(host_id, instance_api_id, api_version_id) ON DELETE CASCADE;
 
 
 --
@@ -47114,6 +47121,14 @@ ALTER TABLE ONLY public.agent_a2a_binding_t
 
 ALTER TABLE ONLY public.agent_a2a_binding_t
     ADD CONSTRAINT agent_a2a_binding_retention_profile_fk FOREIGN KEY (host_id, retention_profile_id) REFERENCES public.a2a_artifact_retention_profile_t(host_id, retention_profile_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: agent_a2a_binding_t agent_a2a_binding_runtime_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_a2a_binding_t
+    ADD CONSTRAINT agent_a2a_binding_runtime_fk FOREIGN KEY (host_id, runtime_instance_id) REFERENCES public.instance_t(host_id, instance_id) ON DELETE CASCADE;
 
 
 --
@@ -50949,6 +50964,8 @@ INSERT INTO cascade_relationship_policy_seed_t (parent_schema, parent_table, chi
 INSERT INTO cascade_relationship_policy_seed_t (parent_schema, parent_table, child_schema, child_table, constraint_name, delete_action, restore_action, policy_description, update_user, update_ts) VALUES
     ('public', 'instance_t', 'public', 'access_target_t', 'access_target_t_host_id_instance_id_fkey', 'SOFT_DELETE', 'RESTORE', 'Recoverable access-target relationship', DEFAULT, CURRENT_TIMESTAMP);
 INSERT INTO cascade_relationship_policy_seed_t (parent_schema, parent_table, child_schema, child_table, constraint_name, delete_action, restore_action, policy_description, update_user, update_ts) VALUES
+    ('public', 'instance_t', 'public', 'agent_a2a_binding_t', 'agent_a2a_binding_runtime_fk', 'IGNORE', 'NONE', 'A2A runtime binding lifecycle is command-owned and independently audited', DEFAULT, CURRENT_TIMESTAMP);
+INSERT INTO cascade_relationship_policy_seed_t (parent_schema, parent_table, child_schema, child_table, constraint_name, delete_action, restore_action, policy_description, update_user, update_ts) VALUES
     ('public', 'instance_t', 'public', 'agent_a2a_instance_publication_t', 'agent_a2a_instance_publication_runtime_fk', 'IGNORE', 'NONE', 'A2A instance publication lifecycle is immutable and command-owned', DEFAULT, CURRENT_TIMESTAMP);
 INSERT INTO cascade_relationship_policy_seed_t (parent_schema, parent_table, child_schema, child_table, constraint_name, delete_action, restore_action, policy_description, update_user, update_ts) VALUES
     ('public', 'instance_t', 'public', 'auth_client_owner_t', 'auth_client_owner_t_host_id_instance_id_fkey', 'SOFT_DELETE', 'RESTORE', 'Recoverable projection relationship', DEFAULT, CURRENT_TIMESTAMP);
@@ -51092,7 +51109,7 @@ END
 $install_cascade_triggers$;
 
 COMMIT;
-\unrestrict 5E8R5bpWf8E8G0qhQuemxc32BZgpsRV9zjzvWexyr57OayUayhORA3i6NVhiWbh
+\unrestrict 7NQrCLdc8hifFS8ZbdcWmCVZIbgc9aHO0NAkGbvfucbsiAU8eF0SMQvsYHjvLp3
 
 
 INSERT INTO public.user_t (user_id, language, first_name, last_name, email, user_type, verified, password)

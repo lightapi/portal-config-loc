@@ -579,8 +579,10 @@ services:
       - ./light-gateway-rust/lightapi/dist:/lightapi/dist:Z
       - ./light-gateway-rust/signin/dist:/signin/dist:Z
       - gateway-runtime-secrets:/run/secrets:ro
+      - ./light-a2a-rust/.runtime/gateway-context-key:/run/triage-gateway/context-key:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
+      A2A_ROUTER_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
       # ACCESS_CONTROL_ENABLED: "false"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
@@ -652,37 +654,97 @@ services:
       light-oauth:
         condition: service_healthy
 
-  light-a2a:
-    image: ${LIGHT_A2A_IMAGE:-networknt/light-a2a:latest}
+  triage-network:
+    image: ${DEMO_SUPPORT_TRIAGE_AGENT_IMAGE:-networknt/demo-support-triage-agent:0.1.0-dev.20260912-llm2@sha256:4c0e28e1bbc713b38a3588c13a61df908782ce216833c59909a12e4c2973728a}
+    user: "999:999"
+    entrypoint: ["/bin/sleep", "infinity"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      default:
+        aliases: [light-a2a]
+    ports:
+      - ${LIGHT_A2A_PORT:-8448}:8448
+    restart: unless-stopped
+
+  demo-support-triage-agent:
+    image: ${DEMO_SUPPORT_TRIAGE_AGENT_IMAGE:-networknt/demo-support-triage-agent:0.1.0-dev.20260912-llm2@sha256:4c0e28e1bbc713b38a3588c13a61df908782ce216833c59909a12e4c2973728a}
+    user: "999:999"
+    environment:
+      TRIAGE_CONFIG: /app/config/backend.json
+    volumes:
+      - ./light-a2a-rust/.runtime/backend.json:/app/config/backend.json:ro,Z
+      - ./light-a2a-rust/.runtime/triage-context-key:/run/secrets/triage-context-key:ro,z
+      - triage-backend-state:/app/state
+      - ./light-a2a-rust/.runtime/llm-user.jwt:/run/triage-llm/user.jwt:ro,Z
+      - ./light-gateway-rust/config/ca.pem:/app/config/ca.pem:ro,z
+    network_mode: service:triage-network
+    depends_on:
+      triage-network:
+        condition: service_started
+        restart: true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9010/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+  triage-runtime-secrets-init:
+    image: ${DEMO_SUPPORT_TRIAGE_AGENT_IMAGE:-networknt/demo-support-triage-agent:0.1.0-dev.20260912-llm2@sha256:4c0e28e1bbc713b38a3588c13a61df908782ce216833c59909a12e4c2973728a}
+    user: "0:0"
+    network_mode: none
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
+        cp /source/key /destination/triage-context-key
+        chown 999:999 /destination/triage-context-key
+        chmod 400 /destination/triage-context-key
+    volumes:
+      - ./light-a2a-rust/.runtime/triage-context-key:/source/key:ro,z
+      - a2a-runtime-secrets:/destination
+    depends_on:
+      operational-runtime-secrets-init:
+        condition: service_completed_successfully
+
+  light-a2a:
+    image: ${LIGHT_A2A_IMAGE:-networknt/light-a2a:0.2.1-local-triage@sha256:5b2cd11585d0252e367f8f1b0fe800612553c11e2e2a7785e60663876c6951fb}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export LIGHT_PORTAL_AUTHORIZATION="Bearer $$(cat /run/triage-runtime/service.jwt)"
         umask 077
         printf '%s' "$$LIGHT_A2A_ARTIFACT_DATABASE_URL" > /tmp/artifact-database-url
-        printf '%s' "$$LIGHT_A2A_AUTHORIZED_CONTEXT_KEY" > /tmp/a2a-authorized-context-key
         exec /app/light-a2a
-    ports:
-      - ${LIGHT_A2A_PORT:-8448}:8448
+    network_mode: service:triage-network
     volumes:
       - ./light-a2a-rust/config:/config:ro,Z
       - ./light-gateway-rust/config/ca.pem:/keystore/ca.pem:ro,z
       - a2a-artifacts:/var/lib/light-a2a/artifacts
       - a2a-runtime-secrets:/run/secrets:ro
+      - ./light-a2a-rust/.runtime/service.jwt:/run/triage-runtime/service.jwt:ro,Z
+      - ./light-a2a-rust/.runtime/gateway-context-key:/run/triage-gateway/context-key:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
+      A2A_A2APOLICY_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
+      A2A_ARTIFACTSTORE_DATABASEURLFILE: /tmp/artifact-database-url
       LIGHT_A2A_ARTIFACT_DATABASE_URL: postgres://operations_artifact_runtime:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef@postgres:5432/operations
-      LIGHT_A2A_AUTHORIZED_CONTEXT_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      OPERATIONALSTORE_DATABASEURLFILE: /run/secrets/operational-database-url
-      ARTIFACTSTORE_DATABASEURLFILE: /tmp/artifact-database-url
-      A2APOLICY_AUTHORIZATIONCONTEXTKEYFILE: /tmp/a2a-authorized-context-key
-      LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_A2A_LIGHT_PORTAL_AUTHORIZATION:-}"
       LIGHT_ENV_TAG: dev
       RUST_LOG: "${LIGHT_A2A_RUST_LOG:-info}"
-    hostname: light-a2a
     container_name: light-a2a
     restart: unless-stopped
     stop_grace_period: 35s
     depends_on:
+      triage-network:
+        condition: service_started
+        restart: true
+      demo-support-triage-agent:
+        condition: service_healthy
+        restart: true
+      triage-runtime-secrets-init:
+        condition: service_completed_successfully
       operational-runtime-secrets-init:
         condition: service_completed_successfully
       operational-schema-validation:
@@ -902,6 +964,7 @@ services:
       start_period: 10s
 
 volumes:
+  triage-backend-state:
   tech-support-llm-credentials:
     external: true
     name: all-in-lt_tech-support-llm-credentials

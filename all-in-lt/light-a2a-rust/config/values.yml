@@ -17,29 +17,29 @@ portalQuery.url: https://hybrid-query:8440
 client.verifyHostname: false
 client.caCertPath: /keystore/ca.pem
 
-operationalStore.contractVersion: 2
-operationalStore.bindingId: 01a06356-a4aa-7528-838e-dfbbe90ec959
-operationalStore.bindingDigest: sha256:79a39f6ff78c336d6ac9b0dc711115750bf22be954c584fa836930150e3db09e
-operationalStore.hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
-operationalStore.environment: dev
-operationalStore.serverHost: postgres
-operationalStore.port: 5432
-operationalStore.tlsMode: DISABLE
-operationalStore.serviceOwner: light-a2a
-operationalStore.schema: a2a_ops
-operationalStore.expectedDatabase: operations
-operationalStore.minimumSchemaGeneration: 2
-operationalStore.databaseUrlFile: /run/secrets/operational-database-url
-operationalStore.credentialGeneration: 1
+a2a.operationalStore.contractVersion: 2
+a2a.operationalStore.bindingId: 01a06356-a4aa-7528-838e-dfbbe90ec959
+a2a.operationalStore.bindingDigest: sha256:79a39f6ff78c336d6ac9b0dc711115750bf22be954c584fa836930150e3db09e
+a2a.operationalStore.hostId: 01964b05-552a-7c4b-9184-6857e7f3dc5f
+a2a.operationalStore.environment: dev
+a2a.operationalStore.serverHost: postgres
+a2a.operationalStore.port: 5432
+a2a.operationalStore.tlsMode: DISABLE
+a2a.operationalStore.serviceOwner: light-a2a
+a2a.operationalStore.schema: a2a_ops
+a2a.operationalStore.expectedDatabase: operations
+a2a.operationalStore.minimumSchemaGeneration: 2
+a2a.operationalStore.databaseUrlFile: /run/secrets/operational-database-url
+a2a.operationalStore.credentialGeneration: 1
 
-artifactStore.bindingId: 01a06356-a4aa-7528-838e-dfbbe90ec959
-artifactStore.bindingDigest: sha256:79a39f6ff78c336d6ac9b0dc711115750bf22be954c584fa836930150e3db09e
-artifactStore.minimumSchemaGeneration: 2
-artifactStore.databaseUrlFile: /run/secrets/artifact-database-url
-artifactStore.rootDirectory: /var/lib/light-a2a/artifacts
-artifactStore.scanProfileId: light-a2a-static-v1
+a2a.artifactStore.bindingId: 01a06356-a4aa-7528-838e-dfbbe90ec959
+a2a.artifactStore.bindingDigest: sha256:79a39f6ff78c336d6ac9b0dc711115750bf22be954c584fa836930150e3db09e
+a2a.artifactStore.minimumSchemaGeneration: 2
+a2a.artifactStore.databaseUrlFile: /run/secrets/artifact-database-url
+a2a.artifactStore.rootDirectory: /var/lib/light-a2a/artifacts
+a2a.artifactStore.scanProfileId: light-a2a-static-v1
 
-a2aPolicy.authorizationContextKeyFile: /run/secrets/a2a-authorized-context-key
+a2a.a2aPolicy.authorizationContextKeyFile: /run/secrets/a2a-authorized-context-key
 
 # runtimePolicy and a2aPolicy.bindings are immutable Config Server snapshot
 # authority. Local deployment values intentionally cannot invent either.
