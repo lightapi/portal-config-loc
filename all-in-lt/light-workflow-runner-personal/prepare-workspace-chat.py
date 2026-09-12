@@ -48,7 +48,7 @@ def main():
                                 separators=(',', ':'), ensure_ascii=False).encode())
     binding = dict(schemaVersion=1, workspaceId=registration['id'], hostId=registration['hostId'],
                    environment='dev', runnerId=config['runnerId'], membershipRevision=revision,
-                   authorizationRevision=args.authorization_revision, subjects=[args.subject], agents=[agent], intents=['inspect', 'implement'])
+                   authorizationRevision=args.authorization_revision, subjects=[args.subject], agents=[agent], intents=['inspect', 'implement', 'review'])
     dest.mkdir(mode=0o700, parents=True)
 
     def write(name, value):

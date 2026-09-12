@@ -485,10 +485,8 @@ start_docker_compose() {
 
         validate_operational_property_projection || return 1
         wait_for_required_runtime_services || return 1
-        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
-           [[ "$(systemctl --user show light-workflow-runner-personal.service -p LoadState --value 2>/dev/null || true)" == "loaded" ]]; then
-            systemctl --user start light-workflow-runner-personal.service || return 1
-            log_info "Native personal runner started with its installed configuration"
+        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+            python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" restart "$DOCKER_COMPOSE_DIR" || return 1
         fi
         log_success "Compose services started and passed runtime qualification"
 
@@ -527,6 +525,7 @@ required_runtime_services() {
             light-knowledge-admin \
             light-knowledge \
             light-knowledge-worker
+        printf '%s\n' light-agent-codex-personal light-agent-claude-personal light-a2a
         return 0
     fi
 
@@ -1263,6 +1262,7 @@ esac
 case "${1:-}" in
     ""|start|restart)
         if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+            python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" preflight "$DOCKER_COMPOSE_DIR" || exit 1
             python3 "$SCRIPT_DIR/sync-personal-runner-admission.py" \
                 "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime" || exit 1
         fi

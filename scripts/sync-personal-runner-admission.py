@@ -14,15 +14,16 @@ import yaml
 UNIT = 'light-workflow-runner-personal.service'
 
 
-def property_value(name):
+def property_value(name, unit=UNIT):
     return subprocess.check_output(
-        ['systemctl', '--user', 'show', UNIT, '-p', name, '--value'],
+        ['systemctl', '--user', 'show', unit, '-p', name, '--value'],
         text=True, stderr=subprocess.DEVNULL).strip()
 
 
-def admission_document(runtime):
+def admission_document(runtime, unit=UNIT):
+    prop = lambda name: property_value(name) if unit == UNIT else property_value(name, unit)
     try:
-        installed = property_value('LoadState') == 'loaded'
+        installed = prop('LoadState') == 'loaded'
     except (FileNotFoundError, subprocess.CalledProcessError):
         installed = False
     if not installed:
@@ -31,9 +32,9 @@ def admission_document(runtime):
         # A developer without a personal enrollment can still start the stack.
         # Empty admission grants no runner or execution origin access.
         return {'version': 1, 'origins': [], 'enrollments': []}
-    environment = dict(item.split('=', 1) for item in shlex.split(property_value('Environment')) if '=' in item)
+    environment = dict(item.split('=', 1) for item in shlex.split(prop('Environment')) if '=' in item)
     config_path = Path(environment.get('LIGHT_WORKFLOW_RUNNER_CONFIG_FILE', ''))
-    match = re.search(r'\bpath=(.*?) ; argv\[\]=', property_value('ExecStart'))
+    match = re.search(r'\bpath=(.*?) ; argv\[\]=', prop('ExecStart'))
     if not config_path.is_absolute() or not config_path.is_file() or not match:
         raise ValueError('Installed runner must specify an absolute LIGHT_WORKFLOW_RUNNER_CONFIG_FILE and ExecStart executable.')
     executable = Path(match.group(1))
@@ -54,8 +55,31 @@ def admission_document(runtime):
     return document
 
 
+def merge_entries(first, second, kind):
+    # Identical shared origins are safe; conflicting identities fail before replace.
+    result = list(first)
+    for entry in second:
+        if entry in result:
+            continue
+        identities = ['runnerId', 'enrollmentId'] if kind == 'enrollments' else ['serviceId']
+        for old in result:
+            for identity in identities:
+                if identity in entry and old.get(identity) == entry[identity]:
+                    raise ValueError('Conflicting personal runner admission ' + identity)
+        result.append(entry)
+    return result
+
+
 def sync(runtime):
     document = admission_document(runtime)
+    claude = runtime.parent.parent / 'light-workflow-runner-claude-personal' / '.runtime'
+    if (claude / 'runner.yml').exists():
+        extra = admission_document(claude, 'light-workflow-runner-claude-personal.service')
+        if not extra['enrollments']:
+            raise ValueError('Claude configuration exists but its runner service is not installed.')
+        for key in ['origins', 'enrollments']:
+            document[key] = merge_entries(document[key], extra[key], key)
+
     runtime.mkdir(mode=0o700, parents=True, exist_ok=True)
     destination = runtime / 'admission.json'
     content = json.dumps(document, indent=2) + '\n'

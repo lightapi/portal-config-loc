@@ -43,5 +43,37 @@ class AdmissionTest(unittest.TestCase):
                 self.assertEqual((root / 'admission.json').read_bytes(), previous)
 
 
+class MergeTest(unittest.TestCase):
+    def test_shared_origin_deduplicates_and_conflicts_fail(self):
+        origin = {'serviceId': 'light-workflow', 'kind': 'workflow'}
+        self.assertEqual(m.merge_entries([origin], [origin], 'origins'), [origin])
+        with self.assertRaisesRegex(ValueError, 'Conflicting'):
+            m.merge_entries([origin], [dict(origin, kind='agent')], 'origins')
+        with self.assertRaisesRegex(ValueError, 'Conflicting'):
+            m.merge_entries([{'runnerId': 'r', 'binaryDigest': 'a'}],
+                            [{'runnerId': 'r', 'binaryDigest': 'b'}], 'enrollments')
+
+    def test_both_enrollments_survive_idempotent_sync(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = root / 'light-workflow-runner-personal/.runtime'
+            claude = root / 'light-workflow-runner-claude-personal/.runtime'
+            claude.mkdir(parents=True)
+            (claude / 'runner.yml').touch()
+            common = {'kind': 'workflow', 'serviceId': 'light-workflow'}
+            def document(path, unit=m.UNIT):
+                name = 'claude' if 'claude' in unit else 'codex'
+                return {'version': 1, 'origins': [common, {'serviceId':name, 'kind':'agent'}],
+                        'enrollments': [{'runnerId':name}]}
+            with patch.object(m, 'admission_document', side_effect=document):
+                m.sync(runtime)
+                result = json.loads((runtime/'admission.json').read_text())
+                self.assertEqual(len(result['origins']),3)
+                self.assertEqual(len(result['enrollments']),2)
+                inode = (runtime/'admission.json').stat().st_ino
+                m.sync(runtime)
+                self.assertEqual(inode,(runtime/'admission.json').stat().st_ino)
+
+
 if __name__ == '__main__':
     unittest.main()
