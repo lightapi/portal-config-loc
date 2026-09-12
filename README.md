@@ -654,3 +654,11 @@ and clear only their own schema.
 The signed baseline owns the three canonical Hosts; release deltas remain
 available for older pinned baselines. Keep customer-specific Host exports outside Git in
 `data/private-event-deltas`; see [the private delta guide](events/PRIVATE_INSTANCE_DELTAS.md).
+
+## Standalone A2A prerequisite
+
+The normal LT stack includes `light-a2a`. Follow [standalone A2A setup](docs/light-a2a-setup.md)
+to build/select its image and publish an external-agent binding before deployment.
+An explicit diagnostic checks image availability and activated policy after the
+database is running and bootstrapped; it is not a deployment gate. Native
+light-agent A2A endpoints are separate.
