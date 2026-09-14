@@ -29,6 +29,14 @@ class Preflight(unittest.TestCase):
                 'operationalStore.bindingId', 'operationalStore.bindingDigest',
                 'artifactStore.bindingId', 'artifactStore.bindingDigest')}}}
 
+    def test_legacy_expiry_is_not_an_application_deadline(self):
+        for value in ('2000-01-01T00:00:00Z', '', None):
+            record = copy.deepcopy(self.record)
+            record['properties']['runtimePolicy.expiresAt'] = value
+            preflight.validate_snapshot(record, self.identity)
+        del record['properties']['runtimePolicy.expiresAt']
+        preflight.validate_snapshot(record, self.identity)
+
     def test_current_snapshot(self):
         preflight.validate_snapshot(self.record, self.identity)
 
@@ -36,7 +44,7 @@ class Preflight(unittest.TestCase):
         with self.assertRaises(ValueError):
             preflight.validate_snapshot(None, self.identity)
         for key, value in [('a2aPolicy.bindings', '[]'), ('runtimePolicy.host', 'other.lightapi.net'),
-                           ('runtimePolicy.expiresAt', '2000-01-01T00:00:00Z'),
+                           ('runtimePolicy.validFrom', '2999-01-01T00:00:00Z'),
                            ('runtimePolicy.publicationId', '')]:
             with self.subTest(key=key):
                 record = copy.deepcopy(self.record)
@@ -81,7 +89,7 @@ class Preflight(unittest.TestCase):
             self.assertIn('${a2a.runtimePolicy.' + key + ':' + value + '}', template)
 
     def test_null_and_wrong_types_are_operator_errors(self):
-        for key in ('a2aPolicy.bindings', 'runtimePolicy.validFrom', 'runtimePolicy.expiresAt'):
+        for key in ('a2aPolicy.bindings', 'runtimePolicy.validFrom'):
             for value in (None, 12, [], {}):
                 with self.subTest(key=key, value=value):
                     record = copy.deepcopy(self.record)

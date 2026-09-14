@@ -36,12 +36,12 @@ def validate_snapshot(record, identity):
     if not isinstance(bindings, list) or not bindings:
         raise ValueError('activated A2A policy has no backend bindings')
     now = datetime.datetime.now(datetime.timezone.utc)
-    for key in ('validFrom', 'expiresAt'):
+    for key in ('validFrom',):
         raw_value = properties.get('runtimePolicy.' + key)
         if not isinstance(raw_value, str) or not raw_value:
             raise ValueError('activated runtimePolicy.' + key + ' must be a timestamp string')
         value = datetime.datetime.fromisoformat(raw_value.replace('Z', '+00:00'))
-        if value.tzinfo is None or (key == 'expiresAt' and value <= now) or (key == 'validFrom' and value > now):
+        if value.tzinfo is None or value > now:
             raise ValueError('activated A2A policy is outside its validity window')
     # Store bindings are supplied by local values.yml; the runtime validates the
     # effective store configuration and database identity when it starts.

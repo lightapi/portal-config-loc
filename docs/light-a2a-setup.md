@@ -42,8 +42,8 @@ policy into a snapshot or put fabricated bindings into local `values.yml`.
    Card, then publish using the exact preview candidate digest/version. Activate
    the resulting runtime and Gateway snapshots through Portal.
 4. Verify the published `runtimePolicy` matches the workload identity and remains
-   within its validity window. A2A publication currently issues a one-day runtime
-   policy; refresh publication before expiry. Verify database/secret access,
+   activated and not revoked or replaced. Runtime policy has no time-based
+   expiration; legacy expiry timestamps are ignored. Verify database/secret access,
    artifact volume permissions and the selected backend's availability.
 
 The Docker image runs as UID/GID 999 to match the local protected secret volumes.
@@ -66,7 +66,7 @@ Add the private Portal env file as a second `--env-file` if it overrides the
 image selection. The diagnostic never starts or stops services. It checks image
 availability and current snapshot policy, permits omitted identity fields with
 valid template defaults, and does not require local store bindings in snapshots.
-Missing/malformed snapshots or expired policy produce an error. It is not an
+Missing/malformed snapshots, future activation times or identity mismatches produce an error. It is not an
 end-to-end runtime qualification and does not validate store access or credentials.
 
 Normal deployment remains free to start Postgres and import baseline events.
