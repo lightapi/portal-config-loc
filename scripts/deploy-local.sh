@@ -87,6 +87,23 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
     )
 fi
 
+# Retain an explicitly activated local credential broker across redeployments.
+if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+   [[ -f "$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/enabled" ]]; then
+    export WORKFLOW_BROKER_DIR="$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/active"
+    DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/workflow-broker/compose.yml")
+fi
+
+# Retain an explicitly activated A2 dual-identity action profile. The resolved
+# JSON and all credentials are private generated inputs, never checked-in values.
+if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+   [[ -f "$DOCKER_COMPOSE_DIR/workflow-actions/.runtime/enabled" ]]; then
+    export WORKFLOW_ACTIONS_DIR="$DOCKER_COMPOSE_DIR/workflow-actions/.runtime/active"
+    WORKFLOW_ACTION_AUTHORIZATION="$(cat "$WORKFLOW_ACTIONS_DIR/workflow/action-authorization.json")"
+    export WORKFLOW_ACTION_AUTHORIZATION
+    DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/workflow-actions/compose.yml")
+fi
+
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
 RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"

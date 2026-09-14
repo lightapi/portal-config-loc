@@ -657,6 +657,7 @@ services:
   triage-network:
     image: ${DEMO_SUPPORT_TRIAGE_AGENT_IMAGE:-networknt/demo-support-triage-agent:0.1.0-dev.20260912-llm2@sha256:4c0e28e1bbc713b38a3588c13a61df908782ce216833c59909a12e4c2973728a}
     user: "999:999"
+    init: true
     entrypoint: ["/bin/sleep", "infinity"]
     read_only: true
     cap_drop: [ALL]
@@ -859,7 +860,9 @@ services:
       - ./light-agent-tech-support-rust/config:/config:ro,Z
       - ./light-controller-rust/ca.pem:/keystore/ca.pem:ro,z
       - agent-a2a-artifacts:/var/lib/light-agent/a2a-artifacts
-      - agent-runtime-secrets:/run/secrets:ro
+      # Keep the operational URL outside /run/secrets so Docker can mount the
+      # dedicated LLM credential volume at its configured path below.
+      - agent-runtime-secrets:/run/operational-secrets:ro
       - tech-support-llm-credentials:/run/secrets/llm-workload:ro
     ports:
       - ${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082
@@ -871,6 +874,7 @@ services:
       start_period: 10s
     environment:
       <<: *light-agent-environment
+      AGENT_OPERATIONALSTORE_DATABASEURLFILE: /run/operational-secrets/operational-database-url
       CLIENT_VERIFYHOSTNAME: "true"
       LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_AGENT_TECH_SUPPORT_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWQ4MzM3LTA1YzYtN2I2OS05Y2VlLWYxZjJmOTE3ZjAyYiIsImV4cCI6MjEwMzA2MzAyNiwianRpIjoiQ2s4LWw5NmFScXVuc21saTE4T3pfUSIsImlhdCI6MTc4NzcwMzAyNiwibmJmIjoxNzg3NzAyOTA2LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTlkODMzNy0wNWM2LTdiNjktOWNlZS1mMWYyZjkxN2YwMmIiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTlkODMzNy0wNWM2LTdiNjktOWNlZS1mMWYyZjkxN2YwMmIiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQuYWdlbnQudGVjaC1zdXBwb3J0LTEuMC4wIn0.GfbPZCdMqmcjJ2ndmyrB33GW8dYk1ZqCCDwMvpMo1OOE9VaIwpAsiB8ssjhfbpwwqJhQiwqjgERXvS5MG-E9YR2Jl8niWeNgRl5dQD9cu9x73OWwSK125VdWRR7-xPk2qBnhUphuTiJANBzGR7DtpzxPqsKqoiIr_6XR-SbdQSXFHHHhbg4knm-mm3bSIZHKnMkPLoYUqgyw1yDk1UytEId_DR-j5AfemChA4s51W04ts8dNYrK7WUk_S-WErrTdJMM0329LhudVk7Z_zshRc7X4MeQoSDHtxc1biWrQ1LjBkd-HCaEgFgaP8M3HmSXvA6J0-_0XqAjGZ1cdVidV4Q}"
       LIGHT_AGENT_SERVICE_ID: com.networknt.agent.tech-support-1.0.0
