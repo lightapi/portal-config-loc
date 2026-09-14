@@ -46,17 +46,18 @@ DECLARE
     v_service_filter text := NULLIF(current_setting('dev.snapshot_service_filter', true), '');
 BEGIN
     FOR r IN
-        SELECT DISTINCT cs.host_id, cs.instance_id, cs.service_id,
+        SELECT DISTINCT i.host_id, i.instance_id, i.service_id,
                COALESCE(NULLIF(i.env_tag, ''), i.environment, '') AS env_tag
-        FROM config_snapshot_t cs
-        JOIN instance_t i ON i.host_id = cs.host_id
-                         AND i.instance_id = cs.instance_id
-        WHERE cs.current = true
-          AND i.active = true
-          AND (v_host_filter IS NULL OR cs.host_id::text = v_host_filter)
+        FROM instance_t i
+        LEFT JOIN config_snapshot_t cs ON cs.host_id = i.host_id
+                                      AND cs.instance_id = i.instance_id
+                                      AND cs.current = true
+        WHERE i.active = true
+          AND (cs.snapshot_id IS NOT NULL OR v_service_filter IS NOT NULL)
+          AND (v_host_filter IS NULL OR i.host_id::text = v_host_filter)
           AND (v_env_filter IS NULL OR COALESCE(NULLIF(i.env_tag, ''), i.environment, '') = v_env_filter)
-          AND (v_service_filter IS NULL OR cs.service_id = v_service_filter)
-        ORDER BY cs.service_id, cs.instance_id
+          AND (v_service_filter IS NULL OR i.service_id = v_service_filter)
+        ORDER BY i.service_id, i.instance_id
     LOOP
         v_snapshot_id := gen_random_uuid();
         RAISE NOTICE 'Refreshing config snapshot for service_id %, instance_id %', r.service_id, r.instance_id;

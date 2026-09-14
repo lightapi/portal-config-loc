@@ -543,6 +543,11 @@ required_runtime_services() {
             light-knowledge \
             light-knowledge-worker
         printf '%s\n' light-agent-codex-personal light-agent-claude-personal light-a2a
+        if [[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]; then
+            printf '%s\n' \
+                light-agent-codex-personal-workflow \
+                light-agent-claude-personal-workflow
+        fi
         return 0
     fi
 
@@ -1153,6 +1158,17 @@ bootstrap_events_if_requested() {
     log_info "Refreshing current config snapshots after baseline/private event deltas"
     CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
         "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
+    if [[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]; then
+        local workflow_agent_service_id=""
+        for workflow_agent_service_id in \
+            com.networknt.agent.codex-personal-workflow-1.0.0 \
+            com.networknt.agent.claude-personal-workflow-1.0.0; do
+            log_info "Publishing the current snapshot for $workflow_agent_service_id"
+            CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
+                DEV_CONFIG_SNAPSHOT_SERVICE_ID="$workflow_agent_service_id" \
+                "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
+        done
+    fi
 }
 
 apply_requested_db_patches() {

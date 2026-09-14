@@ -6,6 +6,7 @@ compose_file="$repo_root/all-in-lt/docker-compose.yml"
 deploy_script="$repo_root/scripts/deploy-local.sh"
 bootstrap_script="$repo_root/all-in-lt/postgres-db/operations/bin/bootstrap-operational-databases.sh"
 workflow_projection_script="$repo_root/all-in-lt/postgres-db/operations/bin/publish-workflow-projections.sh"
+workflow_actions_prepare="$repo_root/all-in-lt/workflow-actions/prepare.py"
 hybrid_command_values="$repo_root/all-in-lt/hybrid-command/config/values.yml"
 hybrid_query_values="$repo_root/all-in-lt/hybrid-query/node1/values.yml"
 registration_patch="$repo_root/all-in-lt/postgres-db/patches/20260902_01_operational_store_registration.sql"
@@ -42,11 +43,19 @@ for agent in account advisor tech-support codex-personal; do
   config_dir="$repo_root/all-in-lt/light-agent-$agent-rust/config"
   [[ -f "$config_dir/startup.yml" && -f "$config_dir/ca.pem" ]]
   [[ -f "$config_dir/cert.pem" && -f "$config_dir/key.pem" ]]
-  [[ "$(find "$config_dir" -maxdepth 1 -name '*.yml' | wc -l)" -eq 1 ]]
+  expected_yaml_count=1
+  [[ "$agent" == *-personal ]] && expected_yaml_count=2
+  [[ "$(find "$config_dir" -maxdepth 1 -name '*.yml' | wc -l)" -eq "$expected_yaml_count" ]]
   grep -q "com.networknt.agent.$agent-1.0.0" "$config_dir/startup.yml"
   grep -q 'https://config-server:8435' "$config_dir/startup.yml"
   grep -q "./light-agent-$agent-rust/config:/config:ro,Z" "$compose_file"
 done
+claude_personal_config="$repo_root/all-in-lt/light-agent-claude-personal-rust/config"
+[[ -f "$claude_personal_config/startup.yml" && -f "$claude_personal_config/ca.pem" ]]
+[[ -f "$claude_personal_config/workflow-origin.yml" ]]
+grep -q 'com.networknt.agent.claude-personal-1.0.0' "$claude_personal_config/startup.yml"
+grep -q 'https://config-server:8435' "$claude_personal_config/startup.yml"
+grep -q './light-agent-claude-personal-rust/config:/config:ro,Z' "$compose_file"
 grep -q '\${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084' "$compose_file"
 grep -q 'curl -f http://localhost:8084/health' "$compose_file"
 grep -q '\${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082' "$compose_file"
@@ -75,6 +84,12 @@ grep -q "runtimePolicy.publicationId" "$deploy_script"
 grep -q "portalAssociation.runtimeInstanceId" "$deploy_script"
 grep -q "agentPolicy.policySnapshot.dataBoundaryDigest" "$deploy_script"
 grep -q '3 runnable Agent snapshots' "$deploy_script"
+grep -Fq '[[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]' "$deploy_script"
+grep -Fq 'light-agent-codex-personal-workflow' "$deploy_script"
+grep -Fq 'light-agent-claude-personal-workflow' "$deploy_script"
+grep -Fq "if name in ('codex','claude'): scopes.append('execution.invoke')" "$workflow_actions_prepare"
+grep -Fq "runtime_uid='999'; runtime_gid='999'" "$workflow_actions_prepare"
+grep -Fq "chmod 644 /target/workflow/action-authorization.json" "$workflow_actions_prepare"
 grep -q "operationalStore.contractVersion.*='2'" "$deploy_script"
 grep -q "operationalStore.environment.*=s.env_tag" "$deploy_script"
 grep -q '^ensure_portal_runtime_database_access()' "$deploy_script"
@@ -96,8 +111,12 @@ if grep -Fq -- '-v "expected_json=$expected_json"' "$repo_root/scripts/import-ev
 fi
 grep -Fq '"$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1' "$deploy_script"
 grep -Fq 'CALL create_snapshot(' "$repo_root/scripts/refresh-config-snapshots.sh"
+grep -Fq '(cs.snapshot_id IS NOT NULL OR v_service_filter IS NOT NULL)' "$repo_root/scripts/refresh-config-snapshots.sh"
+grep -Fq 'com.networknt.agent.codex-personal-workflow-1.0.0' "$deploy_script"
+grep -Fq 'com.networknt.agent.claude-personal-workflow-1.0.0' "$deploy_script"
+grep -Fq 'DEV_CONFIG_SNAPSHOT_SERVICE_ID="$workflow_agent_service_id"' "$deploy_script"
 delta_import_line="$(grep -nF '"$SCRIPT_DIR/import-event-deltas.sh" || return 1' "$deploy_script" | cut -d: -f1)"
-snapshot_refresh_line="$(grep -nF '"$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1' "$deploy_script" | cut -d: -f1)"
+snapshot_refresh_line="$(grep -nF '"$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1' "$deploy_script" | sed -n '1s/:.*//p')"
 [[ "$delta_import_line" -lt "$snapshot_refresh_line" ]]
 [[ "$(grep -Fc '[[ -n "${IMPORT_EVENTS+x}" ]] || IMPORT_EVENTS=auto' "$deploy_script")" -eq 2 ]]
 grep -q 'ADD COLUMN IF NOT EXISTS contract_version bigint' "$registration_patch"

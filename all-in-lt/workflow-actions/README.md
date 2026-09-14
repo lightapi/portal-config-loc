@@ -14,3 +14,8 @@ The preparation step creates a local A2 CA and ten-year development certificates
 and app tokens signed by the local issuer, matching the local stack's checkout-and-
 run fixture policy. Official environments must use managed PKI and issuer-created
 app credentials with their approved rotation policy instead.
+
+Prepared service trees are assigned to the workflow images' runtime identity
+(UID/GID `999`). Private files and PKI directories stay mode `0600`/`0700`;
+only the non-secret Workflow action policy is made host-readable so
+`deploy-local.sh` can load it.

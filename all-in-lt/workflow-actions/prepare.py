@@ -25,6 +25,7 @@ def fp(path):
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--output',type=Path,required=True); ap.add_argument('--identities',type=Path,default=Path(__file__).with_name('identities.json')); a=ap.parse_args()
     ids=json.loads(a.identities.read_text()); out=a.output.resolve()
+    runtime_uid='999'; runtime_gid='999'
     out.mkdir(parents=True,exist_ok=False,mode=0o700); pki=out/'pki'; pki.mkdir(mode=0o700)
     run('openssl','req','-x509','-newkey','rsa:3072','-nodes','-keyout','ca.key','-out','ca.pem','-days','3650','-sha256','-subj','/CN=Light API local A2 CA',cwd=pki)
     cert(pki,'workflow-server','DNS:light-workflow','serverAuth',pki)
@@ -44,12 +45,15 @@ def main():
     if 'BEGIN' not in material: material='-----BEGIN PRIVATE KEY-----\n'+material+'\n-----END PRIVATE KEY-----\n'
     key=serialization.load_pem_private_key(material.encode(),password=None); del material
     now=int(time.time())
-    def token(service):
-        claims={'iss':ISSUER,'aud':AUDIENCE,'sub':service,'cid':service,'client_id':service,'sid':service,'host':ids['hostId'],'env':'dev','scp':['portal.r','portal.w'],'scope':'portal.r portal.w','token_use':'app','iat':now,'nbf':now-30,'exp':now+3650*86400}
+    def token(service, scopes):
+        claims={'iss':ISSUER,'aud':AUDIENCE,'sub':service,'cid':service,'client_id':service,'sid':service,'host':ids['hostId'],'env':'dev','scp':scopes,'scope':' '.join(scopes),'token_use':'app','iat':now,'nbf':now-30,'exp':now+3650*86400}
         msg=(b64(canonical({'alg':'RS256','typ':'JWT','kid':kid}))+'.'+b64(canonical(claims))).encode()
         return 'Bearer '+msg.decode()+'.'+b64(key.sign(msg,padding.PKCS1v15(),hashes.SHA256()))+'\n'
     services={'gateway':ids['gatewayServiceId'],'workflow':ids['workflowServiceId'],'codex':ids['codex']['serviceId'],'claude':ids['claude']['serviceId']}
-    for name,service in services.items(): private(out/name/'pki'/'scope-token',token(service))
+    for name,service in services.items():
+      scopes=['portal.r','portal.w']
+      if name in ('codex','claude'): scopes.append('execution.invoke')
+      private(out/name/'pki'/'scope-token',token(service,scopes))
     # Copy certificates into per-service least-access mount trees.
     copies={
       'workflow':['workflow-server.pem','workflow-server.key','gateway-client.pem','codex-client.pem','claude-client.pem','ca.pem','workflow-client.pem','workflow-client.key'],
@@ -76,5 +80,9 @@ def main():
     private(out/'manifest.json',json.dumps(manifest,indent=2)+'\n')
     for path in pki.iterdir(): path.unlink()
     pki.rmdir()
+    # Service trees are runtime-owned; the host retains the output root and
+    # manifest. Only the non-secret action policy is host-readable.
+    ownership='chown -R "$1:$2" /target/workflow /target/gateway /target/codex /target/claude; chmod 755 /target/workflow /target/gateway /target/codex /target/claude; chmod 644 /target/workflow/action-authorization.json'
+    run('docker','run','--rm','--network','none','-v',str(out)+':/target:Z','timescale/timescaledb:latest-pg17','sh','-ec',ownership,'sh',runtime_uid,runtime_gid)
 
 if __name__=='__main__': main()
