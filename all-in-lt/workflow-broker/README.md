@@ -131,6 +131,7 @@ when `.runtime/enabled` exists; preparation alone does not enable it. Remove tha
 marker only as part of the documented disable sequence. The local callback uses
 the existing issuer certificate; trust the local CA in the browser before consent.
 The provider JWKS URL must use `https://light-oauth:6881` inside Docker even though
-the browser authorization URL uses `https://localhost:6881`. Runtime certificates
+the browser authorization URL uses `https://localhost:6881`; this overlay publishes that
+port on host loopback only (the base stack does not publish light-oauth). Runtime certificates
 still require rotation before their expiry; this is independent of runtime-policy
 validity. No user consent or long-running qualification has been completed.

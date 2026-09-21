@@ -325,9 +325,13 @@ services:
 
   light-oauth:
     image: ${LIGHT_OAUTH_IMAGE:-networknt/light-oauth:2.2.1}
-    ports:
-      - 6881:6881
-      # - 5005:5005
+    # Not published on the host: light-oauth is reached through light-gateway (/oauth2/...), and by other
+    # containers as https://light-oauth:6881. Publishing it would also let a caller reach it directly
+    # with a forged X-Forwarded-For, which the device sign-in uses to show where a request came from.
+    # The opt-in workflow-broker overlay publishes it on 127.0.0.1 only, for its browser consent URL.
+    # To debug it directly otherwise, add `ports: ["127.0.0.1:6881:6881"]` temporarily; do not commit that.
+    # ports:
+    #   - 5005:5005
     volumes:
       - ./light-oauth-rust/config:/config:Z
       - ./postgres-db/secrets/a2a-signing:/run/secrets/a2a-signing:ro,Z
@@ -344,6 +348,35 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "printf 'GET /oauth2/AZZRJE52eXu3t1hseacnGQ/keys HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' | timeout 5 openssl s_client -connect localhost:6881 -servername localhost -quiet 2>/dev/null | grep -q 'HTTP/1.1 200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  light-identity-issuer:
+    image: ${LIGHT_IDENTITY_ISSUER_IMAGE:-networknt/light-identity-issuer:0.2.1}
+    ports:
+      - "${LIGHT_IDENTITY_ISSUER_HOST_PORT:-9443}:9443"
+    volumes:
+      - ./light-identity-issuer/pki:/pki:ro,Z
+      - ./light-identity-issuer/config/issuer.yml:/config/issuer.yml:ro,Z
+      - ./light-oauth-rust/config/ca.pem:/oauth-ca/ca.pem:ro,Z
+      # Server certificate for HTTPS: the shared dev cert every service uses (SANs
+      # include localhost and 127.0.0.1, signed by the dev CA in ca.pem).
+      - ./config-server-rust/config/cert.pem:/tls/cert.pem:ro,Z
+      - ./config-server-rust/config/key.pem:/tls/key.pem:ro,Z
+      # Durable state: the record of spent bootstrap tokens. A named volume, so it
+      # survives `docker compose up`; `down -v` deletes it (and re-arms every token).
+      - light-identity-issuer-state:/data
+    environment:
+      RUST_LOG: "${RUST_LOG:-info}"
+    hostname: light-identity-issuer
+    container_name: light-identity-issuer
+    depends_on:
+      light-oauth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fk https://localhost:9443/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -984,3 +1017,4 @@ volumes:
   gateway-runtime-secrets:
   a2a-runtime-secrets:
   agent-runtime-secrets:
+  light-identity-issuer-state:

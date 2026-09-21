@@ -25,3 +25,12 @@ a2a_signing_jwks_accept_invalid_certs: true
 a2a_signing_expected_issuer: "urn:com:networknt:oauth2:v1"
 a2a_signing_expected_audience: "urn:com.networknt"
 a2a_signing_key_root: "/run/secrets/a2a-signing"
+
+# CLI device sign-in (RFC 8628, the CLI's `/login`). All optional; shown with their defaults
+# except the address. The 90 days is not hard-coded: set device_remember_seconds.
+device_verification_uri: "https://localhost:3000/device"   # portal-view's /device page: the Vite dev server here; in a real deployment, portal-view's address
+device_session_seconds: 86400                          # login length: 1 day
+device_remember_seconds: 7776000                       # login length with "remember me": 90 days
+device_code_seconds: 900                               # how long an unapproved code lives
+device_interval_seconds: 5                             # minimum polling interval
+device_max_pending: 10000                              # cap on unapproved codes (endpoint is unauthenticated)

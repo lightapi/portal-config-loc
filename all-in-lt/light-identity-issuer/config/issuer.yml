@@ -1,0 +1,37 @@
+ca_certificate_path: /pki/ca.pem
+ca_key_path: /pki/ca.key
+jwks_url: https://light-oauth:6881/oauth2/AZZRJE52eXu3t1hseacnGQ/keys
+jwks_ca_cert_path: /oauth-ca/ca.pem
+portal_token_issuer: urn:com:networknt:oauth2:v1
+portal_token_audience: urn:com.networknt
+bind_address: 0.0.0.0:9443
+environments:
+  loc:
+    leaf_lifetime_seconds: 864000
+    renew_lead_seconds: 86400
+  dev:
+    leaf_lifetime_seconds: 864000
+    renew_lead_seconds: 86400
+  prod:
+    leaf_lifetime_seconds: 86400
+    renew_lead_seconds: 3600
+# Which Portal-token `sid` prefixes may bootstrap, and the role each certificate
+# carries. Service IDs include their version, so one prefix covers every release.
+# Empty (the default) rejects every Portal-token first issuance.
+bootstrap_roles:
+  - service_id_prefix: com.networknt.light-cli-
+    role: cli
+# enable_pairing_stub is deliberately omitted: the pairing-code route has no
+# authentication and stays off.
+# HTTPS. The bootstrap call carries a long-lived app token and a CSR, so the issuer
+# refuses to start without these (or an explicit allow_insecure_http: true).
+# Server-authentication TLS only: no client certificate is requested, because the
+# first caller has none yet. The shared dev certificate is mounted at /tls.
+tls_certificate_path: /tls/cert.pem
+tls_key_path: /tls/key.pem
+# Durable state. The issuer accepts each bootstrap token once, and remembers that
+# in <state_dir>/spent-tokens.jsonl so a restart does not hand a used token back.
+# It refuses to start without this (or an explicit allow_ephemeral_state: true).
+# /data is the named volume light-identity-issuer-state; see ../README.md to re-arm
+# a token.
+state_dir: /data

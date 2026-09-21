@@ -7,6 +7,10 @@ services:
       - ${WORKFLOW_BROKER_DIR:?prepare the A1 profile}/issuer/server.yml:/config/server.yml:ro,z
     expose:
       - "7443"
+    # The browser authorization URL is https://localhost:6881 (local-profile.json), and the base stack
+    # does not publish light-oauth. Loopback only, and only with this overlay.
+    ports:
+      - "127.0.0.1:6881:6881"
   light-workflow:
     volumes:
       - ${WORKFLOW_BROKER_DIR:?prepare the A1 profile}/workflow:/run/workflow-broker:ro,z

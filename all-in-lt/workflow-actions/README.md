@@ -63,3 +63,25 @@ Live anonymous direct MCP and forged-session ingress requests return 401;
 foreign Origin, supplied app identity, duplicate CSRF cookies and a runtime
 credential-file URL return 403. HTTP/2 split Cookie fields are joined per RFC
 9113 section 8.2.3, but duplicate authentication cookie names remain rejected.
+
+## Light CLI: user token only
+
+The Light CLI is open source and downloadable anywhere, so it cannot keep an application secret
+or certificate. It calls `/mcp` with the signed-in user's token alone. `prepare.py` sets
+`interactiveUserOnly` in the Gateway's caller policy, and `prepare-light-cli.py` does the same to
+an already-running Gateway. A request with **no** application credential (`x-scope-token`) is then
+admitted on its user token, as an interactive caller with no action reference. Anyone who does
+present an application credential is judged exactly as before, and a request that claims a
+workflow action without one is refused. What a CLI user may do is decided by their roles and the
+route's ACL.
+
+```sh
+python3 prepare-light-cli.py                 # prepare and show; changes nothing
+python3 prepare-light-cli.py --activate      # install, restart the Gateway, verify
+python3 prepare-light-cli.py --rollback DIR  # restore what DIR saved
+```
+
+The Gateway image must be a build that knows `interactiveUserOnly` (an older one refuses to start
+on the unknown field; `--activate` then restores the previous policy itself). The script also removes
+the `com.networknt.light-cli-1.0.0` certificate profile an earlier version added. It is idempotent,
+and keeps the saved previous policy in the output directory under `.runtime/`.
