@@ -20,10 +20,11 @@ built like every other (`portal-service/build.sh <tag> -s light-oauth -l`), and
    it keeps its secret and everything that needs it. Its id is `cli.oauthClientId` in
    `light-fabric/apps/light-cli/config/cli.yml`. The device flow never uses the secret: a request
    that presents one takes the ordinary path, where it is checked.
-3. **Settings** (all optional) are the `device_*` keys in `light-oauth-rust/config/values.yml`:
+3. **Settings** are the `device_*` keys in `light-oauth-rust/config/values.yml`:
    login length (`device_session_seconds`, default one day), the "remember me" length
    (`device_remember_seconds`, default 90 days), and the page the user opens
-   (`device_verification_uri`, portal-view's `/device`).
+   (`device_verification_uri`, portal-view's `/device`). The page URL is required; the lifetime
+   and capacity settings are optional.
 4. **portal-view** needs nothing but the `/device` page: the provider comes from the link the CLI prints
    (`light-oauth` adds `?provider=`). `device_verification_uri` must be portal-view's own address
    (`https://localhost:3000/device` for the dev server), not the Gateway's: the Gateway does not serve
@@ -31,7 +32,8 @@ built like every other (`portal-service/build.sh <tag> -s light-oauth -l`), and
 5. **light-gateway** (Portal snapshot): routes to light-oauth for `POST /oauth2/*/device_authorization`,
    `POST /oauth2/*/token`, `POST /oauth2/*/revoke` (from the CLI, no user token needed), and
    `GET /oauth2/*/device/lookup`, `POST /oauth2/*/device/approve` (from portal-view, with the
-   session as a bearer). Rate limit all of them by address, overwrite `X-Forwarded-For`, and do
+   session as a bearer). The resolved local `handler.yml` contains these routes. Overwrite
+   `X-Forwarded-For`; production can add address rate limits when its exposure requires them. Do
    not publish light-oauth's port on the host in a real deployment.
 
 ## Trying it
