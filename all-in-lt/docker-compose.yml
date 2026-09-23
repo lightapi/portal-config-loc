@@ -643,6 +643,46 @@ services:
       operational-schema-validation:
         condition: service_completed_successfully
 
+  workflow-mcp-test-gateway:
+    image: ${LIGHT_GATEWAY_IMAGE:-networknt/light-gateway:2.3.5-dev.20260909.2338}
+    ports:
+      - "${WORKFLOW_MCP_TEST_GATEWAY_HOST_PORT:-8445}:8443"
+    volumes:
+      - ./light-gateway-rust/config:/config:Z
+      - ./light-gateway-rust/lightapi/dist:/lightapi/dist:Z
+      - ./light-gateway-rust/signin/dist:/signin/dist:Z
+      - gateway-runtime-secrets:/run/secrets:ro
+      - ./light-a2a-rust/.runtime/gateway-context-key:/run/triage-gateway/context-key:ro,z
+    environment:
+      LIGHT_RS_CONFIG_DIR: /config
+      LIGHT_GATEWAY_SERVICE_ID: com.networknt.portal.workflow-mcp-e2e.gateway-1.0.0
+      LIGHT_GATEWAY_ENVIRONMENT: loc
+      A2A_ROUTER_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      NVIDIA_API_KEY: "${NVIDIA_API_KEY:-}"
+      CLIENT_VERIFYHOSTNAME: "false"
+      CLIENT_CACERTPATH: /config/ca.pem
+      STATELESSAUTH_BOOTSTRAPTOKEN: ""
+      STATELESSAUTH_GITHUBCLIENTSECRET: ""
+      STATELESSAUTH_GOOGLECLIENTSECRET: ""
+      STATELESSAUTH_FACEBOOKCLIENTSECRET: ""
+      LIGHT_PORTAL_AUTHORIZATION: "${LIGHT_GATEWAY_LIGHT_PORTAL_AUTHORIZATION:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJ0b2tlbl91c2UiOiJhcHAiLCJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxYTBjZTVhLTk4MTktNzMyNC1hOTdhLWJkODIyMmQzNzA3YyIsImV4cCI6MjEwNTUyODQ5OSwianRpIjoiVWdXYUE1RWxRcm16UF9LYUxOZ1UxZyIsImlhdCI6MTc5MDE2ODQ5OSwibmJmIjoxNzkwMTY4Mzc5LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMWEwY2U1YS05ODE5LTczMjQtYTk3YS1iZDgyMjJkMzcwN2MiLCJzY3AiOlsicG9ydGFsLnciLCJwb3J0YWwuciJdLCJjbGllbnRfaWQiOiIwMWEwY2U1YS05ODE5LTczMjQtYTk3YS1iZDgyMjJkMzcwN2MiLCJzY29wZSI6InBvcnRhbC53IHBvcnRhbC5yIiwiZW52IjoibG9jIiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQucG9ydGFsLndvcmtmbG93LW1jcC1lMmUuZ2F0ZXdheS0xLjAuMCJ9.LMSNhUHJ5KuK0WD2bOQiVCeEHvgYY2g6BlHQG7v5yS8Jnjrkls0f99kB8B0oTyujUS9Sq7XqLOiRn-0U67z-EOATwIICoGGFGvYyoxyBYjyjhhg_1KRg-vPxiGROS2VSsvb7xOy7PEi1ld5IJsnwpTAKj9PfQdS4ZSHyJGbgsTd698HjslcHMGx1ZmvEuwe6Ujzli2o6PknAJurjxz9KAA2VisBUh_2Nko_cr8Jx63VfQkEKic0jseXPTStsxX3AHX2GM2dlzyxMV5OBUiaG3prMzezEHnCbRWbiszsEdeKlGpC2Budglef3nAH-3Jh9PK2VV20hht5OdzNi9s32tg}"
+      WORKFLOW_INVOCATION_SCOPE_TOKEN: "${LIGHT_GATEWAY_WORKFLOW_INVOCATION_SCOPE_TOKEN:-Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkFacDAyTUN1Y3J1WmZGSmJ5eUZ3dWcifQ.eyJpc3MiOiJ1cm46Y29tOm5ldHdvcmtudDpvYXV0aDI6djEiLCJhdWQiOiJ1cm46Y29tLm5ldHdvcmtudCIsInN1YiI6IjAxOWUxNGY5LWViNzgtNzRjNC04MGU3LWVjNmFhNjgwMGIxNSIsImV4cCI6MjA5NzMzMjY5NywianRpIjoidzJURFFLRDNUblMwYWVfVzdmNWVMUSIsImlhdCI6MTc4MTk3MjY5NywibmJmIjoxNzgxOTcyNTc3LCJ2ZXIiOiIxLjAiLCJjaWQiOiIwMTllMTRmOS1lYjc4LTc0YzQtODBlNy1lYzZhYTY4MDBiMTUiLCJzY3AiOlsicG9ydGFsLnIiLCJwb3J0YWwudyJdLCJjbGllbnRfaWQiOiIwMTllMTRmOS1lYjc4LTc0YzQtODBlNy1lYzZhYTY4MDBiMTUiLCJzY29wZSI6InBvcnRhbC5yIHBvcnRhbC53IiwiZW52IjoiZGV2IiwiaG9zdCI6IjAxOTY0YjA1LTU1MmEtN2M0Yi05MTg0LTY4NTdlN2YzZGM1ZiIsInNpZCI6ImNvbS5uZXR3b3JrbnQucG9ydGFsLmdhdGV3YXktMS4wLjAifQ.CxR175PdsizO1mLtV7f_lPxyLhdlmOmNy80InIHH-R-FlIsDiGXVzjlqn6b3h_gI_v-st0r4vQPXUxotDBNSbyStXUq1HZDdBS_7O15f7VgCbK95re909BC06Qm4uSgPs9F6IB_LfVjwxkJ5nxKg2geXJ6SgQ_m0Ux1Kyeku-ctx6FT-0t50SJZIMaZ73J3oiXuFgbj37fEXxCUZmpibsoLeLALvPUYWseZZNiJ1nBOOPWrPtDdvqIrUJQntL1jrbuAQuRvtORYNYRAG9Ju4QCIv1G8_GhLHSt18EoIMa5WkZUsC73KheAKLYUzhiDcPvb-Nv4jnwMzoNdPBD1mlMA}"
+      RUST_LOG: "${RUST_LOG:-info}"
+      GATEWAY_LOG_ANSI: "false"
+    hostname: workflow-mcp-test-gateway
+    container_name: workflow-mcp-test-gateway
+    depends_on:
+      operational-runtime-secrets-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      operational-schema-validation:
+        condition: service_completed_successfully
+
   llm-gateway:
     # Load provider credentials even for direct docker compose invocations.
     # Do not override these with empty environment entries below.
