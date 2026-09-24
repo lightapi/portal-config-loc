@@ -243,6 +243,7 @@ services:
     volumes:
       - ./hybrid-query/node1:/config:Z
       - ./hybrid-query/service:/service:Z
+      - ./light-gateway-rust/config/ca.pem:/run/secrets/gateway-trust.pem:ro,Z
       - ${PORTAL_DATA_DIR:-./data}:/data:z
     ports:
       - 8440:8440
@@ -257,7 +258,8 @@ services:
       embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
       embedding-task.apiKey: ${GEMINI_API_KEY:-}
       JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
-      LIGHT_WORKFLOW_RULE_TEST_URL: "http://light-workflow:8436/rule/test"
+      LIGHT_GATEWAY_MCP_URL: "https://light-gateway:8443/mcp"
+      LIGHT_GATEWAY_TLS_CA_PATH: /run/secrets/gateway-trust.pem
     hostname: hybrid-query
     container_name: hybrid-query
     depends_on:
@@ -468,6 +470,8 @@ services:
       - ./light-workflow-rust/config/light-workflow.env
     volumes:
       - ./light-gateway-rust/config/ca.pem:/config/ca.pem:ro,Z
+      - ./light-gateway-rust/config/cert.pem:/config/cert.pem:ro,Z
+      - ./light-gateway-rust/config/key.pem:/config/key.pem:ro,Z
       - ./light-workflow-rust/config/startup.yml:/app/config/startup.yml:ro,Z
       - light-workflow-config-cache:/app/config-cache
       - workflow-runtime-secrets:/run/secrets:ro
@@ -481,6 +485,9 @@ services:
       SERVER_STARTONREGISTRYFAILURE: "false"
       PORTALREGISTRY_PORTALURL: "https://controller:8438"
       SERVER_ADVERTISEDADDRESS: "light-workflow"
+      SERVER_ENABLEHTTP: "false"
+      SERVER_ENABLEHTTPS: "true"
+      SERVER_HTTPSPORT: "8436"
       RUST_LOG: "${RUST_LOG:-light_workflow=debug,info}"
       OPERATIONALSTORE_BINDINGID: 01a06356-a4aa-7528-838e-dfbbe90ec959
       OPERATIONALSTORE_BINDINGDIGEST: sha256:79a39f6ff78c336d6ac9b0dc711115750bf22be954c584fa836930150e3db09e
@@ -517,7 +524,7 @@ services:
       workflow-projection-sync:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8436/ready || exit 1"]
+      test: ["CMD-SHELL", "curl --fail --silent --show-error --cacert /config/ca.pem https://localhost:8436/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -616,6 +623,7 @@ services:
       - ./light-a2a-rust/.runtime/gateway-context-key:/run/triage-gateway/context-key:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
+      mcp-router.workflow.invocationUrl: https://light-workflow:8436
       A2A_ROUTER_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
       # ACCESS_CONTROL_ENABLED: "false"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
@@ -654,6 +662,7 @@ services:
       - ./light-a2a-rust/.runtime/gateway-context-key:/run/triage-gateway/context-key:ro,z
     environment:
       LIGHT_RS_CONFIG_DIR: /config
+      mcp-router.workflow.invocationUrl: https://light-workflow:8436
       LIGHT_GATEWAY_SERVICE_ID: com.networknt.portal.workflow-mcp-e2e.gateway-1.0.0
       LIGHT_GATEWAY_ENVIRONMENT: loc
       A2A_ROUTER_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
