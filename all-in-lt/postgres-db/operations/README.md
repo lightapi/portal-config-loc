@@ -5,6 +5,8 @@ adds the Workflow-owned endpoint-resolution projection. Bundle 2.2.0 adds
 private Workflow lifetime/owner binding, approval linkage, native process
 operations, and durable Agent LONG binding. Environment remains
 runtime-instance routing metadata and is not part of database ownership.
+Bundle 2.4.0 adds Workflow Tool binding revisions, publication decisions,
+run credentials, and idempotency replay-window support.
 
 The pinned bundle under `bundle/` is applied to all three local operational
 databases declared by `operational-databases.tsv`:
