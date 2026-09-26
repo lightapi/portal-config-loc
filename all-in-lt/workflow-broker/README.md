@@ -35,6 +35,12 @@ it is not one of the existing Workflow application clients.
    to the database server named in `database-url`. Apply `register.sql` to the
    issuer database with its selected schema `search_path`. Both are replayable;
    existing inactive/conflicting registrations fail rather than revive.
+   The Step 02 ROLE authority endpoint requires the additional
+   `workflow.role.membership.read` client scope. The generated SQL upgrades only
+   the exact earlier active broker registration with all other identity fields
+   unchanged; it refuses a different scope or client. Apply it before expecting
+   ROLE inbox or completion to work. The endpoint also checks the registered
+   mTLS certificate and the original verified user token on every lookup.
    Test a runtime connection with the supplied URL before activation. The
    runtime role must not be a member of the schema owner or operational roles.
 6. Import the catalog events in `light-portal-event/config/20260913-workflow-broker`.
