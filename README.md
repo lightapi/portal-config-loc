@@ -116,6 +116,14 @@ Patch files must therefore remain immutable. `PORTAL_DB_PATCHES` is ignored
 when `CLEAN_VOLUMES=true`, because `init.sql` creates the current schema on the
 new volume.
 
+For the historical Workflow Tool binding publication patch
+(`patch_20260926_01_workflow_tool_binding_publication.sql`), use
+`scripts/apply-db-patches.sh` with the selected application schema. Raw SQL
+execution under an arbitrary connection `search_path` is unsupported: the
+patch combines qualified object names with checks against `current_schema()`.
+The runner selects `public` explicitly or renders the patch for a supported
+`configserver` schema, and checks the recorded file checksum before reapplying.
+
 To apply patches without running the rest of deployment, first leave only the
 local Postgres container running, then invoke the runner directly:
 
