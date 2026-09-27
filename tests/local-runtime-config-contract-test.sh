@@ -74,6 +74,16 @@ grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.4.0' "$compose_file"
 [[ ! -e "$workflow_projection_script" ]]
 ! grep -q 'workflow-projection-sync\|publish-workflow-projections\|workflow_projection_source' "$compose_file"
 grep -Fq 'LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338' "$compose_file"
+docker compose -f "$compose_file" config --format json | jq -e '
+  . as $root | all(["hybrid-command", "hybrid-query"][];
+    $root.services[.] as $service |
+    $service.environment.LIGHT_GATEWAY_MCP_URL == "https://light-gateway:8443/mcp" and
+    $service.environment.LIGHT_GATEWAY_TLS_CA_PATH == "/run/secrets/gateway-trust.pem" and
+    (($service.environment.JAVA_TOOL_OPTIONS // "") | contains("disableHostnameVerification") | not) and
+    any($service.volumes[]; .target == "/run/secrets/gateway-trust.pem" and .read_only == true
+      and (.source | endswith("/light-gateway-rust/config/ca.pem")))
+  )
+' >/dev/null
 grep -q 'LLM_REASONING_SEAL_KEY: "${LLM_REASONING_SEAL_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY}"' "$compose_file"
 grep -q 'required_agent_policy_property_count="33"' "$deploy_script"
 grep -q "runtimePolicy.publicationId" "$deploy_script"
