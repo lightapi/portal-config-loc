@@ -6,6 +6,12 @@ The canonical service, environment-variable, secret, port, dependency, and
 operational-storage reference is the
 [portal-config-loc operations guide](https://doc.lightapi.net/operations/docker-compose/portal-config-loc.html).
 
+Workflow definitions, grants, and Tool bindings reach Workflow through
+Gateway MCP publication. The main Compose stack starts Workflow without a
+projection synchronization service. The default Workflow image is
+`networknt/light-workflow:2.3.5-dev.20260909.2338`; see
+[Workflow Invoke setup](docs/workflow-invoke-setup.md) for operator settings.
+
 To use this repository, you must also clone the `portal-view` repository and run a local Node.js server to render the UI, which connects to the services started through the Docker Compose stacks in this repository.
 
 If you are a backend developer, or simply want to run the complete application without cloning additional GitHub repositories, follow the CLI installation instructions provided in the [light-portal-install](https://github.com/lightapi/light-portal-install) repository.
@@ -109,6 +115,14 @@ patches; changing an already applied patch fails with a checksum-drift error.
 Patch files must therefore remain immutable. `PORTAL_DB_PATCHES` is ignored
 when `CLEAN_VOLUMES=true`, because `init.sql` creates the current schema on the
 new volume.
+
+For the historical Workflow Tool binding publication patch
+(`patch_20260926_01_workflow_tool_binding_publication.sql`), use
+`scripts/apply-db-patches.sh` with the selected application schema. Raw SQL
+execution under an arbitrary connection `search_path` is unsupported: the
+patch combines qualified object names with checks against `current_schema()`.
+The runner selects `public` explicitly or renders the patch for a supported
+`configserver` schema, and checks the recorded file checksum before reapplying.
 
 To apply patches without running the rest of deployment, first leave only the
 local Postgres container running, then invoke the runner directly:

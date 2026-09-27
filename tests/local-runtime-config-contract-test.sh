@@ -11,6 +11,11 @@ hybrid_command_values="$repo_root/all-in-lt/hybrid-command/config/values.yml"
 hybrid_query_values="$repo_root/all-in-lt/hybrid-query/node1/values.yml"
 registration_patch="$repo_root/all-in-lt/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
+for retired_file in .gitignore README.md compose.yml credential_broker.sql issuer-server.yml \
+  local-profile.json prepare.py refresh-claims-preflight.sql set-ownership.py; do
+  test ! -e "$repo_root/all-in-lt/workflow-broker/$retired_file"
+done
+
 if grep -q './postgres-db/secrets/operational-database-url' "$compose_file"; then
   echo "local Compose must not mount a host operational database URL secret" >&2
   exit 1
@@ -23,6 +28,10 @@ fi
 grep -q 'OPERATIONAL_DATABASE_URL:' "$compose_file"
 grep -q 'GATEWAY_DATABASE_URL:' "$compose_file"
 grep -q 'host_dir="/source/operational-hosts/\$${OPERATIONAL_RUNTIME_HOST:-dev.lightapi.net}"' "$compose_file"
+grep -Fq 'if [ ! -s /target/workflow/run-credential-keyring.json ]; then' "$compose_file"
+grep -Fq 'dd if=/dev/urandom bs=32 count=1' "$compose_file"
+grep -Fq 'workflow-runtime-secrets:/run/secrets:ro' "$compose_file"
+grep -Fxq 'WORKFLOW_LONG_KEYRING_FILE=/run/secrets/run-credential-keyring.json' "$repo_root/all-in-lt/light-workflow-rust/config/light-workflow.env"
 if grep -Eq 'GATEWAYEVIDENCE_|GATEWAY_EVIDENCE_|gatewayEvidence\.|gateway-evidence\.' "$compose_file"; then
   echo "gateway evidence configuration must come from Portal instance properties" >&2
   exit 1
@@ -61,23 +70,20 @@ grep -q 'curl -f http://localhost:8084/health' "$compose_file"
 grep -q '\${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082' "$compose_file"
 grep -q 'curl -f http://localhost:8082/health' "$compose_file"
 grep -q '^prepare_database_urls()' "$bootstrap_script"
-grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.1.0' "$compose_file"
-[[ -x "$workflow_projection_script" ]]
-grep -q '^  workflow-projection-sync:' "$compose_file"
-grep -q '0005_workflow_catalog_projection' "$workflow_projection_script"
-grep -q '0006_workflow_endpoint_resolution' "$workflow_projection_script"
-grep -q 'workflow_projection_source.tool_t' "$workflow_projection_script"
-grep -q "operation.value->'authentication'->>'type'='none'" "$workflow_projection_script"
-grep -q "av.protocol IN ('http','https')" "$workflow_projection_script"
-grep -q 'resolution_document' "$workflow_projection_script"
-grep -q 'SELECT DISTINCT ON (b.host_id,b.binding_id,t.capability_ref)' "$workflow_projection_script"
-grep -q 'AND b.active AND g.active AND t.active AND e.active AND av.active AND a.active' "$workflow_projection_script"
-grep -q 'target operational database identity is unavailable or ambiguous' "$workflow_projection_script"
-grep -q 'workflow-projection-sync:' "$compose_file"
-grep -q 'condition: service_healthy' "$compose_file"
-grep -q 'WORKFLOW_PROJECTION_MINIMUM_BINDINGS: "0"' "$compose_file"
-grep -q 'WORKFLOW_PROJECTION_MINIMUM_ENDPOINTS: "0"' "$compose_file"
-grep -q 'WORKFLOW_PROJECTION_REFRESH_SECONDS: "30"' "$compose_file"
+grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.4.0' "$compose_file"
+[[ ! -e "$workflow_projection_script" ]]
+! grep -q 'workflow-projection-sync\|publish-workflow-projections\|workflow_projection_source' "$compose_file"
+grep -Fq 'LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338' "$compose_file"
+docker compose -f "$compose_file" config --format json | jq -e '
+  . as $root | all(["hybrid-command", "hybrid-query"][];
+    $root.services[.] as $service |
+    $service.environment.LIGHT_GATEWAY_MCP_URL == "https://light-gateway:8443/mcp" and
+    $service.environment.LIGHT_GATEWAY_TLS_CA_PATH == "/run/secrets/gateway-trust.pem" and
+    (($service.environment.JAVA_TOOL_OPTIONS // "") | contains("disableHostnameVerification") | not) and
+    any($service.volumes[]; .target == "/run/secrets/gateway-trust.pem" and .read_only == true
+      and (.source | endswith("/light-gateway-rust/config/ca.pem")))
+  )
+' >/dev/null
 grep -q 'LLM_REASONING_SEAL_KEY: "${LLM_REASONING_SEAL_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY}"' "$compose_file"
 grep -q 'required_agent_policy_property_count="33"' "$deploy_script"
 grep -q "runtimePolicy.publicationId" "$deploy_script"

@@ -5,6 +5,8 @@ adds the Workflow-owned endpoint-resolution projection. Bundle 2.2.0 adds
 private Workflow lifetime/owner binding, approval linkage, native process
 operations, and durable Agent LONG binding. Environment remains
 runtime-instance routing metadata and is not part of database ownership.
+Bundle 2.4.0 adds Workflow Tool binding revisions, publication decisions,
+run credentials, and idempotency replay-window support.
 
 The pinned bundle under `bundle/` is applied to all three local operational
 databases declared by `operational-databases.tsv`:
@@ -28,6 +30,11 @@ files are generated under
 connect to either of the other operational databases.
 `validate-operational-databases.sh` checks the three identities, migration
 ledgers, schemas, role isolation, file permissions, and URL contracts.
+
+Workflow writes its own execution policy snapshots in the operational
+database. Portal definition, grant, and Tool binding publication enters
+Workflow through Gateway MCP; the operations bundle contains no Portal
+projection publisher or FDW setup step.
 
 Database creation belongs to deployment initialization. No background
 provisioner, Docker socket mount, Portal worker token, or per-Host PostgreSQL

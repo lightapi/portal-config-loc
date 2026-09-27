@@ -142,48 +142,6 @@ services:
       operational-store-bootstrap: {condition: service_completed_successfully}
     restart: "no"
 
-  workflow-projection-sync:
-    image: timescale/timescaledb:latest-pg17
-    entrypoint: ["/bin/bash", "-ec"]
-    command:
-      - |
-        sleep_pid=""
-        terminate=0
-        trap 'terminate=1; if [[ -n "$$sleep_pid" ]]; then kill "$$sleep_pid" 2>/dev/null || true; fi' TERM INT
-        while [[ "$$terminate" -eq 0 ]]; do
-          if /opt/operational-store/bin/publish-workflow-projections.sh; then
-            touch /tmp/workflow-projection-ready
-          else
-            rm -f /tmp/workflow-projection-ready
-          fi
-          [[ "$$terminate" -eq 0 ]] || break
-          sleep "$${WORKFLOW_PROJECTION_REFRESH_SECONDS:-30}" &
-          sleep_pid=$$!
-          wait "$$sleep_pid" || true
-          sleep_pid=""
-        done
-    volumes:
-      - ./postgres-db/operations/bin:/opt/operational-store/bin:ro,Z
-    environment:
-      PGHOST: postgres
-      POSTGRES_USER: postgres
-      PGPASSWORD: secret
-      WORKFLOW_PROJECTION_SOURCE_DATABASE: configserver
-      WORKFLOW_PROJECTION_TARGET_DATABASE: operations
-      WORKFLOW_PROJECTION_MINIMUM_DEFINITIONS: "0"
-      WORKFLOW_PROJECTION_MINIMUM_BINDINGS: "0"
-      WORKFLOW_PROJECTION_MINIMUM_ENDPOINTS: "0"
-      WORKFLOW_PROJECTION_REFRESH_SECONDS: "30"
-    depends_on:
-      operational-store-bootstrap: {condition: service_completed_successfully}
-      config-server: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/workflow-projection-ready"]
-      interval: 5s
-      timeout: 2s
-      retries: 12
-    restart: unless-stopped
-
   operational-runtime-secrets-init:
     image: timescale/timescaledb:latest-pg17
     user: "0:0"
@@ -193,6 +151,13 @@ services:
         host_dir="/source/operational-hosts/$${OPERATIONAL_RUNTIME_HOST:-dev.lightapi.net}"
         cp "$$host_dir/execution-database-url" /target/controller/execution-database-url
         cp "$$host_dir/workflow-database-url" /target/workflow/operational-database-url
+        if [ ! -s /target/workflow/run-credential-keyring.json ]; then
+          umask 077
+          key="$$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d '\n')"
+          printf '{"activeKeyId":"local-v1","keys":{"local-v1":"%s"}}\n' "$$key" > /target/workflow/run-credential-keyring.json.tmp
+          mv /target/workflow/run-credential-keyring.json.tmp /target/workflow/run-credential-keyring.json
+          unset key
+        fi
         cp "$$host_dir/gateway-database-url" /target/gateway/operational-database-url
         cp "$$host_dir/a2a-database-url" /target/a2a/operational-database-url
         cp "$$host_dir/operational-database-url" /target/agent/operational-database-url
@@ -222,9 +187,12 @@ services:
       WORKFLOW_TOOL_ACCESS_APPROVAL_DIGEST: sha256:29167fa1e53a00187685c8d459016fefbf69567dd974fc3a90d0d619ca3a887a
       KNOWLEDGE_WORKLOAD_PRINCIPALS: ${KNOWLEDGE_WORKLOAD_PRINCIPALS:-019ff2f7-e56e-758a-a17b-45b057556326,light-knowledge-worker,light-knowledge}
       A2A_SIGNING_SERVICE_URL: ${A2A_SIGNING_SERVICE_URL:-https://light-oauth:6881}
+      LIGHT_GATEWAY_MCP_URL: "https://light-gateway:8443/mcp"
+      LIGHT_GATEWAY_TLS_CA_PATH: /run/secrets/gateway-trust.pem
     volumes:
       - ./hybrid-command/config:/config:Z
       - ./hybrid-command/service:/service:Z
+      - ./light-gateway-rust/config/ca.pem:/run/secrets/gateway-trust.pem:ro,Z
       - ${PORTAL_DATA_DIR:-./data}:/data:z
     ports:
       - 8439:8439
@@ -257,7 +225,6 @@ services:
       embedding-task.model: ${EMBEDDING_TASK_MODEL:-gemini-embedding-001}
       embedding-task.dimension: ${EMBEDDING_TASK_DIMENSION:-384}
       embedding-task.apiKey: ${GEMINI_API_KEY:-}
-      JAVA_TOOL_OPTIONS: "-Djdk.internal.httpclient.disableHostnameVerification=true"
       LIGHT_GATEWAY_MCP_URL: "https://light-gateway:8443/mcp"
       LIGHT_GATEWAY_TLS_CA_PATH: /run/secrets/gateway-trust.pem
     hostname: hybrid-query
@@ -330,7 +297,7 @@ services:
     # Not published on the host: light-oauth is reached through light-gateway (/oauth2/...), and by other
     # containers as https://light-oauth:6881. Publishing it would also let a caller reach it directly
     # with a forged X-Forwarded-For, which the device sign-in uses to show where a request came from.
-    # The opt-in workflow-broker overlay publishes it on 127.0.0.1 only, for its browser consent URL.
+    # The default stack keeps this issuer internal to Compose.
     # To debug it directly otherwise, add `ports: ["127.0.0.1:6881:6881"]` temporarily; do not commit that.
     # ports:
     #   - 5005:5005
@@ -448,7 +415,7 @@ services:
       start_period: 10s
 
   light-workflow-config-cache-init:
-    image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260807.2117}
+    image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338}
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
     command: ["chown -R 999:999 /app/config-cache && chmod 700 /app/config-cache"]
@@ -457,7 +424,7 @@ services:
     restart: "no"
 
   light-workflow:
-    image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260807.2117}
+    image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338}
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -521,8 +488,6 @@ services:
         condition: service_healthy
       operational-schema-validation:
         condition: service_completed_successfully
-      workflow-projection-sync:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --show-error --cacert /config/ca.pem https://localhost:8436/ready || exit 1"]
       interval: 10s

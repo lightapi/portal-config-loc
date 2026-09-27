@@ -87,13 +87,6 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
     )
 fi
 
-# Retain an explicitly activated local credential broker across redeployments.
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
-   [[ -f "$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/enabled" ]]; then
-    export WORKFLOW_BROKER_DIR="$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/active"
-    DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/workflow-broker/compose.yml")
-fi
-
 # Retain an explicitly activated A2 dual-identity action profile. The resolved
 # JSON and all credentials are private generated inputs, never checked-in values.
 if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
@@ -1126,7 +1119,7 @@ bootstrap_events_if_requested() {
 
     start_event_bootstrap_services || return 1
     import_events || return 1
-    log_info "Waiting for asynchronous baseline projection cursor before full-stack startup"
+    log_info "Waiting for asynchronous baseline Portal projection cursor before full-stack startup"
     wait_for_baseline_projection_cursor
     # IMPORT_EVENTS=auto returns early for an existing event store, before
     # import_events resolves EVENT_IMPORTER_IMAGE. Resolve it here as well so

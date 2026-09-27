@@ -2003,6 +2003,32 @@ $$;
 
 
 --
+-- Name: workflow_operation_guard(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.workflow_operation_guard() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.expires_ts := NEW.create_ts + INTERVAL '29 days';
+    ELSIF NEW.create_ts IS DISTINCT FROM OLD.create_ts
+       OR NEW.expires_ts IS DISTINCT FROM OLD.expires_ts
+       OR NEW.host_id IS DISTINCT FROM OLD.host_id
+       OR NEW.operation_id IS DISTINCT FROM OLD.operation_id
+       OR NEW.tool_name IS DISTINCT FROM OLD.tool_name
+       OR NEW.subject_id IS DISTINCT FROM OLD.subject_id
+       OR NEW.request IS DISTINCT FROM OLD.request
+       OR NEW.request_digest IS DISTINCT FROM OLD.request_digest
+       OR NEW.requested_by IS DISTINCT FROM OLD.requested_by THEN
+        RAISE EXCEPTION 'workflow operation identity, request and expiry are immutable' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: workflow_promote_tool_binding_v1(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -21146,6 +21172,7 @@ CREATE TABLE public.gateway_tool_binding_t (
     workflow_definition_id uuid,
     workflow_version character varying(64),
     definition_digest character varying(71),
+    binding_digest character varying(71),
     schema_digest character varying(71),
     policy_digest character varying(71),
     active boolean DEFAULT true NOT NULL,
@@ -21153,6 +21180,7 @@ CREATE TABLE public.gateway_tool_binding_t (
     delete_ts timestamp with time zone,
     update_user character varying(126) DEFAULT SESSION_USER NOT NULL,
     update_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT gateway_tool_binding_t_binding_digest_check CHECK (((binding_digest IS NULL) OR ((binding_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text))),
     CONSTRAINT gateway_tool_binding_t_check CHECK (((((source_type)::text = 'ENDPOINT'::text) AND (api_version_id IS NOT NULL) AND (endpoint_id IS NOT NULL) AND (stable_tool_ref IS NULL) AND (workflow_binding_id IS NULL)) OR (((source_type)::text = 'WORKFLOW'::text) AND (api_version_id IS NULL) AND (endpoint_id IS NULL) AND (stable_tool_ref IS NOT NULL) AND (workflow_binding_id IS NOT NULL) AND (workflow_definition_id IS NOT NULL) AND (workflow_version IS NOT NULL) AND ((definition_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text) AND ((schema_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text) AND ((policy_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)))),
     CONSTRAINT gateway_tool_binding_t_publication_version_check CHECK ((publication_version > 0)),
     CONSTRAINT gateway_tool_binding_t_source_aggregate_version_check CHECK ((source_aggregate_version > 0)),
@@ -21270,6 +21298,13 @@ COMMENT ON COLUMN public.gateway_tool_binding_t.workflow_version IS 'Version val
 --
 
 COMMENT ON COLUMN public.gateway_tool_binding_t.definition_digest IS 'Integrity digest for definition.';
+
+
+--
+-- Name: COLUMN gateway_tool_binding_t.binding_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.gateway_tool_binding_t.binding_digest IS 'Digest of the approved Workflow binding revision pinned by this Gateway Tool.';
 
 
 --
@@ -40389,6 +40424,243 @@ COMMENT ON COLUMN public.workflow_invocation_t.user_authorization_exp IS 'JWT ex
 
 
 --
+-- Name: workflow_operation_t; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workflow_operation_t (
+    host_id uuid NOT NULL,
+    operation_id uuid NOT NULL,
+    tool_name character varying(64) NOT NULL,
+    subject_id uuid NOT NULL,
+    request jsonb NOT NULL,
+    request_digest character varying(71) NOT NULL,
+    state character varying(16) DEFAULT 'pending'::character varying NOT NULL,
+    expires_ts timestamp with time zone NOT NULL,
+    receipt jsonb,
+    error jsonb,
+    requested_by character varying(126) NOT NULL,
+    create_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    update_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT workflow_operation_t_request_check CHECK ((jsonb_typeof(request) = 'object'::text)),
+    CONSTRAINT workflow_operation_t_request_digest_check CHECK (((request_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)),
+    CONSTRAINT workflow_operation_t_state_check CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE workflow_operation_t; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.workflow_operation_t IS 'Operational ledger of user-initiated Workflow Admin mutations and retry ownership; excluded from snapshots.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.host_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.host_id IS 'Tenant host that owns this operation.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.operation_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.operation_id IS 'Stable idempotency identifier for the original Workflow operation.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.tool_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.tool_name IS 'Workflow Admin Tool operation name defining the pending stream.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.subject_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.subject_id IS 'Definition or Tool identifier defining the pending stream.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.request; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.request IS 'Immutable request body retried only by the original user.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.request_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.request_digest IS 'Digest of the immutable original request.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.state; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.state IS 'Pending, completed, failed or expired operation state.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.expires_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.expires_ts IS 'Immutable retry deadline, exactly 29 days after creation.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.receipt; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.receipt IS 'Stored Workflow receipt when the operation completes.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.error; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.error IS 'Stored terminal or retryable error information.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.requested_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.requested_by IS 'Verified original user allowed to retry this operation.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.create_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.create_ts IS 'Immutable creation time anchoring the retry deadline.';
+
+
+--
+-- Name: COLUMN workflow_operation_t.update_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_operation_t.update_ts IS 'Time this operation row was last updated.';
+
+
+--
+-- Name: workflow_sync_state_t; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workflow_sync_state_t (
+    host_id uuid NOT NULL,
+    wf_def_id uuid NOT NULL,
+    sync_kind character varying(16) NOT NULL,
+    desired_revision bigint NOT NULL,
+    desired_actor character varying(126) NOT NULL,
+    acked_revision bigint DEFAULT 0 NOT NULL,
+    acked_digest character varying(71),
+    attempts integer DEFAULT 0 NOT NULL,
+    next_attempt_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    last_error_code character varying(64),
+    last_error_message text,
+    update_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT workflow_sync_state_t_acked_digest_check CHECK (((acked_digest IS NULL) OR ((acked_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text))),
+    CONSTRAINT workflow_sync_state_t_acked_revision_check CHECK (((acked_revision >= 0) AND (acked_revision <= desired_revision))),
+    CONSTRAINT workflow_sync_state_t_desired_revision_check CHECK ((desired_revision >= 1)),
+    CONSTRAINT workflow_sync_state_t_sync_kind_check CHECK (((sync_kind)::text = ANY ((ARRAY['definition'::character varying, 'grants'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE workflow_sync_state_t; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.workflow_sync_state_t IS 'Operational delivery state for Portal to Workflow definition and grant synchronization; excluded from snapshots.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.host_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.host_id IS 'Tenant host that owns this synchronization row.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.wf_def_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.wf_def_id IS 'Workflow definition synchronized with Workflow.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.sync_kind; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.sync_kind IS 'Definition or grant-set synchronization stream.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.desired_revision; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.desired_revision IS 'Latest Portal revision requested for delivery.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.desired_actor; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.desired_actor IS 'User whose change produced the latest desired revision.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.acked_revision; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.acked_revision IS 'Latest Workflow revision acknowledged with its digest.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.acked_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.acked_digest IS 'Digest paired with the acknowledged Workflow revision.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.attempts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.attempts IS 'Number of delivery attempts for the pending revision.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.next_attempt_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.next_attempt_ts IS 'Earliest time at which the delivery worker may retry.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.last_error_code; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.last_error_code IS 'Last synchronization error code, when present.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.last_error_message; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.last_error_message IS 'Last synchronization error description, when present.';
+
+
+--
+-- Name: COLUMN workflow_sync_state_t.update_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_sync_state_t.update_ts IS 'Time this synchronization row was last updated.';
+
+
+--
 -- Name: workflow_task_effect_t; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -40824,7 +41096,23 @@ CREATE TABLE public.workflow_tool_binding_t (
     update_user character varying(126) DEFAULT SESSION_USER NOT NULL,
     update_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     policy_digest character varying(71) NOT NULL,
+    cancellation_policy character varying(24) DEFAULT 'before-effects-only'::character varying NOT NULL,
+    admission_limits jsonb DEFAULT '{"startsPerMinute": 120, "maximumConcurrentRuns": 20, "startsPerMinutePerUser": 10, "maximumConcurrentRunsPerUser": 2}'::jsonb NOT NULL,
+    caller_policy jsonb DEFAULT '{}'::jsonb NOT NULL,
+    tool_annotations jsonb,
+    publication_status character varying(24),
+    published_binding_digest character varying(71),
+    published_definition_digest character varying(71),
+    published_request_digest character varying(71),
+    published_revision_id uuid,
+    published_aggregate_version bigint,
+    publication_comment text,
+    publication_status_ts timestamp with time zone,
+    publication_decided_by character varying(126),
+    CONSTRAINT workflow_tool_binding_t_admission_limits_check CHECK ((jsonb_typeof(admission_limits) = 'object'::text)),
     CONSTRAINT workflow_tool_binding_t_aggregate_version_check CHECK ((aggregate_version > 0)),
+    CONSTRAINT workflow_tool_binding_t_caller_policy_check CHECK ((jsonb_typeof(caller_policy) = 'object'::text)),
+    CONSTRAINT workflow_tool_binding_t_cancellation_policy_check CHECK (((cancellation_policy)::text = ANY ((ARRAY['before-effects-only'::character varying, 'cooperative'::character varying, 'disabled'::character varying])::text[]))),
     CONSTRAINT workflow_tool_binding_t_check CHECK ((total_deadline_ms >= sync_wait_ms)),
     CONSTRAINT workflow_tool_binding_t_check1 CHECK ((((invocation_mode)::text <> 'sync'::text) OR ((execution_class)::text = 'interactive'::text))),
     CONSTRAINT workflow_tool_binding_t_definition_digest_check CHECK (((definition_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)),
@@ -40833,11 +41121,16 @@ CREATE TABLE public.workflow_tool_binding_t (
     CONSTRAINT workflow_tool_binding_t_idempotency_policy_check CHECK ((jsonb_typeof(idempotency_policy) = 'object'::text)),
     CONSTRAINT workflow_tool_binding_t_invocation_mode_check CHECK (((invocation_mode)::text = ANY (ARRAY[('sync'::character varying)::text, ('async'::character varying)::text]))),
     CONSTRAINT workflow_tool_binding_t_policy_digest_check CHECK (((policy_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)),
+    CONSTRAINT workflow_tool_binding_t_publication_status_check CHECK (((publication_status IS NULL) OR ((publication_status)::text = ANY ((ARRAY['active'::character varying, 'pendingApproval'::character varying, 'rejected'::character varying, 'revoked'::character varying, 'retired'::character varying, 'superseded'::character varying, 'withdrawn'::character varying, 'failed'::character varying])::text[])))),
+    CONSTRAINT workflow_tool_binding_t_published_binding_digest_check CHECK (((published_binding_digest IS NULL) OR ((published_binding_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text))),
+    CONSTRAINT workflow_tool_binding_t_published_definition_digest_check CHECK (((published_definition_digest IS NULL) OR ((published_definition_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text))),
+    CONSTRAINT workflow_tool_binding_t_published_request_digest_check CHECK (((published_request_digest IS NULL) OR ((published_request_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text))),
     CONSTRAINT workflow_tool_binding_t_response_policy_digest_check CHECK (((response_policy_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)),
     CONSTRAINT workflow_tool_binding_t_result_text_mode_check CHECK (((result_text_mode)::text = ANY (ARRAY[('compact-json'::character varying)::text, ('summary'::character varying)::text]))),
     CONSTRAINT workflow_tool_binding_t_runtime_bounds_check CHECK ((jsonb_typeof(runtime_bounds) = 'object'::text)),
     CONSTRAINT workflow_tool_binding_t_schema_digest_check CHECK (((schema_digest)::text ~ '^sha256:[0-9a-f]{64}$'::text)),
-    CONSTRAINT workflow_tool_binding_t_sync_wait_ms_check CHECK (((sync_wait_ms >= 1) AND (sync_wait_ms <= 120000)))
+    CONSTRAINT workflow_tool_binding_t_sync_wait_ms_check CHECK (((sync_wait_ms >= 1) AND (sync_wait_ms <= 120000))),
+    CONSTRAINT workflow_tool_binding_t_tool_annotations_check CHECK (((tool_annotations IS NULL) OR (jsonb_typeof(tool_annotations) = 'object'::text)))
 );
 
 
@@ -40993,6 +41286,97 @@ COMMENT ON COLUMN public.workflow_tool_binding_t.update_ts IS 'Timestamp when th
 --
 
 COMMENT ON COLUMN public.workflow_tool_binding_t.policy_digest IS 'Integrity digest for policy.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.cancellation_policy; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.cancellation_policy IS 'Cancellation behavior published for this Tool binding.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.admission_limits; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.admission_limits IS 'Published concurrency and rate limits for this Tool binding.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.caller_policy; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.caller_policy IS 'Published role conditions for callers of this Tool binding.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.tool_annotations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.tool_annotations IS 'Published read-only and destructive Tool annotations; null before publication.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.publication_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.publication_status IS 'Last projected Workflow publication lifecycle status.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.published_binding_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.published_binding_digest IS 'Digest of the binding revision acknowledged by Workflow.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.published_definition_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.published_definition_digest IS 'Digest of the Workflow definition version acknowledged for this binding.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.published_request_digest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.published_request_digest IS 'Digest of the Portal publication request acknowledged by Workflow.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.published_revision_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.published_revision_id IS 'Immutable Workflow revision identifier from the latest accepted receipt.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.published_aggregate_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.published_aggregate_version IS 'Workflow Tool publication aggregate version from the latest accepted receipt.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.publication_comment; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.publication_comment IS 'Owner decision comment displayed for this binding.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.publication_status_ts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.publication_status_ts IS 'Time of the latest projected publication status.';
+
+
+--
+-- Name: COLUMN workflow_tool_binding_t.publication_decided_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.workflow_tool_binding_t.publication_decided_by IS 'Verified user who made the projected owner decision.';
 
 
 --
@@ -44656,6 +45040,22 @@ ALTER TABLE ONLY public.workflow_invocation_t
 
 
 --
+-- Name: workflow_operation_t workflow_operation_t_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workflow_operation_t
+    ADD CONSTRAINT workflow_operation_t_pkey PRIMARY KEY (host_id, operation_id);
+
+
+--
+-- Name: workflow_sync_state_t workflow_sync_state_t_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workflow_sync_state_t
+    ADD CONSTRAINT workflow_sync_state_t_pkey PRIMARY KEY (host_id, wf_def_id, sync_kind);
+
+
+--
 -- Name: workflow_task_effect_t workflow_task_effect_t_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -47091,6 +47491,27 @@ CREATE INDEX workflow_invocation_subject_idx ON public.workflow_invocation_t USI
 
 
 --
+-- Name: workflow_operation_pending_retry_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX workflow_operation_pending_retry_idx ON public.workflow_operation_t USING btree (update_ts) WHERE ((state)::text = 'pending'::text);
+
+
+--
+-- Name: workflow_operation_pending_stream_uq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX workflow_operation_pending_stream_uq ON public.workflow_operation_t USING btree (host_id, tool_name, subject_id) WHERE ((state)::text = 'pending'::text);
+
+
+--
+-- Name: workflow_sync_state_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX workflow_sync_state_pending_idx ON public.workflow_sync_state_t USING btree (next_attempt_ts) WHERE (acked_revision < desired_revision);
+
+
+--
 -- Name: workflow_tool_access_request_requester_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47767,6 +48188,13 @@ CREATE TRIGGER trg_wf_definition_owner_user BEFORE INSERT ON public.wf_definitio
 --
 
 CREATE TRIGGER workflow_invocation_state_v1_trg AFTER UPDATE OF state_version ON public.workflow_invocation_t FOR EACH ROW EXECUTE FUNCTION public.notify_workflow_invocation_state_v1();
+
+
+--
+-- Name: workflow_operation_t workflow_operation_guard_trg; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER workflow_operation_guard_trg BEFORE INSERT OR UPDATE ON public.workflow_operation_t FOR EACH ROW EXECUTE FUNCTION public.workflow_operation_guard();
 
 
 --
@@ -51039,6 +51467,8 @@ ALTER TABLE ONLY public.worklist_column_t
 SET search_path = public;
 INSERT INTO public.scheduler_lock_t (lock_id, instance_id, last_heartbeat) VALUES
     (1, 'none', CURRENT_TIMESTAMP) ON CONFLICT (lock_id) DO NOTHING;
+INSERT INTO public.scheduler_lock_t (lock_id, instance_id, last_heartbeat) VALUES
+    (2, 'none', CURRENT_TIMESTAMP) ON CONFLICT (lock_id) DO NOTHING;
 INSERT INTO public.log_counter (id, next_offset) VALUES
     (1, 1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.pii_token_scheme_t (scheme_id, scheme_code, description, active, update_ts, update_user) VALUES
