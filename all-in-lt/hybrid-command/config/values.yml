@@ -76,9 +76,6 @@ service.singletons:
   - com.networknt.db.provider.SqlDbStartupHook
   # Validate reloadable event replay configuration before handlers start.
   - net.lightapi.portal.db.EventReplayConfigStartupHook
-  - net.lightapi.portal.db.WorkflowSyncStartupHook
-- com.networknt.server.ShutdownHookProvider:
-  - net.lightapi.portal.db.WorkflowSyncShutdownHook
 
 # security.yml
 security.enableVerifyJwt: true
