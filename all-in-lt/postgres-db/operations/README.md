@@ -31,6 +31,11 @@ connect to either of the other operational databases.
 `validate-operational-databases.sh` checks the three identities, migration
 ledgers, schemas, role isolation, file permissions, and URL contracts.
 
+Workflow writes its own execution policy snapshots in the operational
+database. Portal definition, grant, and Tool binding publication enters
+Workflow through Gateway MCP; the operations bundle contains no Portal
+projection publisher or FDW setup step.
+
 Database creation belongs to deployment initialization. No background
 provisioner, Docker socket mount, Portal worker token, or per-Host PostgreSQL
 container is required. The ordered
