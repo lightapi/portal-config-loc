@@ -23,6 +23,10 @@ fi
 grep -q 'OPERATIONAL_DATABASE_URL:' "$compose_file"
 grep -q 'GATEWAY_DATABASE_URL:' "$compose_file"
 grep -q 'host_dir="/source/operational-hosts/\$${OPERATIONAL_RUNTIME_HOST:-dev.lightapi.net}"' "$compose_file"
+grep -Fq 'if [ ! -s /target/workflow/run-credential-keyring.json ]; then' "$compose_file"
+grep -Fq 'dd if=/dev/urandom bs=32 count=1' "$compose_file"
+grep -Fq 'workflow-runtime-secrets:/run/secrets:ro' "$compose_file"
+grep -Fxq 'WORKFLOW_LONG_KEYRING_FILE=/run/secrets/run-credential-keyring.json' "$repo_root/all-in-lt/light-workflow-rust/config/light-workflow.env"
 if grep -Eq 'GATEWAYEVIDENCE_|GATEWAY_EVIDENCE_|gatewayEvidence\.|gateway-evidence\.' "$compose_file"; then
   echo "gateway evidence configuration must come from Portal instance properties" >&2
   exit 1
@@ -61,7 +65,7 @@ grep -q 'curl -f http://localhost:8084/health' "$compose_file"
 grep -q '\${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082' "$compose_file"
 grep -q 'curl -f http://localhost:8082/health' "$compose_file"
 grep -q '^prepare_database_urls()' "$bootstrap_script"
-grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.1.0' "$compose_file"
+grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.4.0' "$compose_file"
 [[ -x "$workflow_projection_script" ]]
 grep -q '^  workflow-projection-sync:' "$compose_file"
 grep -q '0005_workflow_catalog_projection' "$workflow_projection_script"

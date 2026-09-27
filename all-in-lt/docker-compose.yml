@@ -193,6 +193,13 @@ services:
         host_dir="/source/operational-hosts/$${OPERATIONAL_RUNTIME_HOST:-dev.lightapi.net}"
         cp "$$host_dir/execution-database-url" /target/controller/execution-database-url
         cp "$$host_dir/workflow-database-url" /target/workflow/operational-database-url
+        if [ ! -s /target/workflow/run-credential-keyring.json ]; then
+          umask 077
+          key="$$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d '\n')"
+          printf '{"activeKeyId":"local-v1","keys":{"local-v1":"%s"}}\n' "$$key" > /target/workflow/run-credential-keyring.json.tmp
+          mv /target/workflow/run-credential-keyring.json.tmp /target/workflow/run-credential-keyring.json
+          unset key
+        fi
         cp "$$host_dir/gateway-database-url" /target/gateway/operational-database-url
         cp "$$host_dir/a2a-database-url" /target/a2a/operational-database-url
         cp "$$host_dir/operational-database-url" /target/agent/operational-database-url
