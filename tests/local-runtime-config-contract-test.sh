@@ -11,6 +11,11 @@ hybrid_command_values="$repo_root/all-in-lt/hybrid-command/config/values.yml"
 hybrid_query_values="$repo_root/all-in-lt/hybrid-query/node1/values.yml"
 registration_patch="$repo_root/all-in-lt/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
+for retired_file in .gitignore README.md compose.yml credential_broker.sql issuer-server.yml \
+  local-profile.json prepare.py refresh-claims-preflight.sql set-ownership.py; do
+  test ! -e "$repo_root/all-in-lt/workflow-broker/$retired_file"
+done
+
 if grep -q './postgres-db/secrets/operational-database-url' "$compose_file"; then
   echo "local Compose must not mount a host operational database URL secret" >&2
   exit 1

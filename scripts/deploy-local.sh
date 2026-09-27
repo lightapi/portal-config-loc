@@ -87,13 +87,6 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
     )
 fi
 
-# Retain an explicitly activated local credential broker across redeployments.
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
-   [[ -f "$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/enabled" ]]; then
-    export WORKFLOW_BROKER_DIR="$DOCKER_COMPOSE_DIR/workflow-broker/.runtime/active"
-    DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/workflow-broker/compose.yml")
-fi
-
 # Retain an explicitly activated A2 dual-identity action profile. The resolved
 # JSON and all credentials are private generated inputs, never checked-in values.
 if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&

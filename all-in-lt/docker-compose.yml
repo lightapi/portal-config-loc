@@ -337,7 +337,7 @@ services:
     # Not published on the host: light-oauth is reached through light-gateway (/oauth2/...), and by other
     # containers as https://light-oauth:6881. Publishing it would also let a caller reach it directly
     # with a forged X-Forwarded-For, which the device sign-in uses to show where a request came from.
-    # The opt-in workflow-broker overlay publishes it on 127.0.0.1 only, for its browser consent URL.
+    # The default stack keeps this issuer internal to Compose.
     # To debug it directly otherwise, add `ports: ["127.0.0.1:6881:6881"]` temporarily; do not commit that.
     # ports:
     #   - 5005:5005
