@@ -16,6 +16,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 service=light-identity-issuer
 binary=/app/light-identity-issuer-service
+release_image_env_file="${RELEASE_IMAGE_ENV_FILE:-../../.release-state/docker-images.env}"
+python3 ../scripts/check-lt-release-images.py docker-compose.yml "$release_image_env_file"
+compose=(docker compose --env-file "$release_image_env_file")
 
 case "${1:-}" in
   list)  command=(list-spent) ;;
@@ -23,8 +26,8 @@ case "${1:-}" in
   *)     echo "usage: $0 list | reset <jti>" >&2; exit 2 ;;
 esac
 
-docker compose stop "$service" >/dev/null
+"${compose[@]}" stop "$service" >/dev/null
 status=0
-docker compose run --rm --no-deps -T "$service" "$binary" "${command[@]}" || status=$?
-docker compose up -d --no-deps "$service" >/dev/null
+"${compose[@]}" run --rm --no-deps -T "$service" "$binary" "${command[@]}" || status=$?
+"${compose[@]}" up -d --no-deps "$service" >/dev/null
 exit "$status"

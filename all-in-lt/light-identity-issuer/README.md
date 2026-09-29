@@ -48,13 +48,21 @@ restart does **not** hand a used token back. It refuses to start without
 `state_dir` (or an explicit `allow_ephemeral_state: true`, for a throwaway run).
 `docker compose down -v` deletes the volume and re-arms every token.
 
+When upgrading from `networknt/light-identity-issuer:0.2.1`, do not assume the
+volume contains a spent-token history: that image did not write one. Revoke or
+replace bootstrap tokens used against `0.2.1` before exposing the new issuer,
+because the new image would otherwise accept them once more. Keep the volume
+for all subsequent redeployments.
+
 ```sh
 ./issuer-tokens.sh list             # which tokens are spent, and when
 ./issuer-tokens.sh reset <jti>      # let one enroll once more
 ```
 
 The script stops the issuer while it reads or changes the record (the running
-service locks it) and starts it again. The `jti` is a claim inside the token; for
+service locks it) and starts it again. It requires the complete release image
+manifest (`../../.release-state/docker-images.env` by default, or
+`RELEASE_IMAGE_ENV_FILE`) before stopping the service. The `jti` is a claim inside the token; for
 the dev `light-cli` token it is `Tide00yxSVilY9LXNKdRqg`. Single instance only: the
 lock is a local file lock, so a second issuer needs a shared store instead.
 

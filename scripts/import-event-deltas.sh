@@ -40,6 +40,11 @@ if [[ -f "$light_portal_env_file" ]]; then
   compose+=(--env-file "$light_portal_env_file")
 fi
 
+if [[ "$stack_dir" == "$repo_dir/all-in-lt" ]]; then
+  python3 "$script_dir/check-lt-release-images.py" \
+    "$stack_dir/docker-compose.yml" "$release_image_env_file"
+fi
+
 load_env_file_var() {
   local name="$1"
   local value

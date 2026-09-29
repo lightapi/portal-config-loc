@@ -1288,6 +1288,8 @@ esac
 case "${1:-}" in
     ""|start|restart)
         if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+            python3 "$SCRIPT_DIR/check-lt-release-images.py" \
+                "$DOCKER_COMPOSE_DIR/docker-compose.yml" "$RELEASE_IMAGE_ENV_FILE" || exit 1
             python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" preflight "$DOCKER_COMPOSE_DIR" || exit 1
             python3 "$SCRIPT_DIR/sync-personal-runner-admission.py" \
                 "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime" || exit 1
