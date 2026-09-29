@@ -16,6 +16,16 @@ for retired_file in .gitignore README.md compose.yml credential_broker.sql issue
   test ! -e "$repo_root/all-in-lt/workflow-broker/$retired_file"
 done
 
+for candidate in "$repo_root"/all-in-{lt,pg,one}/docker-compose*.yml \
+  "$repo_root"/all-in-lt/*/compose*.yml \
+  "$repo_root"/all-in-lt/light-workflow-rust/config/*.{env,yml,yaml} "$deploy_script"; do
+  [[ -f "$candidate" ]] || continue
+  if grep -Eiq '(^|[^[:digit:]])8447([^[:digit:]]|$)|callback[[:alnum:]_-]*(tls|uri|cert|key)|(tls|cert|key)[[:alnum:]_-]*callback|workflow/credentials/callback' "$candidate"; then
+    echo "retired Workflow callback port or TLS input remains in $candidate" >&2
+    exit 1
+  fi
+done
+
 if grep -q './postgres-db/secrets/operational-database-url' "$compose_file"; then
   echo "local Compose must not mount a host operational database URL secret" >&2
   exit 1
