@@ -12,7 +12,7 @@ hybrid_query_values="$repo_root/all-in-lt/hybrid-query/node1/values.yml"
 registration_patch="$repo_root/all-in-lt/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
 for retired_file in .gitignore README.md compose.yml credential_broker.sql issuer-server.yml \
-  local-profile.json prepare.py refresh-claims-preflight.sql set-ownership.py; do
+  local-profile.json prepare.py test_prepare.py refresh-claims-preflight.sql set-ownership.py sync.py; do
   test ! -e "$repo_root/all-in-lt/workflow-broker/$retired_file"
 done
 

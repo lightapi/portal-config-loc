@@ -29,7 +29,6 @@ all-in-one/kafka-data/data
 all-in-one/log-monitor
 
 all-in-lt/postgres-db/data/
-all-in-lt/workflow-broker/.runtime/
 
 # Instance-specific Host exports are private and must never enter release artifacts.
 data/private-event-deltas/
@@ -49,3 +48,6 @@ light-knowledge/objects/*
 
 # Python runtime artifacts
 __pycache__/
+
+# Private generated runtime material, including retired profiles awaiting user cleanup.
+**/.runtime/
