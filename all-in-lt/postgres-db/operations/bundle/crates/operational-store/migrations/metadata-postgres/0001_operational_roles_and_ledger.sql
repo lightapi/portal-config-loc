@@ -92,3 +92,4 @@ CREATE TABLE IF NOT EXISTS operational_meta.operational_schema_migration_t (
 ALTER TABLE operational_meta.operational_schema_migration_t
     OWNER TO operations_meta_migrator;
 REVOKE ALL ON operational_meta.operational_schema_migration_t FROM PUBLIC;
+

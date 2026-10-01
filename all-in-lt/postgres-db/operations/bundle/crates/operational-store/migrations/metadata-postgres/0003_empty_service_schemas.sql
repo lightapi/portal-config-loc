@@ -98,3 +98,4 @@ ALTER ROLE operations_workflow_runtime IN DATABASE operations SET search_path = 
 ALTER ROLE operations_gateway_runtime IN DATABASE operations SET search_path = gateway_ops, operational_meta, public;
 ALTER ROLE operations_audit_publisher IN DATABASE operations SET search_path = audit_ops, operational_meta, public;
 ALTER ROLE operations_artifact_runtime IN DATABASE operations SET search_path = artifact_ops, operational_meta, public;
+
