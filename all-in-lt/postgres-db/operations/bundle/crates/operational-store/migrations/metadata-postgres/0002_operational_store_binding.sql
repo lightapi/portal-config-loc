@@ -68,4 +68,3 @@ ALTER FUNCTION operational_meta.protect_active_operational_binding()
     OWNER TO operations_meta_migrator;
 REVOKE ALL ON operational_meta.operational_store_binding_t FROM PUBLIC;
 REVOKE ALL ON FUNCTION operational_meta.protect_active_operational_binding() FROM PUBLIC;
-

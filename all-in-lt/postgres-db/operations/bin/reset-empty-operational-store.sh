@@ -24,4 +24,3 @@ preserved_databases="$(psql -U "$database_user" -d postgres -X -tAc \
 psql -U "$database_user" -d postgres -X --set=ON_ERROR_STOP=1 \
   -c "DROP DATABASE operations WITH (FORCE)" >/dev/null
 echo "Removed the empty Phase 1 operations database; configserver and knowledge were preserved."
-

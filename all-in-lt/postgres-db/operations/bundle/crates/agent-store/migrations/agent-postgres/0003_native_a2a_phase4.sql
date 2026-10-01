@@ -37,4 +37,3 @@ $constraints$;
 CREATE INDEX IF NOT EXISTS agent_a2a_task_owner_list_idx
   ON agent_ops.agent_a2a_task_alias_t
   (host_id,principal_subject,agent_def_id,publication_id,created_ts DESC,public_task_id);
-
