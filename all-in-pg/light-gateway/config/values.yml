@@ -650,7 +650,7 @@ rule.endpointRules:
           teller:
             - colName: accountType
               colValue: C
-              operator: =
+              operator: "="
       roles: account-manager teller
   /v1/flowers@post:
     permission: {}
