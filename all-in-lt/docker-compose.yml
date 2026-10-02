@@ -593,11 +593,13 @@ services:
       LIGHT_RS_CONFIG_DIR: /config
       mcp-router.workflow.invocationUrl: https://light-workflow:8436
       A2A_ROUTER_AUTHORIZATIONCONTEXTKEYFILE: /run/triage-gateway/context-key
+      GITHUB_PAT: "${GITHUB_PAT:-}"
       # ACCESS_CONTROL_ENABLED: "false"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
       NVIDIA_API_KEY: "${NVIDIA_API_KEY:-}"
-      CLIENT_VERIFYHOSTNAME: "false"
+      CLIENT_TRUSTMODE: "platform-plus-configured"
+      CLIENT_VERIFYHOSTNAME: "true"
       CLIENT_CACERTPATH: /config/ca.pem
       STATELESSAUTH_BOOTSTRAPTOKEN: ""
       STATELESSAUTH_GITHUBCLIENTSECRET: ""
