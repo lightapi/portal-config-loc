@@ -2,12 +2,26 @@
 # deploy.sh - Full deployment script with Compose management
 
 set -e  # Exit on error
+# Refuse before repository/config discovery, logging, patches, imports or stop.
+# Full restart cannot satisfy current-process Controller evidence after stopping it.
+# Mirror lt's optional service normalization without consuming the real argv.
+w7_entry_args=("$@")
+if [[ "${w7_entry_args[0]:-}" == lt ]]; then
+    w7_entry_args=("${w7_entry_args[@]:1}")
+    if [[ "${w7_entry_args[0]:-}" == rust ]]; then
+        w7_entry_args=("${w7_entry_args[@]:1}")
+    fi
+fi
+if [[ $# -eq 0 || ( "${1:-}" == lt && ( "${w7_entry_args[0]:-}" == restart || -z "${w7_entry_args[0]:-}" ) ) ]]; then
+    echo 'W7_DEPLOY_REFUSED: use lt stop, lt stage-controller, refresh readiness evidence, then lt start' >&2
+    exit 2
+fi
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BASE_DIR="$(cd "$REPO_DIR/.." && pwd)"
-DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
+DOCKER_COMPOSE_DIR="$REPO_DIR/all-in-one"
 DOCKER_COMPOSE_FILES=()
 read -r -a DOCKER_COMPOSE_CMD <<< "${COMPOSE_CMD:-docker compose}"
 if [[ -n "${CONTAINER_CMD:-}" ]]; then
@@ -23,19 +37,19 @@ CONTROLLER_TYPE=""
 
 # Check for config argument
 if [[ "$1" == "kafka" ]]; then
-    DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-one"
+    DOCKER_COMPOSE_DIR="$REPO_DIR/all-in-one"
     shift
 elif [[ "$1" == "pg" ]]; then
-    DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-pg"
+    DOCKER_COMPOSE_DIR="$REPO_DIR/all-in-pg"
     shift
 elif [[ "$1" == "lt" ]]; then
-    DOCKER_COMPOSE_DIR="$BASE_DIR/portal-config-loc/all-in-lt"
+    DOCKER_COMPOSE_DIR="$REPO_DIR/all-in-lt"
     shift
 fi
 
 DOCKER_COMPOSE_FILES=(-f "$DOCKER_COMPOSE_DIR/docker-compose.yml")
 
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
+if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-pg" ]]; then
     CONTROLLER_TYPE="${1:-java}"
 
     case "$CONTROLLER_TYPE" in
@@ -58,7 +72,7 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-pg" ]]; then
             DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose-java.yml")
             ;;
     esac
-elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+elif [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
     CONTROLLER_TYPE="rust"
     case "${1:-}" in
         rust)
@@ -68,7 +82,7 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; the
             echo "The all-in-lt Java service profile has been removed; use the Rust stack."
             exit 1
             ;;
-        ""|stop|start|restart|status|logs|help|-h|--help)
+        ""|stop|start|restart|stage-controller|status|logs|help|-h|--help)
             ;;
         *)
             echo "Invalid service type: $1"
@@ -80,7 +94,7 @@ fi
 
 # A locally enrolled runner must survive normal stack redeployments. This private
 # file contains credentials only; image versions still come from release values.
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
    [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
     DOCKER_COMPOSE_FILES+=(
         -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml"
@@ -89,7 +103,7 @@ fi
 
 # Retain an explicitly activated A2 dual-identity action profile. The resolved
 # JSON and all credentials are private generated inputs, never checked-in values.
-if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
    [[ -f "$DOCKER_COMPOSE_DIR/workflow-actions/.runtime/enabled" ]]; then
     export WORKFLOW_ACTIONS_DIR="$DOCKER_COMPOSE_DIR/workflow-actions/.runtime/active"
     WORKFLOW_ACTION_AUTHORIZATION="$(cat "$WORKFLOW_ACTIONS_DIR/workflow/action-authorization.json")"
@@ -177,14 +191,14 @@ configure_release_image_env() {
 
     ensure_release_image_env_file || true
 
-    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
        [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]] &&
        [[ ! -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
         log_error "An enrolled personal runner requires the release image env file: $RELEASE_IMAGE_ENV_FILE"
         return 1
     fi
 
-    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
        [[ "$CONTROLLER_TYPE" == "rust" ]] &&
        [[ -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
         DOCKER_COMPOSE_CMD+=(--env-file "$RELEASE_IMAGE_ENV_FILE")
@@ -474,6 +488,14 @@ SQL
 # Start Compose
 start_docker_compose() {
     log_info "Starting Compose services..."
+    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
+        bash "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7-startup-guard.sh"             "$DOCKER_COMPOSE_DIR/postgres-db/operations" || return 1
+        [[ -n "${W7_PLAN:-}" && -n "${W7_EVIDENCE:-}" ]] || {
+            log_error "W7_PLAN and fresh W7_EVIDENCE are required before Workflow startup"
+            return 1
+        }
+        python3 "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7_rollout.py" restart-check             --owner-run --assets "$DOCKER_COMPOSE_DIR/postgres-db/operations"             --plan "$W7_PLAN" --evidence "$W7_EVIDENCE"             --state-dir "$DOCKER_COMPOSE_DIR/postgres-db/operations/.runtime/w7" || return 1
+    fi
 
     check_gateway_host_port || exit 1
     ensure_release_assets || exit 1
@@ -495,7 +517,7 @@ start_docker_compose() {
 
         validate_operational_property_projection || return 1
         wait_for_required_runtime_services || return 1
-        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
             python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" restart "$DOCKER_COMPOSE_DIR" || return 1
         fi
         log_success "Compose services started and passed runtime qualification"
@@ -514,7 +536,7 @@ start_docker_compose() {
 }
 
 required_runtime_services() {
-    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
         printf '%s\n' \
             postgres \
             light-oauth \
@@ -643,7 +665,7 @@ validate_operational_property_projection() {
     local required_properties="'operationalStore.contractVersion','operationalStore.bindingId','operationalStore.bindingDigest','operationalStore.profileId','operationalStore.deploymentProfile','operationalStore.scopeKind','operationalStore.scopeId','operationalStore.hostId','operationalStore.environment','operationalStore.serviceOwner','operationalStore.schema','operationalStore.minimumSchemaVersion','operationalStore.expectedDatabase','operationalStore.databaseUrlFile','operationalStore.credentialGeneration'"
     local required_agent_policy_properties="'runtimePolicy.publicationId','runtimePolicy.releaseVersion','runtimePolicy.policySnapshotId','runtimePolicy.policyVersion','runtimePolicy.policyDigest','runtimePolicy.contentDigest','runtimePolicy.audience','runtimePolicy.host','runtimePolicy.serviceId','runtimePolicy.envTag','runtimePolicy.sourceEventSequence','runtimePolicy.schemaVersion','runtimePolicy.createdAt','runtimePolicy.validFrom','runtimePolicy.refreshAfter','runtimePolicy.expiresAt','runtimePolicy.revocationEpoch','runtimePolicy.compatibilityGeneration','portalAssociation.runtimeInstanceId','agentPolicy.agentDefId','agentPolicy.definitionVersion','agentPolicy.prompt.system','agentPolicy.model.alias','agentPolicy.policySnapshot.snapshotId','agentPolicy.policySnapshot.definitionDigest','agentPolicy.policySnapshot.productProfileDigest','agentPolicy.policySnapshot.modelDigest','agentPolicy.policySnapshot.catalogDigest','agentPolicy.policySnapshot.memoryDigest','agentPolicy.policySnapshot.executionDigest','agentPolicy.policySnapshot.channelDigest','agentPolicy.policySnapshot.dataBoundaryDigest','agentPolicy.policySnapshot.tools'"
 
-    [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] || return 0
+    [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] || return 0
     wait_for_postgres_ready || {
         log_error "Cannot validate operational-store properties because Postgres is not ready"
         return 1
@@ -1170,7 +1192,7 @@ apply_requested_db_patches() {
     local default_registration_patch="$DOCKER_COMPOSE_DIR/postgres-db/patches/20260902_01_operational_store_registration.sql"
 
     if [[ -z "${PORTAL_DB_PATCHES:-}" ]]; then
-        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" && -f "$default_registration_patch" ]]; then
+        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" && -f "$default_registration_patch" ]]; then
             patch_args=("$default_registration_patch")
         else
             return 0
@@ -1190,7 +1212,7 @@ apply_requested_db_patches() {
         return 1
     fi
 
-    if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
         target_schema="configserver"
     fi
 
@@ -1273,6 +1295,22 @@ if [[ "${DEPLOY_LOCAL_SOURCE_ONLY:-false}" == "true" ]]; then
     return 0 2>/dev/null || exit 0
 fi
 
+# E04: do not start/patch/stop a stack as a side effect of missing preparation.
+case "${1:-}" in
+    ""|start|restart|stage-controller)
+        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
+            bash "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7-startup-guard.sh"                 "$DOCKER_COMPOSE_DIR/postgres-db/operations" || exit 1
+            [[ -n "${W7_READINESS_UID:-}" && -n "${W7_READINESS_GID:-}" ]] || {
+                echo 'W7_DEPLOY_REFUSED: explicit readiness UID/private GID required' >&2
+                exit 2
+            }
+            python3 "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7-readiness-access.py" \
+                --assets "$DOCKER_COMPOSE_DIR/postgres-db/operations" \
+                --uid "$W7_READINESS_UID" --gid "$W7_READINESS_GID" --check || exit 2
+        fi
+        ;;
+esac
+
 # Handle script arguments
 case "${1:-}" in
     "help"|"-h"|"--help")
@@ -1286,15 +1324,15 @@ esac
 
 # Reject incompatible agent images before any stop/recreate or database mutation.
 case "${1:-}" in
-    ""|start|restart)
-        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]]; then
+    ""|start|restart|stage-controller)
+        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
             python3 "$SCRIPT_DIR/check-lt-release-images.py" \
                 "$DOCKER_COMPOSE_DIR/docker-compose.yml" "$RELEASE_IMAGE_ENV_FILE" || exit 1
             python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" preflight "$DOCKER_COMPOSE_DIR" || exit 1
             python3 "$SCRIPT_DIR/sync-personal-runner-admission.py" \
                 "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime" || exit 1
         fi
-        if [[ "$DOCKER_COMPOSE_DIR" == "$BASE_DIR/portal-config-loc/all-in-lt" ]] &&
+        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
            [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
             bash "$SCRIPT_DIR/verify-agent-image.sh" "$CONTAINER_RUNTIME_CMD" \
                 "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" || exit 1
@@ -1303,6 +1341,12 @@ case "${1:-}" in
 esac
 
 case "${1:-}" in
+    "stage-controller")
+        [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] || exit 2
+        cd "$DOCKER_COMPOSE_DIR" || exit 1
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d controller
+        log_info "Controller staged; owner must verify the authenticated page API and refresh W7_EVIDENCE before start"
+        ;;
     "stop")
         stop_docker_compose
         ;;
@@ -1339,10 +1383,11 @@ case "${1:-}" in
         echo "  rust            Use Rust services (pg override; accepted for lt compatibility)"
         echo ""
         echo "Commands:"
-        echo "  (no command)    Full deployment (stop, start, optional event import)"
+        echo "  (no command)    Refused for lt/bare default; use explicit staged commands"
         echo "  stop            Stop Compose services"
         echo "  start           Start Compose services"
-        echo "  restart         Restart Compose services"
+        echo "  restart         Refused for lt; stop -> stage-controller -> fresh evidence -> start"
+        echo "  stage-controller Stage Controller before Workflow; then refresh W7 evidence and start"
         echo "  status          Show Compose status"
         echo "  logs            Follow Compose logs"
         echo "  help            Show this help message"
