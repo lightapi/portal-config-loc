@@ -2,6 +2,7 @@
 """Reject an incomplete or mixed-tag all-in-lt image release before deployment."""
 
 import re
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -10,11 +11,13 @@ OPTIONAL_PERSONAL_IMAGES = {
     "LIGHT_AGENT_CODEX_PERSONAL_IMAGE",
     "LIGHT_AGENT_CLAUDE_PERSONAL_IMAGE",
 }
-IMAGE_VARIABLE = re.compile(r"^\s*image:\s*\$\{([A-Z0-9_]+_IMAGE)(?::-[^}]*)?\}", re.MULTILINE)
+# Portal digests are validated separately from the non-Portal same-tag lane.
+PORTAL_PACKAGED_IMAGES = {"PORTAL_HYBRID_COMMAND_IMAGE", "PORTAL_HYBRID_QUERY_IMAGE"}
+IMAGE_VARIABLE = re.compile(r"^\s*image:\s*\$\{([A-Z0-9_]+_IMAGE)(?::[-?][^}]*)?\}", re.MULTILINE)
 
 
 def required_images(compose_file: Path) -> set[str]:
-    return set(IMAGE_VARIABLE.findall(compose_file.read_text())) - OPTIONAL_PERSONAL_IMAGES
+    return set(IMAGE_VARIABLE.findall(compose_file.read_text())) - OPTIONAL_PERSONAL_IMAGES - PORTAL_PACKAGED_IMAGES
 
 
 def release_images(env_file: Path) -> dict[str, str]:
@@ -44,6 +47,14 @@ def validate(compose_file: Path, env_file: Path) -> list[str]:
             tags.add(value.rsplit(":", 1)[1])
     if len(tags) > 1:
         errors.append("release images use different tags")
+    if PORTAL_PACKAGED_IMAGES & set(IMAGE_VARIABLE.findall(compose_file.read_text())):
+        spec = importlib.util.spec_from_file_location('portal_images', Path(__file__).with_name('portal-image-fragment.py'))
+        portal_images = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(portal_images)
+        try:
+            portal_images.effective_images([env_file])
+        except (ValueError, OSError):
+            errors.append('Portal images require a valid effective digest pair or Portal-only fragment')
     return errors
 
 

@@ -82,7 +82,7 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
             echo "The all-in-lt Java service profile has been removed; use the Rust stack."
             exit 1
             ;;
-        ""|stop|start|restart|stage-controller|status|logs|help|-h|--help)
+        ""|stop|start|restart|stage-controller|config|status|logs|help|-h|--help)
             ;;
         *)
             echo "Invalid service type: $1"
@@ -112,7 +112,6 @@ if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
 fi
 
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
-BUILD_SCRIPT="$BASE_DIR/copy-service-local.sh"
 RELEASE_STATE_DIR="${RELEASE_STATE_DIR:-$BASE_DIR/.release-state}"
 LIGHT_PORTAL_ASSET_BASE_URL="${LIGHT_PORTAL_ASSET_BASE_URL:-https://cdn.networknt.com}"
 RELEASE_ASSET_CACHE_DIR="${RELEASE_ASSET_CACHE_DIR:-$RELEASE_STATE_DIR/assets}"
@@ -205,6 +204,14 @@ configure_release_image_env() {
     fi
 
     RELEASE_IMAGE_ENV_CONFIGURED=true
+}
+
+# The Portal-only fragment is authoritative over the full-stack release env.
+configure_portal_packaged_images() {
+    [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] || return 0
+    # shellcheck source=portal-packaged-images.sh
+    source "$SCRIPT_DIR/portal-packaged-images.sh"
+    portal_packaged_images_load "$RELEASE_IMAGE_ENV_FILE" "$LIGHT_PORTAL_ENV_FILE"
 }
 
 configure_light_portal_env() {
@@ -355,8 +362,10 @@ ensure_release_assets() {
     local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
     local gateway_roots=()
 
-    extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" true || exit 1
-    extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" true || exit 1
+    if [[ "$DOCKER_COMPOSE_DIR" != "$REPO_DIR/all-in-lt" ]]; then
+        extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" true || exit 1
+        extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" true || exit 1
+    fi
 
     if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
         gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-rust")
@@ -812,6 +821,7 @@ wait_for_postgres_ready() {
 
 default_event_import_network() {
     local network=""
+    # shellcheck disable=SC2016 # Docker evaluates this Go template, not Bash.
     network="$("$CONTAINER_RUNTIME_CMD" inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' postgres 2>/dev/null | head -n 1 || true)"
     if [[ -n "$network" ]]; then
         printf '%s\n' "$network"
@@ -1292,7 +1302,11 @@ main() {
 # Tests may source the helper functions without running deployment setup or
 # command dispatch. Normal executions never set this variable.
 if [[ "${DEPLOY_LOCAL_SOURCE_ONLY:-false}" == "true" ]]; then
-    return 0 2>/dev/null || exit 0
+    if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+        return 0
+    else
+        exit 0
+    fi
 fi
 
 # E04: do not start/patch/stop a stack as a side effect of missing preparation.
@@ -1316,8 +1330,14 @@ case "${1:-}" in
     "help"|"-h"|"--help")
         ;;
     *)
+        # Pure config rendering never downloads a release environment file.
+        if [[ "${1:-}" == config ]]; then
+            RELEASE_IMAGE_ENV_URL=""
+            RELEASE_IMAGE_ENV_S3_URI=""
+        fi
         configure_release_image_env
         configure_light_portal_env
+        configure_portal_packaged_images
         configure_local_runtime_identity
         ;;
 esac
@@ -1341,6 +1361,9 @@ case "${1:-}" in
 esac
 
 case "${1:-}" in
+    "config")
+        "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" config --format json
+        ;;
     "stage-controller")
         [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] || exit 2
         cd "$DOCKER_COMPOSE_DIR" || exit 1

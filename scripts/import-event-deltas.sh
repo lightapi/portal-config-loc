@@ -41,6 +41,10 @@ if [[ -f "$light_portal_env_file" ]]; then
 fi
 
 if [[ "$stack_dir" == "$repo_dir/all-in-lt" ]]; then
+  # Validate/export the effective pair before wait-for-postgres, Compose or SQL.
+  # shellcheck source=portal-packaged-images.sh
+  source "$script_dir/portal-packaged-images.sh"
+  portal_packaged_images_load "$release_image_env_file" "$light_portal_env_file"
   python3 "$script_dir/check-lt-release-images.py" \
     "$stack_dir/docker-compose.yml" "$release_image_env_file"
 fi
@@ -57,6 +61,7 @@ load_env_file_var() {
 default_event_import_network() {
   local network
 
+  # shellcheck disable=SC2016 # Docker evaluates this Go template, not Bash.
   network="$("$container_cmd" inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' postgres 2>/dev/null | head -n 1 || true)"
   if [[ -n "$network" ]]; then
     printf '%s\n' "$network"
@@ -116,8 +121,7 @@ if ((${#deltas[@]} == 0)); then
   exit 0
 fi
 
-IFS=$'\n' deltas=($(printf '%s\n' "${deltas[@]}" | sort))
-unset IFS
+mapfile -t deltas < <(printf '%s\n' "${deltas[@]}" | sort)
 
 load_env_file_var EVENT_IMPORTER_IMAGE
 [[ -n "${EVENT_IMPORTER_IMAGE:-}" ]] ||
