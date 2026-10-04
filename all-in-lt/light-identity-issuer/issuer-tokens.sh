@@ -17,14 +17,23 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 service=light-identity-issuer
 binary=/app/light-identity-issuer-service
 release_image_env_file="${RELEASE_IMAGE_ENV_FILE:-../../.release-state/docker-images.env}"
-python3 ../scripts/check-lt-release-images.py docker-compose.yml "$release_image_env_file"
 compose=(docker compose --env-file "$release_image_env_file")
+light_portal_env_file="${LIGHT_PORTAL_ENV_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/lightapi/light-portal.env}"
+if [[ -f "$light_portal_env_file" ]]; then
+  compose+=(--env-file "$light_portal_env_file")
+fi
 
 case "${1:-}" in
   list)  command=(list-spent) ;;
   reset) : "${2:?usage: $0 reset <jti>}"; command=(reset-token "$2") ;;
   *)     echo "usage: $0 list | reset <jti>" >&2; exit 2 ;;
 esac
+
+# Compose interpolates every service even for an issuer-only action.
+# shellcheck source=../../scripts/portal-packaged-images.sh
+source ../scripts/portal-packaged-images.sh
+portal_packaged_images_load "$release_image_env_file" "$light_portal_env_file"
+python3 ../scripts/check-lt-release-images.py docker-compose.yml "$release_image_env_file"
 
 "${compose[@]}" stop "$service" >/dev/null
 status=0

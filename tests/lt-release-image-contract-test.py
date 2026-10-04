@@ -9,11 +9,12 @@ import tempfile
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-COMPOSE = ROOT / "portal-config-loc/all-in-lt/docker-compose.yml"
-CHECKER = ROOT / "portal-config-loc/scripts/check-lt-release-images.py"
-RELEASE = ROOT / "devops/workspace/release-docker-images.sh"
-ISSUER_TOKENS = ROOT / "portal-config-loc/all-in-lt/light-identity-issuer/issuer-tokens.sh"
+REPO = Path(__file__).resolve().parents[1]
+ROOT = REPO.parent
+COMPOSE = REPO / "all-in-lt/docker-compose.yml"
+CHECKER = REPO / "scripts/check-lt-release-images.py"
+RELEASE = Path(os.environ.get("RELEASE_DOCKER_IMAGES_SCRIPT", ROOT / "devops/workspace/release-docker-images.sh"))
+ISSUER_TOKENS = REPO / "all-in-lt/light-identity-issuer/issuer-tokens.sh"
 TAG = "2.3.5-dev.issue424-contract"
 
 spec = importlib.util.spec_from_file_location("lt_release_images", CHECKER)
@@ -32,6 +33,10 @@ assert image_lines, "release dry run emitted no image manifest"
 with tempfile.TemporaryDirectory() as directory:
     env_file = Path(directory) / "docker-images.env"
     env_file.write_text("\n".join(image_lines) + "\n")
+    fragment = Path(directory) / "portal-images.env"
+    # Fixture digests only: the release dry run does not publish any image.
+    fragment.write_text("".join(f"PORTAL_HYBRID_{side.upper()}_IMAGE=networknt/portal-hybrid-{side}@sha256:{'a' * 64}\n" for side in ("command", "query")))
+    os.environ['PORTAL_IMAGE_ENV_FILE'] = str(fragment)
     assert checker.validate(COMPOSE, env_file) == []
 
     fake_bin = Path(directory) / "bin"
@@ -45,6 +50,7 @@ with tempfile.TemporaryDirectory() as directory:
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
         "RELEASE_IMAGE_ENV_FILE": str(env_file),
         "ISSUER_DOCKER_LOG": str(docker_log),
+        "LIGHT_PORTAL_ENV_FILE": str(Path(directory) / "absent-private.env"),
     }
     subprocess.run([str(ISSUER_TOKENS), "list"], env=token_env, check=True)
     calls = docker_log.read_text().splitlines()

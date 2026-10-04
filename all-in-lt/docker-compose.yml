@@ -108,6 +108,9 @@ services:
     volumes:
       - ./postgres-db/operations/bin:/opt/operational-store/bin:ro,Z
       - ./postgres-db/operations/bundle:/opt/operational-store/bundle:ro,Z
+      - ./postgres-db/operations/portal:/opt/operational-store/portal:ro,Z
+      - ./postgres-db/operations/w7-assets.json:/opt/operational-store/w7-assets.json:ro,Z
+      - ./postgres-db/operations/.runtime/w7:/opt/operational-store/.runtime/w7:Z
       - ./postgres-db/operations/operational-databases.tsv:/opt/operational-store/operational-databases.tsv:ro,Z
       - ./postgres-db/secrets:/run/secrets:Z
     environment:
@@ -133,6 +136,9 @@ services:
     volumes:
       - ./postgres-db/operations/bin:/opt/operational-store/bin:ro,Z
       - ./postgres-db/operations/bundle:/opt/operational-store/bundle:ro,Z
+      - ./postgres-db/operations/portal:/opt/operational-store/portal:ro,Z
+      - ./postgres-db/operations/w7-assets.json:/opt/operational-store/w7-assets.json:ro,Z
+      - ./postgres-db/operations/.runtime/w7:/opt/operational-store/.runtime/w7:Z
       - ./postgres-db/operations/operational-databases.tsv:/opt/operational-store/operational-databases.tsv:ro,Z
       - ./postgres-db/secrets:/run/secrets:ro,Z
     environment:
@@ -177,7 +183,7 @@ services:
     restart: "no"
 
   hybrid-command:
-    image: ${PORTAL_HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.2.1}
+    image: ${PORTAL_HYBRID_COMMAND_IMAGE:?Set verified packaged Portal command image digest}
     environment:
       NOREPLAY_EMAIL_PASSWORD: ""
       LIGHT_KNOWLEDGE_ADMIN_COMMAND_URL: http://light-knowledge-admin:8093/v1/knowledge/admin/commands
@@ -192,7 +198,6 @@ services:
       LIGHT_GATEWAY_TLS_CA_PATH: /run/secrets/gateway-trust.pem
     volumes:
       - ./hybrid-command/config:/config:Z
-      - ./hybrid-command/service:/service:Z
       - ./light-gateway-rust/config/ca.pem:/run/secrets/gateway-trust.pem:ro,Z
       - ${PORTAL_DATA_DIR:-./data}:/data:z
     ports:
@@ -208,10 +213,9 @@ services:
         condition: service_healthy
 
   hybrid-query:
-    image: ${PORTAL_HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.2.1}
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:?Set verified packaged Portal query image digest}
     volumes:
       - ./hybrid-query/node1:/config:Z
-      - ./hybrid-query/service:/service:Z
       - ./light-gateway-rust/config/ca.pem:/run/secrets/gateway-trust.pem:ro,Z
       - ${PORTAL_DATA_DIR:-./data}:/data:z
     ports:
@@ -415,6 +419,24 @@ services:
       retries: 10
       start_period: 10s
 
+  w7-controller-page-readiness:
+    # Distinct non-root UID, dedicated owner-reviewed private state group.
+    user: "${W7_READINESS_UID:?owner-reviewed non-root readiness UID required}:${W7_READINESS_GID:?dedicated private readiness GID required}"
+    image: ${CONTROLLER_RS_IMAGE:-networknt/controller-rs:2.3.5-dev.20260909.2338}
+    entrypoint: ["/bin/bash", "/opt/operational-store/bin/w7-controller-page-check.sh"]
+    volumes:
+      - ./postgres-db/operations/bin:/opt/operational-store/bin:ro,Z
+      - ./postgres-db/operations/bundle:/opt/operational-store/bundle:ro,Z
+      - ./postgres-db/operations/portal:/opt/operational-store/portal:ro,Z
+      - ./postgres-db/operations/w7-assets.json:/opt/operational-store/w7-assets.json:ro,Z
+      - ./postgres-db/operations/.runtime/w7:/opt/operational-store/.runtime/w7:Z
+      - ./postgres-db/operations/.runtime/w7/controller-page-authorization:/run/secrets/w7-controller-page-authorization:ro,Z
+      - ./light-controller-rust/ca.pem:/config/ca.pem:ro,Z
+    depends_on:
+      controller: {condition: service_healthy}
+      operational-schema-validation: {condition: service_completed_successfully}
+    restart: "no"
+
   light-workflow-config-cache-init:
     image: ${LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338}
     user: "0:0"
@@ -475,6 +497,8 @@ services:
     hostname: light-workflow
     container_name: light-workflow
     depends_on:
+      w7-controller-page-readiness: {condition: service_completed_successfully}
+      controller: {condition: service_healthy}
       operational-runtime-secrets-init:
         condition: service_completed_successfully
       light-workflow-config-cache-init:
