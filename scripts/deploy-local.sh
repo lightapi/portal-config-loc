@@ -378,14 +378,7 @@ container_runtime_is_podman() {
 }
 
 ensure_release_assets() {
-    local query_target="$DOCKER_COMPOSE_DIR/hybrid-query/service"
-    local command_target="$DOCKER_COMPOSE_DIR/hybrid-command/service"
     local gateway_roots=()
-
-    if [[ "$DOCKER_COMPOSE_DIR" != "$REPO_DIR/all-in-lt" ]]; then
-        extract_archive_if_missing "hybrid-query.zip" "$query_target" "hybrid-query jars" "*.jar" true || exit 1
-        extract_archive_if_missing "hybrid-command.zip" "$command_target" "hybrid-command jars" "*.jar" true || exit 1
-    fi
 
     if [ -d "$DOCKER_COMPOSE_DIR/light-gateway-rust" ]; then
         gateway_roots+=("$DOCKER_COMPOSE_DIR/light-gateway-rust")

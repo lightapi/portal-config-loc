@@ -10,8 +10,11 @@ PORTAL_HYBRID_QUERY_IMAGE=networknt/portal-hybrid-query:2.3.5-dev.20260929.1156
 
 Registry publication and digest references are not required. Explicit digest
 references remain supported for deployments that use them.
-Default Compose has no host `/service` mounts. Host JAR directories and other
-layouts' ZIP handling are retained. Gateway asset handling is unchanged.
+Default Compose has no host `/service` mounts or service-JAR folders in
+`all-in-lt`, `all-in-one` or `all-in-pg`. To update services, rebuild the hybrid
+images and select their tags; the images retain their internal `/service`
+directories. `copy-service-local.sh` is a compatibility notice and performs no
+builds or copies. Gateway asset handling is unchanged.
 
 Render using the existing environment files:
 
@@ -40,11 +43,10 @@ Compose env files are resolved first (later local files win), then process
 overrides, then the authoritative Portal fragment. The release checker also
 refuses an invalid effective Portal pair rather than trusting a caller.
 
-Bare `./scripts/deploy-local.sh lt` remains refused by W7. An authorized runtime
-exercise must use the existing stop, stage-controller, fresh-readiness, start
-sequence documented in the E04 runbook; packaging does not waive its database,
-bundle, instance or permission prerequisites. No development service override is
-enabled by default.
+Use `./scripts/deploy-local.sh lt` to ensure the initialized local stack is
+running. It performs the local startup checks and preserves healthy unchanged
+services; see [LOCAL-QUICKSTART.md](LOCAL-QUICKSTART.md). No development service
+override is enabled by default.
 
 Rollback requires the previous images **and deployment configuration**. Older
 images without bundled services also require restoring their service mounts.

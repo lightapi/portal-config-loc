@@ -317,8 +317,9 @@ RUST_LOG=info \
 
 ## Released assets
 
-`deploy-local.sh` downloads released assets from `https://cdn.networknt.com`
-when the target service or UI directories are missing or empty. The default
+`deploy-local.sh` downloads released UI assets from `https://cdn.networknt.com`
+when the target UI directories are missing or empty. Command/query service JARs
+are packaged inside their images; no host service folders are needed. The default
 cache directory is:
 
 ```text
@@ -328,16 +329,13 @@ cache directory is:
 The release assets are:
 
 ```text
-hybrid-query.zip
-hybrid-command.zip
 lightapi.zip
 signin.zip
 events.zip
 docker-images.env
 ```
 
-The script extracts the service archives into the selected compose profile and
-extracts the UI archives into the gateway asset directories. For `all-in-pg`,
+The script extracts the UI archives into the gateway asset directories. For `all-in-pg`,
 that means `all-in-pg/light-gateway/lightapi/dist` and
 `all-in-pg/light-gateway/signin/dist`. For `all-in-lt`, it populates
 `all-in-lt/light-gateway-rust/...`.
@@ -375,45 +373,25 @@ Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
 LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt
 ```
 
-## Optional: Copy locally built jars
+## Locally built Portal images
 
-If you are developing the backend services in the same workspace, build and
-copy the local jars instead:
-
-```bash
-cd ~/lightapi/portal-config-loc
-./scripts/copy-service-local.sh
-```
-
-Use `-f` to force rebuilding all projects:
+Build the complete command/query images from the `light-portal` repository:
 
 ```bash
-cd ~/lightapi/portal-config-loc
-./scripts/copy-service-local.sh -f
+./build.sh 2.3.5-dev.20260929.1156
 ```
 
-If you want Compose to use locally built baked-in images instead of the
-published wrapper tags, add the image-local override compose file:
+Select both packaged images in the environment file used by Compose:
 
-```bash
-cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
+```dotenv
+PORTAL_HYBRID_COMMAND_IMAGE=networknt/portal-hybrid-command:2.3.5-dev.20260929.1156
+PORTAL_HYBRID_QUERY_IMAGE=networknt/portal-hybrid-query:2.3.5-dev.20260929.1156
 ```
 
-For Podman, use the same files through `podman compose`:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-pg
-podman compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.image-local.yml up -d --build
-```
-
-If you want Compose to use the host service folders directly instead of
-baked-in jars, add the service-local override compose file:
-
-```bash
-cd ~/lightapi/portal-config-loc/all-in-pg
-docker compose -f docker-compose.yml -f docker-compose-rust.yml -f docker-compose.service-local.yml up -d
-```
+All layouts load service JARs from the images. Host copying, hybrid ZIP downloads
+and service-mount overrides are no longer part of startup. The legacy
+`copy-service-local.sh` command prints migration instructions without changing
+files. For direct Compose use, supply the selected file with `--env-file`.
 
 For the `all-in-lt` Rust stack, `docker-compose.yml` uses published
 images for `light-workflow`, `demo-customer-profile-api`, and

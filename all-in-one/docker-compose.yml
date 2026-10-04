@@ -191,7 +191,7 @@ services:
   #   # network_mode: host
 
   hybrid-command:
-    image: networknt/portal-hybrid-command:2.2.1-slim
+    image: ${PORTAL_HYBRID_COMMAND_IMAGE:?Set PORTAL_HYBRID_COMMAND_IMAGE to a packaged hybrid image}
     environment:
       NOREPLAY_EMAIL_PASSWORD: ""
       INSTANCE_CLONE_PLAN_HMAC_KEY: light-portal-development-only-instance-clone-hmac-key-v1
@@ -203,7 +203,6 @@ services:
       # JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     volumes:
       - ./hybrid-command/config:/config
-      - ./hybrid-command/service:/service
       - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8439:8439
@@ -218,10 +217,9 @@ services:
         condition: service_completed_successfully
 
   hybrid-query1:
-    image: networknt/portal-hybrid-query:2.2.1-slim
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:?Set PORTAL_HYBRID_QUERY_IMAGE to a packaged hybrid image}
     volumes:
       - ./hybrid-query/node1:/config
-      - ./hybrid-query/service:/service
       - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8440:8440
@@ -243,10 +241,9 @@ services:
         condition: service_completed_successfully
 
   hybrid-query2:
-    image: networknt/portal-hybrid-query:2.2.1-slim
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:?Set PORTAL_HYBRID_QUERY_IMAGE to a packaged hybrid image}
     volumes:
       - ./hybrid-query/node2:/config
-      - ./hybrid-query/service:/service
       - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8441:8441
@@ -268,10 +265,9 @@ services:
         condition: service_completed_successfully
 
   hybrid-query3:
-    image: networknt/portal-hybrid-query:2.2.1-slim
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:?Set PORTAL_HYBRID_QUERY_IMAGE to a packaged hybrid image}
     volumes:
       - ./hybrid-query/node3:/config
-      - ./hybrid-query/service:/service
       - ${PORTAL_DATA_DIR:-./data}:/data
     ports:
       - 8442:8442

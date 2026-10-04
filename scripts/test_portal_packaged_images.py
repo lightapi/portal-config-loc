@@ -48,7 +48,7 @@ class PackagedImagesTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.splitlines()[-2:], list(VALUES.values()))
 
-    def test_all_in_lt_skips_only_hybrid_zip_assets(self):
+    def test_layouts_skip_hybrid_zip_assets_and_keep_gateway_assets(self):
         env = dict(os.environ, DEPLOY_LOCAL_SOURCE_ONLY='true')
         code = 'source scripts/deploy-local.sh lt status; extract_archive_if_missing() { printf "%s\\n" "$1"; }; ensure_release_assets'
         result = subprocess.run(['bash', '-c', code], cwd=ROOT, env=env, capture_output=True, text=True)
@@ -58,8 +58,9 @@ class PackagedImagesTests(unittest.TestCase):
         self.assertIn('lightapi.zip', result.stdout)
         other = subprocess.run(['bash', '-c', code.replace('lt status', 'kafka status')], cwd=ROOT, env=env, capture_output=True, text=True)
         self.assertEqual(other.returncode, 0, other.stderr)
-        self.assertIn('hybrid-command.zip', other.stdout)
-        self.assertIn('hybrid-query.zip', other.stdout)
+        self.assertNotIn('hybrid-command.zip', other.stdout)
+        self.assertNotIn('hybrid-query.zip', other.stdout)
+        self.assertIn('lightapi.zip', other.stdout)
 
     def test_seven_unsafe_forms_still_refuse(self):
         for args in [[], ['lt', 'restart'], ['lt', 'rust', 'restart'], ['lt', 'restart', 'light-workflow'], ['lt', 'rust', 'restart', 'controller']]:
