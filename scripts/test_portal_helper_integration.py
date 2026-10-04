@@ -89,13 +89,17 @@ class HelperIntegrationTests(unittest.TestCase):
         self.assertEqual([next(word for word in call['argv'] if word in ('stop', 'run', 'up')) for call in calls], ['stop', 'run', 'up'])
         self.assertTrue(all(call['pair'] == pair('a') for call in calls))
 
-    def test_old_tags_without_fragment_refuse_before_all_side_effects(self):
+    def test_local_tags_without_fragment_reach_helpers(self):
+        tags = {key: 'networknt/portal-hybrid-' + side + ':2.3.5-dev.20260929.1156'
+                for key, side in zip(KEYS, ('command', 'query'))}
+        write_env(self.local, tags)
         for helper in ('import', 'issuer'):
             with self.subTest(helper=helper):
-                env = dict(self.env, LIGHT_PORTAL_ENV_FILE=str(self.root / 'absent'))
-                result, calls = self.run_helper(helper, env)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(calls, [])
+                result, calls = self.run_helper(helper, self.env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(calls)
+                self.assertTrue(all(call['pair'] == tags for call in calls))
+                self.calls.unlink()
 
     def test_invalid_or_incomplete_fragment_refuses_before_all_side_effects(self):
         for contents in ('PORTAL_HYBRID_COMMAND_IMAGE=networknt/portal-hybrid-command:2.2.1\n',
@@ -119,11 +123,11 @@ class HelperIntegrationTests(unittest.TestCase):
             self.assertTrue(all(call['pair'] == pair('c') for call in calls))
             self.calls.unlink()
 
-    def test_release_checker_itself_rejects_old_tags_and_accepts_fragment(self):
+    def test_release_checker_accepts_tags_and_fragment(self):
         checker = load_module('checker', ROOT / 'scripts/check-lt-release-images.py')
         script = ROOT / 'scripts/check-lt-release-images.py'
         args = [sys.executable, '-B', str(script), str(ROOT / 'all-in-lt/docker-compose.yml'), str(self.release)]
-        self.assertNotEqual(subprocess.run(args, env=self.env, capture_output=True).returncode, 0)
+        self.assertEqual(subprocess.run(args, env=self.env, capture_output=True).returncode, 0)
         self.assertEqual(subprocess.run(args, env=dict(self.env, PORTAL_IMAGE_ENV_FILE=str(self.fragment)), capture_output=True).returncode, 0)
 
 

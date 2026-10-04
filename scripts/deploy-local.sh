@@ -2,6 +2,20 @@
 # deploy.sh - Full deployment script with Compose management
 
 set -e  # Exit on error
+# Bare lt ensures the already-initialized local installation is running.
+# Dispatch before the historical W7/redeployment path; remote behavior is unchanged.
+if [[ "${BASH_SOURCE[0]}" == "$0" && "${1:-}" == lt && ( $# -eq 1 || ( $# -eq 2 && "${2:-}" == rust ) ) ]]; then
+    exec python3 -B "$(dirname "${BASH_SOURCE[0]}")/ensure-local-stack.py"
+fi
+if [[ "${BASH_SOURCE[0]}" == "$0" && "${1:-}" == lt ]]; then
+    local_control_args=("${@:2}")
+    if [[ "${local_control_args[0]:-}" == rust ]]; then
+        local_control_args=("${local_control_args[@]:1}")
+    fi
+    if [[ ${#local_control_args[@]} -eq 1 && "${local_control_args[0]}" =~ ^(stop|status|logs)$ ]]; then
+        exec python3 -B "$(dirname "${BASH_SOURCE[0]}")/ensure-local-stack.py" "${local_control_args[0]}"
+    fi
+fi
 # Refuse before repository/config discovery, logging, patches, imports or stop.
 # Full restart cannot satisfy current-process Controller evidence after stopping it.
 # Mirror lt's optional service normalization without consuming the real argv.
@@ -48,6 +62,12 @@ elif [[ "$1" == "lt" ]]; then
 fi
 
 DOCKER_COMPOSE_FILES=(-f "$DOCKER_COMPOSE_DIR/docker-compose.yml")
+
+# The authorized local fresh-start path must never run the broad first-boot
+# runtime grant repair. Preserve the one-shot's schema/topology validation.
+if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" && -n "${E04_LOCAL_FRESH_START_FILE:-}" ]]; then
+    DOCKER_COMPOSE_FILES+=(-f "$DOCKER_COMPOSE_DIR/docker-compose.local-fresh.yml")
+fi
 
 if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-pg" ]]; then
     CONTROLLER_TYPE="${1:-java}"
@@ -499,11 +519,15 @@ start_docker_compose() {
     log_info "Starting Compose services..."
     if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
         bash "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7-startup-guard.sh"             "$DOCKER_COMPOSE_DIR/postgres-db/operations" || return 1
+        if [[ -n "${E04_LOCAL_FRESH_START_FILE:-}" ]]; then
+            python3 "$SCRIPT_DIR/check-local-fresh-start.py" --state "$E04_LOCAL_FRESH_START_FILE" || return 1
+        else
         [[ -n "${W7_PLAN:-}" && -n "${W7_EVIDENCE:-}" ]] || {
             log_error "W7_PLAN and fresh W7_EVIDENCE are required before Workflow startup"
             return 1
         }
         python3 "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7_rollout.py" restart-check             --owner-run --assets "$DOCKER_COMPOSE_DIR/postgres-db/operations"             --plan "$W7_PLAN" --evidence "$W7_EVIDENCE"             --state-dir "$DOCKER_COMPOSE_DIR/postgres-db/operations/.runtime/w7" || return 1
+        fi
     fi
 
     check_gateway_host_port || exit 1
@@ -517,11 +541,19 @@ start_docker_compose() {
     # Repair preserved databases before any projection writer starts.
     "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d postgres || return 1
     wait_for_postgres_ready || return 1
-    ensure_portal_runtime_database_access || return 1
+    if [[ -n "${E04_LOCAL_FRESH_START_FILE:-}" ]]; then
+        python3 "$SCRIPT_DIR/check-local-portal-runtime.py" || return 1
+    else
+        ensure_portal_runtime_database_access || return 1
+    fi
 
     # Start services in detached mode
     log_info "Starting services..."
-    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d --build; then
+    local startup_image_options=(--build)
+    if [[ -n "${E04_LOCAL_FRESH_START_FILE:-}" ]]; then
+        startup_image_options=(--no-build --pull never)
+    fi
+    if "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" up -d "${startup_image_options[@]}"; then
         log_info "Compose services were created; qualifying required runtime services..."
 
         validate_operational_property_projection || return 1
@@ -1313,6 +1345,9 @@ fi
 case "${1:-}" in
     ""|start|restart|stage-controller)
         if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
+            if [[ -n "${E04_LOCAL_FRESH_START_FILE:-}" ]]; then
+                python3 "$SCRIPT_DIR/check-local-fresh-start.py" --state "$E04_LOCAL_FRESH_START_FILE" || exit 2
+            fi
             bash "$DOCKER_COMPOSE_DIR/postgres-db/operations/bin/w7-startup-guard.sh"                 "$DOCKER_COMPOSE_DIR/postgres-db/operations" || exit 1
             [[ -n "${W7_READINESS_UID:-}" && -n "${W7_READINESS_GID:-}" ]] || {
                 echo 'W7_DEPLOY_REFUSED: explicit readiness UID/private GID required' >&2
@@ -1406,7 +1441,7 @@ case "${1:-}" in
         echo "  rust            Use Rust services (pg override; accepted for lt compatibility)"
         echo ""
         echo "Commands:"
-        echo "  (no command)    Refused for lt/bare default; use explicit staged commands"
+        echo "  (no command)    lt ensures the initialized local stack is running; bare default refused"
         echo "  stop            Stop Compose services"
         echo "  start           Start Compose services"
         echo "  restart         Refused for lt; stop -> stage-controller -> fresh evidence -> start"

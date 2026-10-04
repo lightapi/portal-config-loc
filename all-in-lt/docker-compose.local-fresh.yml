@@ -1,0 +1,15 @@
+# Explicit owner-authorized local fresh-start path only. Normal W7 is unchanged.
+services:
+  knowledge-schema-migration:
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >-
+        /bin/bash /docker-entrypoint-initdb.d/validate-environment.sh &&
+        psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres
+        -v configserver_database="$${PORTAL_DB_NAME:-configserver}"
+        -v knowledge_database="$${PORTAL_DB_KNOWLEDGE_NAME:-knowledge}"
+        -v configserver_schema=configserver -v knowledge_schema=knowledge
+        -f /docker-entrypoint-initdb.d/local-fresh/runtime-access.sql
+    volumes:
+      - ./postgres-db/local-fresh/runtime-access.sql:/docker-entrypoint-initdb.d/local-fresh/runtime-access.sql:ro,Z

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve and validate the effective Portal digest pair without shell evaluation."""
+"""Resolve Portal image tags or digests without shell evaluation."""
 import argparse
 import os
 from pathlib import Path
@@ -15,8 +15,8 @@ def validate(values):
     if set(values) != set(EXPECTED):
         raise ValueError('Portal image selection must contain both overrides')
     for key, side in EXPECTED.items():
-        if not re.fullmatch('networknt/portal-hybrid-' + side + r'@sha256:[0-9a-f]{64}', values[key]):
-            raise ValueError('Portal images require explicit matching registry digests: ' + key)
+        if not re.fullmatch('networknt/portal-hybrid-' + side + r'(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[0-9a-f]{64})', values[key]):
+            raise ValueError('Portal images require an image tag or digest: ' + key)
     return values
 
 
@@ -42,7 +42,7 @@ def effective_images(env_files, environ=None):
         for line in Path(filename).read_text().splitlines():
             key, separator, value = line.strip().partition('=')
             if separator and key in EXPECTED:
-                # Only literal digest references are accepted. No interpolation,
+                # Only literal image references are accepted. No interpolation,
                 # commands or full-file evaluation, even in a private env file.
                 if len(value) >= 2 and value[0] in ('"', "'") and value[-1] == value[0]:
                     value = value[1:-1]
@@ -70,7 +70,7 @@ def main():
             print(key + '=' + values[key])
     except (ValueError, OSError):
         # Private environment and fragment contents are never echoed on errors.
-        parser.exit(1, 'Portal image selection refused: supply both verified matching digests or a valid Portal-only fragment\n')
+        parser.exit(1, 'Portal image selection refused: supply both image tags or digests in the environment files or an optional Portal-only fragment\n')
 
 
 if __name__ == '__main__':

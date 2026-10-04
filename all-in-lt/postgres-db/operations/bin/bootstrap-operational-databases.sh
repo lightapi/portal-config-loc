@@ -32,11 +32,24 @@ state_dir="$operations_root/.runtime/w7"
 [[ -d "$state_dir" ]] || fail "W7 preparation is missing"
 exec 9>"$state_dir/w7.lock"
 flock -n 9 || fail "W7 preparation or startup is in progress"
-bash "$operations_root/bin/w7-startup-guard.sh" "$operations_root" --lock-held || fail "W7 preparation changed"
+local_fresh_init="${E04_LOCAL_FRESH_INIT:-false}"
+if [[ "$local_fresh_init" == true ]]; then
+  # Local owner-authorized fresh databases only. Never initialize configserver,
+  # another deployment, a populated database, or a partially installed schema.
+  [[ "$operations_root" == /opt/operational-store && "${PORTAL_DB_TOPOLOGY:-}" == separate ]] || fail "fresh init is local separate topology only"
+  [[ "$(awk -F '\t' 'NF && $1 !~ /^#/ {print $1}' "$manifest" | sort | paste -sd , -)" == operations,operations_networknt,operations_taiji ]] || fail "fresh init database allowlist mismatch"
+  for fresh_database in operations operations_networknt operations_taiji; do
+    fresh_empty="$(psql -U "$database_user" -d "$fresh_database" -X -tAc "SELECT NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_%' AND c.relkind IN ('r','p','v','m','f','S') AND NOT EXISTS(SELECT 1 FROM pg_depend d JOIN pg_extension e ON e.oid=d.refobjid WHERE d.classid='pg_class'::regclass AND d.objid=c.oid AND d.refclassid='pg_extension'::regclass AND d.deptype='e'))")"
+    [[ "$fresh_empty" == t ]] || fail "fresh init requires all operational databases empty"
+  done
+else
+  bash "$operations_root/bin/w7-startup-guard.sh" "$operations_root" --lock-held || fail "W7 preparation changed"
+fi
 # Preparation must finish in EVERY database before any startup copy/apply,
 # identity update or credential rotation. A stale ready file cannot authorize
 # replay of a missing migration. Normal startup below therefore only skips
 # existing accepted entries; it never enables admission.
+if [[ "$local_fresh_init" != true ]]; then
 while IFS=$'\t' read -r db_name _host _scope _binding _digest extra; do
   [[ -n "$db_name" && "$db_name" != \#* ]] || continue
   [[ "$db_name" =~ ^[a-z][a-z0-9_]{0,62}$ && -z "${extra:-}" ]] || fail "invalid prepared database manifest"
@@ -49,6 +62,7 @@ while IFS=$'\t' read -r db_name _host _scope _binding _digest extra; do
   ready="$(psql -U "$database_user" -d "$db_name" -X -tAc "SELECT to_regprocedure('workflow_ops.workflow_claim_host_task_v2(uuid,integer,text[])') IS NOT NULL AND to_regclass('workflow_ops.workflow_operation_receipt_t') IS NOT NULL")"
   [[ "$ready" == t ]] || fail "W7 reactivation requires reviewed schema restoration"
 done < "$manifest"
+fi
 
 umask 077
 mkdir -p "$secret_root"
@@ -164,7 +178,13 @@ apply_database() {
       sed         -e "s/operations_/${database_name}_/g"         -e "s/ON DATABASE operations/ON DATABASE ${database_name}/g"         -e "s/IN DATABASE operations/IN DATABASE ${database_name}/g"         -e "s/database_identity = 'operations'/database_identity = '${database_name}'/g"         "$bundle_root/$migration_path" >"$rendered_migration"
       {
         printf 'BEGIN;\n'
+        if [[ "$local_fresh_init" == true && "$migration_owner" == workflow-store ]]; then
+          printf 'SET LOCAL ROLE %s_workflow_migrator;\n' "$database_name"
+        fi
         sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' "$rendered_migration"
+        if [[ "$local_fresh_init" == true && "$migration_owner" == workflow-store ]]; then
+          printf '\nRESET ROLE;\n'
+        fi
         printf "\nINSERT INTO operational_meta.operational_schema_migration_t (migration_owner, schema_name, migration_id, migration_digest, bundle_version, contract_generation) VALUES ('%s', '%s', '%s', 'sha256:%s', '%s', %s);\n"           "$migration_owner" "$schema_name" "$migration_id" "$migration_sha256" "$bundle_version" "$contract_generation"
         printf 'COMMIT;\n'
       } | psql -U "$database_user" -d "$database_name" -X --quiet --set=ON_ERROR_STOP=1 >/dev/null

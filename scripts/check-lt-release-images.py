@@ -11,7 +11,7 @@ OPTIONAL_PERSONAL_IMAGES = {
     "LIGHT_AGENT_CODEX_PERSONAL_IMAGE",
     "LIGHT_AGENT_CLAUDE_PERSONAL_IMAGE",
 }
-# Portal digests are validated separately from the non-Portal same-tag lane.
+# Portal references are validated separately from the non-Portal same-tag lane.
 PORTAL_PACKAGED_IMAGES = {"PORTAL_HYBRID_COMMAND_IMAGE", "PORTAL_HYBRID_QUERY_IMAGE"}
 IMAGE_VARIABLE = re.compile(r"^\s*image:\s*\$\{([A-Z0-9_]+_IMAGE)(?::[-?][^}]*)?\}", re.MULTILINE)
 
@@ -54,7 +54,7 @@ def validate(compose_file: Path, env_file: Path) -> list[str]:
         try:
             portal_images.effective_images([env_file])
         except (ValueError, OSError):
-            errors.append('Portal images require a valid effective digest pair or Portal-only fragment')
+            errors.append('Portal images require valid effective tags or digests')
     return errors
 
 

@@ -31,7 +31,7 @@ class PackagedImagesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             file = Path(directory) / 'images.env'
             valid = ''.join(f'{key}={value}\n' for key, value in VALUES.items())
-            for text, expected in [(valid, 0), (valid + 'OTHER=secret\n', 1), (valid + valid, 1), (valid.replace('@sha256:' + DIGEST, ':latest'), 1), (valid.splitlines()[0], 1)]:
+            for text, expected in [(valid, 0), (valid + 'OTHER=secret\n', 1), (valid + valid, 1), (valid.replace('@sha256:' + DIGEST, ':latest'), 0), (valid.replace('@sha256:' + DIGEST, ':2.3.5-dev.20260929.1156'), 0), (valid.replace('@sha256:' + DIGEST, ':bad tag'), 1), (valid.splitlines()[0], 1)]:
                 file.write_text(text)
                 result = subprocess.run(['python3', '-B', str(ROOT / 'scripts/portal-image-fragment.py'), str(file)], capture_output=True)
                 self.assertEqual(result.returncode, expected)
@@ -62,7 +62,7 @@ class PackagedImagesTests(unittest.TestCase):
         self.assertIn('hybrid-query.zip', other.stdout)
 
     def test_seven_unsafe_forms_still_refuse(self):
-        for args in [[], ['lt'], ['lt', 'restart'], ['lt', 'rust'], ['lt', 'rust', 'restart'], ['lt', 'restart', 'light-workflow'], ['lt', 'rust', 'restart', 'controller']]:
+        for args in [[], ['lt', 'restart'], ['lt', 'rust', 'restart'], ['lt', 'restart', 'light-workflow'], ['lt', 'rust', 'restart', 'controller']]:
             result = subprocess.run(['bash', 'scripts/deploy-local.sh', *args], cwd=ROOT, capture_output=True, text=True)
             self.assertEqual(result.returncode, 2, args)
             self.assertIn('W7_DEPLOY_REFUSED', result.stderr)
