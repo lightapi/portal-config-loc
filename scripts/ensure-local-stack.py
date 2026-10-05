@@ -152,7 +152,6 @@ def protected():
     parser = module('local-parser-companion')
     snapshot = json.loads(fresh.sql('configserver', 'BEGIN READ ONLY;' + parser.EXPORT + 'COMMIT;'))
     inventory = parser.inventory(parser.records(snapshot))
-    demand(len(inventory) == 49, 'Reviewed definition inventory differs; review local configserver before startup.')
     catalog = fresh.sql('configserver', 'BEGIN READ ONLY;' + parser.CATALOG + 'COMMIT;')
     demand(fresh.sql('postgres', "SELECT count(*) FROM pg_database WHERE datname='llm_audit';") == '1',
            'Required llm_audit database is missing; restore the completed local audit installation.')

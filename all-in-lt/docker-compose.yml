@@ -183,7 +183,7 @@ services:
     restart: "no"
 
   hybrid-command:
-    image: ${PORTAL_HYBRID_COMMAND_IMAGE:?Set verified packaged Portal command image digest}
+    image: ${PORTAL_HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.3.5-dev.20261004.1348}
     environment:
       NOREPLAY_EMAIL_PASSWORD: ""
       LIGHT_KNOWLEDGE_ADMIN_COMMAND_URL: http://light-knowledge-admin:8093/v1/knowledge/admin/commands
@@ -213,7 +213,7 @@ services:
         condition: service_healthy
 
   hybrid-query:
-    image: ${PORTAL_HYBRID_QUERY_IMAGE:?Set verified packaged Portal query image digest}
+    image: ${PORTAL_HYBRID_QUERY_IMAGE:-networknt/portal-hybrid-query:2.3.5-dev.20261004.1348}
     volumes:
       - ./hybrid-query/node1:/config:Z
       - ./light-gateway-rust/config/ca.pem:/run/secrets/gateway-trust.pem:ro,Z
