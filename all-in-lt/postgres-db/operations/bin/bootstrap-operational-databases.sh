@@ -7,8 +7,11 @@ manifest="${OPERATIONAL_DATABASE_MANIFEST:-/opt/operational-store/operational-da
 secret_root="${OPERATIONAL_HOST_SECRET_ROOT:-/run/secrets/operational-hosts}"
 database_host="${OPERATIONAL_DATABASE_HOST:-postgres}"
 database_port="${OPERATIONAL_DATABASE_PORT:-5432}"
-bundle_version="${OPERATIONAL_BUNDLE_VERSION:-2.6.0}"
+bundle_version="${OPERATIONAL_BUNDLE_VERSION:-2.7.0}"
 contract_generation="${OPERATIONAL_CONTRACT_GENERATION:-2}"
+python3 "$(dirname "$bundle_root")/bin/bundle_contract.py" "$bundle_root" >/dev/null
+actual_bundle_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["bundleVersion"])' "$bundle_root/manifest.json")"
+[[ "$bundle_version" == "$actual_bundle_version" ]] || { echo "operational-databases-bootstrap: bundle version mismatch" >&2; exit 1; }
 
 fail() {
   echo "operational-databases-bootstrap: $*" >&2
