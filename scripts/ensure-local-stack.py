@@ -148,7 +148,7 @@ def wait(item):
 
 def protected():
     fresh = module('check-local-fresh-start')
-    state = fresh.check(BASE / 'postgres-db/operations/.runtime/w7/prepared.json')
+    state = fresh.check(BASE / 'postgres-db/operations/.runtime/w7/prepared.json', require_admission_off=False)
     parser = module('local-parser-companion')
     snapshot = json.loads(fresh.sql('configserver', 'BEGIN READ ONLY;' + parser.EXPORT + 'COMMIT;'))
     inventory = parser.inventory(parser.records(snapshot))
@@ -250,7 +250,7 @@ def ensure():
             wait(item)
     readiness(current)
     demand(protected() == before, 'Protected local data changed during startup; retain state and investigate.')
-    print('LOCAL_STACK_READY: selected application images verified; successful one-shots reused; schema/ACL checks passed; four v2 gates OFF.')
+    print('LOCAL_STACK_READY: selected application images verified; successful one-shots reused; schema/ACL checks passed; admission settings unchanged.')
     print('Unchanged services retained; no builds, pulls, replay, password changes or initialization performed.')
 
 

@@ -29,7 +29,12 @@ SELECT json_build_object(
 'required_claim_function',has_function_privilege('portal_loc_runtime','configserver.workflow_claim_host_task_v1(uuid,integer)','EXECUTE'));
 ROLLBACK;"""
 
-def validate(container='postgres', database='configserver', *, fixture=False):
+# Normal startup validates the policy row without prescribing its enabled state.
+PRESERVED_QUERY = QUERY.replace(
+    "'policy_off',(SELECT NOT admission_enabled",
+    "'policy_present',(SELECT admission_enabled IS NOT NULL")
+
+def validate(container='postgres', database='configserver', *, fixture=False, require_admission_off=True):
     if fixture:
         if not (container.startswith('e04-parserq-') and database.startswith('parserq_')):
             raise ValueError('FIXTURE_IDENTITY')
@@ -38,7 +43,7 @@ def validate(container='postgres', database='configserver', *, fixture=False):
             raise ValueError('PROTECTED_VOLUME')
     elif (container,database)!=('postgres','configserver'):
         raise ValueError('LOCAL_IDENTITY')
-    result=subprocess.run(['docker','exec','-i',container,'psql','-X','-qAt','-U','postgres','-d',database,'-v','ON_ERROR_STOP=1'],input=QUERY,text=True,capture_output=True,timeout=60)
+    result=subprocess.run(['docker','exec','-i',container,'psql','-X','-qAt','-U','postgres','-d',database,'-v','ON_ERROR_STOP=1'],input=QUERY if require_admission_off else PRESERVED_QUERY,text=True,capture_output=True,timeout=60)
     if result.returncode:
         # PostgreSQL may include statement text. Do not print database diagnostics.
         raise ValueError('REQUIRED_OBJECT_OR_ROLE_MISSING')
@@ -48,8 +53,10 @@ def validate(container='postgres', database='configserver', *, fixture=False):
     return values
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.parse_args()
-    try:validate()
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--preserve-admission', action='store_true', help='Validate existing policy without requiring admission OFF.')
+    args=parser.parse_args()
+    try:validate(require_admission_off=not args.preserve_admission)
     except (ValueError,OSError,subprocess.SubprocessError) as error:
         print('LOCAL_PORTAL_RUNTIME_ACCESS_REFUSED:'+str(error) if isinstance(error,ValueError) else 'LOCAL_PORTAL_RUNTIME_ACCESS_REFUSED:READBACK_FAILED',file=sys.stderr);return 2
     print('LOCAL_PORTAL_RUNTIME_READ_ONLY_ACCESS_VERIFIED');return 0
