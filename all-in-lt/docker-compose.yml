@@ -185,7 +185,7 @@ services:
   hybrid-command:
     image: ${PORTAL_HYBRID_COMMAND_IMAGE:-networknt/portal-hybrid-command:2.3.5-dev.20261004.1348}
     environment:
-      JAVA_TOOL_OPTIONS: "-Dworkflow.validation.allowedBuilds=workflow-admission-source-sha256:c293658353ef5ff32ec0f466b025c0b3dd3a9075c112ddcaea552aa998292f46"
+      JAVA_TOOL_OPTIONS: "-Dworkflow.validation.allowedBuilds=workflow-admission-source-sha256:c293658353ef5ff32ec0f466b025c0b3dd3a9075c112ddcaea552aa998292f46,workflow-admission-source-sha256:df9cd8fa2401f9e2889b42f8a176130439576becda4b85139060d40693b3bb4c"
       NOREPLAY_EMAIL_PASSWORD: ""
       LIGHT_KNOWLEDGE_ADMIN_COMMAND_URL: http://light-knowledge-admin:8093/v1/knowledge/admin/commands
       INSTANCE_CLONE_PLAN_HMAC_KEY: light-portal-development-only-instance-clone-hmac-key-v1

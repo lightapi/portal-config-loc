@@ -13,17 +13,3 @@ services:
         -f /docker-entrypoint-initdb.d/local-fresh/runtime-access.sql
     volumes:
       - ./postgres-db/local-fresh/runtime-access.sql:/docker-entrypoint-initdb.d/local-fresh/runtime-access.sql:ro,Z
-
-  # Checkpoint-B qualified local deployment; release defaults remain unchanged.
-  controller:
-    image: sha256:3aa9804c04bf17613b25579f55860ce3c33d2ee52e4d8ce5d2a29f0fe959bdc9
-  light-workflow:
-    image: sha256:cd7f818d1c8823bd3305a4a0e136bc96a4cc02b6ba2a487a813ae22abcec8ba1
-  light-agent-codex-personal:
-    image: sha256:bca057616763b5b6d9ed7fde95add895fb1f3cd1149302c1bfc74359499b9621
-  light-agent-codex-personal-workflow:
-    image: sha256:bca057616763b5b6d9ed7fde95add895fb1f3cd1149302c1bfc74359499b9621
-  hybrid-command:
-    image: sha256:aafc999dea553540d6883f9ed0df7deb2ef3859e734fcd4f61c7e7cab960fd71
-    environment:
-      JAVA_TOOL_OPTIONS: -Dworkflow.validation.allowedBuilds=workflow-admission-source-sha256:c293658353ef5ff32ec0f466b025c0b3dd3a9075c112ddcaea552aa998292f46,workflow-admission-source-sha256:df9cd8fa2401f9e2889b42f8a176130439576becda4b85139060d40693b3bb4c
