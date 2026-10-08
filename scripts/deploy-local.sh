@@ -2,6 +2,16 @@
 # deploy.sh - Full deployment script with Compose management
 
 set -e  # Exit on error
+# Explicit release lifecycle, before the bare local-start dispatch.
+if [[ "${BASH_SOURCE[0]}" == "$0" && "${1:-}" == lt ]]; then
+    portal_view_args=("${@:2}")
+    if [[ "${portal_view_args[0]:-}" == rust ]]; then
+        portal_view_args=("${portal_view_args[@]:1}")
+    fi
+    if [[ "${portal_view_args[0]:-}" == portal-view ]]; then
+        exec python3 -B "$(dirname "${BASH_SOURCE[0]}")/portal-view-release.py" "${portal_view_args[@]:1}"
+    fi
+fi
 # Bare lt ensures the already-initialized local installation is running.
 # Dispatch before the historical W7/redeployment path; remote behavior is unchanged.
 if [[ "${BASH_SOURCE[0]}" == "$0" && "${1:-}" == lt && ( $# -eq 1 || ( $# -eq 2 && "${2:-}" == rust ) ) ]]; then
