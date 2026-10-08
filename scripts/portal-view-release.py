@@ -2,6 +2,7 @@
 """Explicit local release command. Importing this module performs no effects."""
 import argparse
 import importlib.util
+import http.client
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import ssl
 import subprocess
 import sys
 import urllib.parse
+import urllib.error
 import urllib.request
 
 import portal_view_release as release
@@ -46,11 +48,18 @@ class RealRunner:
         release.require(all(name in self.config['services'] for name in self.services), 'gateway service absent from Compose configuration')
         self.recreate_command = shlex.join(self.cmd + ['up', '-d', '--no-deps', '--force-recreate', *self.services])
         port = self.env.get('LIGHT_GATEWAY_HOST_PORT', os.environ.get('LIGHT_GATEWAY_HOST_PORT', '443'))
-        self.url = readback_url or 'https://local.localhost:' + port + '/'
+        self.readback_origin = 'https://local.localhost:' + port
+        self.explicit_readback = readback_url is not None
+        self.url = readback_url or self.readback_origin + '/'
         parsed = urllib.parse.urlsplit(self.url)
         release.require(parsed.scheme == 'https' and parsed.hostname and not parsed.username
                         and not parsed.password and not parsed.fragment, 'readback URL must be HTTPS without credentials or fragment')
         self.opener = None  # CA inspection is deferred until readback.
+
+    def use_mount_path(self, mount_path):
+        """Default readback targets the SPA mount; an explicit --readback-url wins."""
+        if not self.explicit_readback:
+            self.url = self.readback_origin + release.readback_path(mount_path)
 
     def validate_offline(self, release_dir, runtime_config, key_dir, mount_path, handler_config):
         args = ['docker', 'run', '--rm', '--network', 'none', '--pull', 'never']
@@ -115,20 +124,23 @@ class RealRunner:
         self.opener = self.opener_factory(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context), NoRedirect())
         return self.opener
 
-    def read_release_digest(self):
+    def read_release_digest(self, timeout=10):
         try:
-            with self.trust().open(urllib.request.Request(self.url, method='HEAD'), timeout=10) as response:
-                release.require(response.status == 200, 'HEAD readback did not return HTTP 200')
+            with self.trust().open(urllib.request.Request(self.url, method='HEAD'), timeout=timeout) as response:
+                if response.status != 200:
+                    raise urllib.error.HTTPError(self.url, response.status, 'HEAD readback did not return HTTP 200', {}, None)
                 return response.headers.get('X-Portal-Release-Digest')
-        except OSError as error:
-            raise release.ActivationError('HEAD release readback failed') from error
+        except (OSError, http.client.HTTPException) as error:
+            raise release.readback_error(error) from error
 
-    def gateway_healthy(self):
+    def gateway_healthy(self, timeout=10):
         try:
-            with self.trust().open(urllib.request.Request(self.url, method='GET'), timeout=10) as response:
-                return response.status == 200
-        except OSError:
-            return False
+            with self.trust().open(urllib.request.Request(self.url, method='GET'), timeout=timeout) as response:
+                if response.status != 200:
+                    raise urllib.error.HTTPError(self.url, response.status, 'GET readback did not return HTTP 200', {}, None)
+                return True
+        except (OSError, http.client.HTTPException) as error:
+            raise release.readback_error(error) from error
 
 
 class Parser(argparse.ArgumentParser):
@@ -186,6 +198,8 @@ def main(argv=None, runner_factory=RealRunner):
             if args.command == 'activate':
                 release.component(args.version)
             real = runner_factory(args.readback_url)
+            if hasattr(real, 'use_mount_path'):
+                real.use_mount_path(args.mount_path)
             runner = release.Runner(real.validate_offline, real.recreate_gateways, real.read_release_digest, real.gateway_healthy)
             ctx = release.Context(runner, CONFIG / 'portal-config.json', CONFIG / 'portal-view-release-keys', args.mount_path, args.handler_config)
             if hasattr(real, 'recreate_command'):
