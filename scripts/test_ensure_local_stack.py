@@ -44,6 +44,9 @@ class StartupTests(unittest.TestCase):
         if argv[:2] == ['docker', 'start']:
             self.current[argv[2]]['State']['Status'] = 'running'
             return argv[2]
+        if argv[:2] == ['docker', 'stop']:
+            self.current[argv[-1]]['State']['Status'] = 'exited'
+            return argv[-1]
         if argv[:3] == ['docker', 'compose', 'up']:
             name = argv[-1]
             self.current[name]['Image'] = 'sha256:' + name
@@ -91,6 +94,40 @@ class StartupTests(unittest.TestCase):
         self.ensure()
         self.assertEqual([c for c in self.calls if c[:2] == ['docker', 'start']],
                          [['docker', 'start', 'postgres'], ['docker', 'start', 'app']])
+
+    def test_reboot_recovers_restarting_app_after_database_readiness(self):
+        self.current['postgres'] = container('postgres', 'exited', 255)
+        self.current['app'] = container('app', 'restarting', 1)
+        self.current['app']['State']['Health']['Status'] = 'unhealthy'
+        def ready(item):
+            self.assertEqual(item['State']['Status'], 'running')
+            self.calls.append(['ready', item['Id']])
+        with patch.object(s, 'wait', side_effect=ready) as wait:
+            # ensure() patches wait itself, so use the same setup directly.
+            with patch.object(s, 'BASE', self.base), patch.object(s, 'containers', return_value=self.current), patch.object(s, 'configuration', return_value=(self.config, ['docker', 'compose'], {})), patch.object(s, 'run', side_effect=self.command), patch.object(s, 'readiness'), patch.object(s, 'protected', return_value='unchanged'):
+                s.ensure()
+            self.assertTrue(wait.called)
+        mutations = [c for c in self.calls if c[:2] in (['docker', 'start'], ['docker', 'stop'])]
+        self.assertEqual(mutations, [['docker', 'start', 'postgres'],
+                                     ['docker', 'stop', '--timeout', '30', 'app'],
+                                     ['docker', 'start', 'app']])
+        self.assertLess(self.calls.index(['ready', 'postgres']),
+                        self.calls.index(['docker', 'stop', '--timeout', '30', 'app']))
+        self.calls.clear()
+        self.current['app']['State']['Health']['Status'] = 'healthy'
+        self.ensure()
+        self.assertFalse(any(c[:2] in (['docker', 'start'], ['docker', 'stop']) for c in self.calls))
+
+    def test_restarting_database_and_unsafe_apps_refuse_before_changes(self):
+        for name, status in [('postgres', 'restarting'), ('app', 'paused'), ('app', 'dead'), ('app', 'removing')]:
+            with self.subTest(name=name, status=status):
+                self.current['postgres'] = container('postgres', 'exited')
+                self.current['app'] = container('app')
+                self.current[name]['State']['Status'] = status
+                self.calls.clear()
+                with self.assertRaisesRegex(ValueError, 'unsafe state'):
+                    self.ensure()
+                self.assertFalse(any(c[:2] in (['docker', 'start'], ['docker', 'stop']) or c[:3] == ['docker', 'compose', 'up'] for c in self.calls))
 
     def test_stopped_containers_ignore_stale_shutdown_health(self):
         for name in ('postgres', 'app'):

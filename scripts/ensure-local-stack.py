@@ -123,7 +123,12 @@ def plan(config, current):
             continue
         demand(name != 'postgres' or selected == item['Image'],
                'Selected PostgreSQL image differs; review database image compatibility before changing the preserved database service.')
-        demand(state['Status'] in ('running', 'exited', 'created'),
+        # Applications can be restarting after a host reboot while PostgreSQL
+        # is stopped. Admit them for ordered recovery, but never a looping DB.
+        allowed = ('running', 'exited', 'created')
+        if name != 'postgres':
+            allowed += ('restarting',)
+        demand(state['Status'] in allowed,
                'Service ' + name + ' is in an unsafe state; inspect its logs before startup.')
         # Docker retains the final shutdown health result on stopped containers.
         # Only a running container has a current health result; start stopped
@@ -242,6 +247,10 @@ def ensure():
             demand(current[name]['Image'] == selected, 'Selected image changed during startup for ' + name + '; retain state and inspect local tags.')
             print('Updated changed local image: ' + name, flush=True)
         else:
+            if current[name]['State']['Status'] == 'restarting':
+                # docker start does not reset an active restart loop. Stop it
+                # after dependencies are ready, then require fresh readiness.
+                run(['docker', 'stop', '--timeout', '30', current[name]['Id']])
             run(['docker', 'start', current[name]['Id']])
             print('Started existing service: ' + name, flush=True)
         wait(current[name])
