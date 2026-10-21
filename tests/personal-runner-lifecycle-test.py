@@ -22,7 +22,7 @@ class LifecycleTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(m, 'system_property', return_value='not-found'):
             root = Path(directory)
             self.assertEqual(m.configured_runners(root), [])
-            runtime = root / 'light-workflow-runner-claude-personal/.runtime'
+            runtime = root / 'light-workflow-runner-personal/.runtime'
             runtime.mkdir(parents=True)
             (runtime / 'runner.yml').touch()
             with self.assertRaisesRegex(ValueError, 'not installed'):

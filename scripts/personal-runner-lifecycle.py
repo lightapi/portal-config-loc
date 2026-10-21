@@ -19,7 +19,6 @@ import yaml
 
 UNITS = {
     'light-workflow-runner-personal': 'light-workflow-runner-personal.service',
-    'light-workflow-runner-claude-personal': 'light-workflow-runner-claude-personal.service',
 }
 
 
