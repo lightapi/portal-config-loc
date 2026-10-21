@@ -17,10 +17,8 @@ import urllib.request
 
 import yaml
 
-UNITS = {
-    'light-workflow-runner-personal': 'light-workflow-runner-personal.service',
-    'light-workflow-runner-claude-personal': 'light-workflow-runner-claude-personal.service',
-}
+# Retired personal runners are not part of the default local stack.
+UNITS = {}
 
 
 def system_property(unit, name):

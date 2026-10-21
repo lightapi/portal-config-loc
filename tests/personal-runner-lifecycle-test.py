@@ -19,10 +19,12 @@ spec.loader.exec_module(m)
 
 class LifecycleTest(unittest.TestCase):
     def test_optional_absent_but_incomplete_enrollment_rejected(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(m, 'system_property', return_value='not-found'):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(m, 'UNITS', {'fixture-runner': 'fixture-runner.service'}), \
+                patch.object(m, 'system_property', return_value='not-found'):
             root = Path(directory)
             self.assertEqual(m.configured_runners(root), [])
-            runtime = root / 'light-workflow-runner-claude-personal/.runtime'
+            runtime = root / 'fixture-runner/.runtime'
             runtime.mkdir(parents=True)
             (runtime / 'runner.yml').touch()
             with self.assertRaisesRegex(ValueError, 'not installed'):
