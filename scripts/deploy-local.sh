@@ -601,11 +601,9 @@ required_runtime_services() {
             light-knowledge-admin \
             light-knowledge \
             light-knowledge-worker
-        printf '%s\n' light-agent-codex-personal light-agent-claude-personal light-a2a
+        printf '%s\n' light-agent-codex-personal light-a2a
         if [[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]; then
-            printf '%s\n' \
-                light-agent-codex-personal-workflow \
-                light-agent-claude-personal-workflow
+            printf '%s\n' light-agent-codex-personal-workflow
         fi
         return 0
     fi

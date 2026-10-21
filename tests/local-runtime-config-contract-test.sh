@@ -74,17 +74,22 @@ claude_personal_config="$repo_root/all-in-lt/light-agent-claude-personal-rust/co
 [[ -f "$claude_personal_config/workflow-origin.yml" ]]
 grep -q 'com.networknt.agent.claude-personal-1.0.0' "$claude_personal_config/startup.yml"
 grep -q 'https://config-server:8435' "$claude_personal_config/startup.yml"
-grep -q './light-agent-claude-personal-rust/config:/config:ro,Z' "$compose_file"
+if grep -Eq '^  light-agent-claude-personal(-workflow)?:|light-agent-claude-personal-rust/config:/config' \
+  "$compose_file" "$repo_root/all-in-lt/workflow-actions/compose.yml"; then
+  echo "retired Claude personal services and configuration mounts must be absent" >&2
+  exit 1
+fi
 grep -q '\${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084' "$compose_file"
 grep -q 'curl -f http://localhost:8084/health' "$compose_file"
 grep -q '\${LIGHT_AGENT_TECH_SUPPORT_PORT:-8088}:8082' "$compose_file"
 grep -q 'curl -f http://localhost:8082/health' "$compose_file"
 grep -q '^prepare_database_urls()' "$bootstrap_script"
-grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.4.0' "$compose_file"
+grep -q 'OPERATIONAL_BUNDLE_VERSION: 2.7.0' "$compose_file"
 [[ ! -e "$workflow_projection_script" ]]
 ! grep -q 'workflow-projection-sync\|publish-workflow-projections\|workflow_projection_source' "$compose_file"
 grep -Fq 'LIGHT_WORKFLOW_IMAGE:-networknt/light-workflow:2.3.5-dev.20260909.2338' "$compose_file"
-docker compose -f "$compose_file" config --format json | jq -e '
+# Render-only fixture IDs; this test does not create or start containers.
+W7_READINESS_UID=20002 W7_READINESS_GID=20003 docker compose -f "$compose_file" config --format json | jq -e '
   . as $root | all(["hybrid-command", "hybrid-query"][];
     $root.services[.] as $service |
     $service.environment.LIGHT_GATEWAY_MCP_URL == "https://light-gateway:8443/mcp" and
@@ -102,7 +107,7 @@ grep -q "agentPolicy.policySnapshot.dataBoundaryDigest" "$deploy_script"
 grep -q '3 runnable Agent snapshots' "$deploy_script"
 grep -Fq '[[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]' "$deploy_script"
 grep -Fq 'light-agent-codex-personal-workflow' "$deploy_script"
-grep -Fq 'light-agent-claude-personal-workflow' "$deploy_script"
+! grep -Fq 'light-agent-claude-personal' "$deploy_script"
 grep -Fq "if name in ('codex','claude'): scopes.append('execution.invoke')" "$workflow_actions_prepare"
 grep -Fq "runtime_uid='999'; runtime_gid='999'" "$workflow_actions_prepare"
 grep -Fq "chmod 644 /target/workflow/action-authorization.json" "$workflow_actions_prepare"
