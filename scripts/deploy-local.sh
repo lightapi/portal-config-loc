@@ -122,15 +122,6 @@ elif [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
     esac
 fi
 
-# A locally enrolled runner must survive normal stack redeployments. This private
-# file contains credentials only; image versions still come from release values.
-if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
-   [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
-    DOCKER_COMPOSE_FILES+=(
-        -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml"
-    )
-fi
-
 # Retain an explicitly activated A2 dual-identity action profile. The resolved
 # JSON and all credentials are private generated inputs, never checked-in values.
 if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
@@ -219,13 +210,6 @@ configure_release_image_env() {
     fi
 
     ensure_release_image_env_file || true
-
-    if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
-       [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]] &&
-       [[ ! -f "$RELEASE_IMAGE_ENV_FILE" ]]; then
-        log_error "An enrolled personal runner requires the release image env file: $RELEASE_IMAGE_ENV_FILE"
-        return 1
-    fi
 
     if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
        [[ "$CONTROLLER_TYPE" == "rust" ]] &&
@@ -561,9 +545,6 @@ start_docker_compose() {
 
         validate_operational_property_projection || return 1
         wait_for_required_runtime_services || return 1
-        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
-            python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" restart "$DOCKER_COMPOSE_DIR" || return 1
-        fi
         log_success "Compose services started and passed runtime qualification"
 
         # Show status
@@ -601,10 +582,7 @@ required_runtime_services() {
             light-knowledge-admin \
             light-knowledge \
             light-knowledge-worker
-        printf '%s\n' light-agent-codex-personal light-a2a
-        if [[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]; then
-            printf '%s\n' light-agent-codex-personal-workflow
-        fi
+        printf '%s\n' light-a2a
         return 0
     fi
 
@@ -1216,17 +1194,6 @@ bootstrap_events_if_requested() {
     log_info "Refreshing current config snapshots after baseline/private event deltas"
     CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
         "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
-    if [[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]; then
-        local workflow_agent_service_id=""
-        for workflow_agent_service_id in \
-            com.networknt.agent.codex-personal-workflow-1.0.0 \
-            com.networknt.agent.claude-personal-workflow-1.0.0; do
-            log_info "Publishing the current snapshot for $workflow_agent_service_id"
-            CONTAINER_CMD="$CONTAINER_RUNTIME_CMD" \
-                DEV_CONFIG_SNAPSHOT_SERVICE_ID="$workflow_agent_service_id" \
-                "$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1
-        done
-    fi
 }
 
 apply_requested_db_patches() {
@@ -1384,14 +1351,6 @@ case "${1:-}" in
         if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]]; then
             python3 "$SCRIPT_DIR/check-lt-release-images.py" \
                 "$DOCKER_COMPOSE_DIR/docker-compose.yml" "$RELEASE_IMAGE_ENV_FILE" || exit 1
-            python3 "$SCRIPT_DIR/personal-runner-lifecycle.py" preflight "$DOCKER_COMPOSE_DIR" || exit 1
-            python3 "$SCRIPT_DIR/sync-personal-runner-admission.py" \
-                "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime" || exit 1
-        fi
-        if [[ "$DOCKER_COMPOSE_DIR" == "$REPO_DIR/all-in-lt" ]] &&
-           [[ -f "$DOCKER_COMPOSE_DIR/light-workflow-runner-personal/.runtime/credentials.compose.yml" ]]; then
-            bash "$SCRIPT_DIR/verify-agent-image.sh" "$CONTAINER_RUNTIME_CMD" \
-                "${DOCKER_COMPOSE_CMD[@]}" "${DOCKER_COMPOSE_FILES[@]}" || exit 1
         fi
         ;;
 esac

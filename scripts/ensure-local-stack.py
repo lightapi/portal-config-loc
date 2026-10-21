@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Ensure an initialized local Compose installation is running, without setup."""
 import importlib.util
-import grp
 import json
 import os
 from pathlib import Path
@@ -72,9 +71,6 @@ def configuration(current):
     cmd = shlex.split(env.get('COMPOSE_CMD', 'docker compose'))
     cmd += ['--project-name', PROJECT, '--env-file', str(release), '--env-file', str(private),
             '-f', str(BASE / 'docker-compose.yml'), '-f', str(BASE / 'docker-compose.local-fresh.yml')]
-    credentials = BASE / 'light-workflow-runner-personal/.runtime/credentials.compose.yml'
-    if credentials.exists():
-        cmd += ['-f', str(credentials)]
     actions = BASE / 'workflow-actions/.runtime'
     if (actions / 'enabled').exists():
         env['WORKFLOW_ACTIONS_DIR'] = str(actions / 'active')
@@ -214,13 +210,6 @@ def readiness(current):
                 demand(response.status == 200, 'Portal readiness failed; inspect service logs.')
         except Exception:
             raise ValueError('Portal ' + service + ' readiness failed; inspect service logs and existing TLS configuration.') from None
-    # Retain the existing supplementary private group and normal primary GID.
-    gid = int(current['w7-controller-page-readiness']['Config']['User'].split(':')[1])
-    group = grp.getgrgid(gid).gr_name
-    primary = grp.getgrgid(os.getgid()).gr_name
-    command = shlex.join(['python3', '-B', str(ROOT / 'scripts/personal-runner-lifecycle.py'),
-                         'check', str(BASE), '--timeout', '10'])
-    run(['sg', group, '-c', shlex.join(['sg', primary, '-c', command])])
 
 
 def ensure():

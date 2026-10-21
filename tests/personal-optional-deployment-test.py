@@ -9,8 +9,12 @@ class OptionalDeployment(unittest.TestCase):
         import yaml
         services=yaml.safe_load((ROOT/'all-in-lt/docker-compose.yml').read_text())['services']
         self.assertTrue(all('profiles' not in service for service in services.values()))
+        overlay=yaml.safe_load((ROOT/'all-in-lt/workflow-actions/compose.yml').read_text())['services']
+        for name in set(services) | set(overlay):
+            self.assertNotIn('codex-personal', name)
+            self.assertNotIn('claude-personal', name)
         self.assertNotIn('COMPOSE_PROFILES', (ROOT/'scripts/deploy-local.sh').read_text())
-    def test_required_services_exclude_retired_claude_agents(self):
+    def test_required_services_exclude_retired_personal_agents(self):
         script=(ROOT/'scripts/deploy-local.sh').read_text()
         body=script[script.index('required_runtime_services() {'):script.index('\nlog_required_service_diagnostics()')]
         for actions in ['', '/prepared/workflow-actions']:
@@ -19,11 +23,11 @@ class OptionalDeployment(unittest.TestCase):
                          DOCKER_COMPOSE_DIR='/workspace/portal-config-loc/all-in-lt',
                          WORKFLOW_ACTIONS_DIR=actions)
                 services=subprocess.check_output(['bash','-c',body+'\nrequired_runtime_services'],env=env,text=True).splitlines()
-                for service in ['postgres', 'light-agent-codex-personal', 'light-a2a']:
+                for service in ['postgres', 'light-workflow', 'light-a2a']:
                     self.assertIn(service, services)
-                for service in ['light-agent-claude-personal', 'light-agent-claude-personal-workflow']:
+                for service in ['light-agent-claude-personal', 'light-agent-claude-personal-workflow',
+                                'light-agent-codex-personal', 'light-agent-codex-personal-workflow']:
                     self.assertNotIn(service, services)
-                self.assertEqual('light-agent-codex-personal-workflow' in services, bool(actions))
     def test_installer_diagnostics_do_not_validate_broken_enrollment(self):
         script=(INSTALL/'install.sh').read_text()
         start=script.index('compose() {');body=script[start:script.index('\nload_env_file_var()',start)]

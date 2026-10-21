@@ -58,25 +58,19 @@ if grep -q 'AGENTPOLICY_AGENTDEFID:' "$compose_file"; then
   echo "Agent definition identity must come from the immutable Agent snapshot" >&2
   exit 1
 fi
-for agent in account advisor tech-support codex-personal; do
+for agent in account advisor tech-support; do
   config_dir="$repo_root/all-in-lt/light-agent-$agent-rust/config"
   [[ -f "$config_dir/startup.yml" && -f "$config_dir/ca.pem" ]]
   [[ -f "$config_dir/cert.pem" && -f "$config_dir/key.pem" ]]
   expected_yaml_count=1
-  [[ "$agent" == *-personal ]] && expected_yaml_count=2
   [[ "$(find "$config_dir" -maxdepth 1 -name '*.yml' | wc -l)" -eq "$expected_yaml_count" ]]
   grep -q "com.networknt.agent.$agent-1.0.0" "$config_dir/startup.yml"
   grep -q 'https://config-server:8435' "$config_dir/startup.yml"
   grep -q "./light-agent-$agent-rust/config:/config:ro,Z" "$compose_file"
 done
-claude_personal_config="$repo_root/all-in-lt/light-agent-claude-personal-rust/config"
-[[ -f "$claude_personal_config/startup.yml" && -f "$claude_personal_config/ca.pem" ]]
-[[ -f "$claude_personal_config/workflow-origin.yml" ]]
-grep -q 'com.networknt.agent.claude-personal-1.0.0' "$claude_personal_config/startup.yml"
-grep -q 'https://config-server:8435' "$claude_personal_config/startup.yml"
-if grep -Eq '^  light-agent-claude-personal(-workflow)?:|light-agent-claude-personal-rust/config:/config' \
+if grep -Eq '^  light-agent-(claude|codex)-personal(-workflow)?:|light-agent-(claude|codex)-personal-rust/config:/config' \
   "$compose_file" "$repo_root/all-in-lt/workflow-actions/compose.yml"; then
-  echo "retired Claude personal services and configuration mounts must be absent" >&2
+  echo "retired personal services and configuration mounts must be absent" >&2
   exit 1
 fi
 grep -q '\${LIGHT_AGENT_ADVISOR_PORT:-8084}:8084' "$compose_file"
@@ -105,9 +99,9 @@ grep -q "runtimePolicy.publicationId" "$deploy_script"
 grep -q "portalAssociation.runtimeInstanceId" "$deploy_script"
 grep -q "agentPolicy.policySnapshot.dataBoundaryDigest" "$deploy_script"
 grep -q '3 runnable Agent snapshots' "$deploy_script"
-grep -Fq '[[ -n "${WORKFLOW_ACTIONS_DIR:-}" ]]' "$deploy_script"
-grep -Fq 'light-agent-codex-personal-workflow' "$deploy_script"
-! grep -Fq 'light-agent-claude-personal' "$deploy_script"
+grep -Fq '$DOCKER_COMPOSE_DIR/workflow-actions/.runtime/enabled' "$deploy_script"
+! grep -Eq 'light-agent-(claude|codex)-personal|personal-runner-lifecycle|sync-personal-runner-admission|credentials.compose.yml' "$deploy_script"
+! grep -Eq 'personal-runner-lifecycle|credentials.compose.yml' "$repo_root/scripts/ensure-local-stack.py"
 grep -Fq "if name in ('codex','claude'): scopes.append('execution.invoke')" "$workflow_actions_prepare"
 grep -Fq "runtime_uid='999'; runtime_gid='999'" "$workflow_actions_prepare"
 grep -Fq "chmod 644 /target/workflow/action-authorization.json" "$workflow_actions_prepare"
@@ -133,9 +127,6 @@ fi
 grep -Fq '"$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1' "$deploy_script"
 grep -Fq 'CALL create_snapshot(' "$repo_root/scripts/refresh-config-snapshots.sh"
 grep -Fq '(cs.snapshot_id IS NOT NULL OR v_service_filter IS NOT NULL)' "$repo_root/scripts/refresh-config-snapshots.sh"
-grep -Fq 'com.networknt.agent.codex-personal-workflow-1.0.0' "$deploy_script"
-grep -Fq 'com.networknt.agent.claude-personal-workflow-1.0.0' "$deploy_script"
-grep -Fq 'DEV_CONFIG_SNAPSHOT_SERVICE_ID="$workflow_agent_service_id"' "$deploy_script"
 delta_import_line="$(grep -nF '"$SCRIPT_DIR/import-event-deltas.sh" || return 1' "$deploy_script" | cut -d: -f1)"
 snapshot_refresh_line="$(grep -nF '"$SCRIPT_DIR/refresh-config-snapshots.sh" || return 1' "$deploy_script" | sed -n '1s/:.*//p')"
 [[ "$delta_import_line" -lt "$snapshot_refresh_line" ]]
