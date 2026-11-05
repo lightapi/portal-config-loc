@@ -27,7 +27,8 @@ class DownloadSyncTests(unittest.TestCase):
             target.mkdir(parents=True)
             (target / 'portal_view_release.py').write_text(self.source + '\n# repo-local tail\n')
             (target / sync.SUPPORT).write_bytes((scripts / sync.SUPPORT).read_bytes())
-        sync.synchronize(self.workspace, write=True)
+            (target / sync.SCHEMA).write_bytes((scripts / sync.SCHEMA).read_bytes())
+        sync.synchronize(self.workspace, write=True, source_commit='a' * 40)
         self.target = self.workspace / sync.REPOS[0] / 'scripts/portal_view_release.py'
 
     def test_check_and_write_detect_and_repair_drift(self):
@@ -42,24 +43,26 @@ class DownloadSyncTests(unittest.TestCase):
         self.assertEqual(sync.synchronize(self.workspace), [])
         self.assertTrue(self.target.read_text().endswith('# repo-local tail\n'))
 
-    def test_reverted_signature_is_refused_without_writes(self):
+    def test_reverted_signature_is_reported_and_repaired(self):
         self.target.write_text(self.target.read_text().replace(
             'key_dir, downloader=None)', 'key_dir, downloader=fetch)'))
         before = self.target.read_bytes()
-        with self.assertRaisesRegex(ValueError, 'stage contract.*signature'):
-            sync.synchronize(self.workspace, write=True)
+        self.assertIn(sync.REPOS[0] + ': stage', sync.synchronize(self.workspace))
         self.assertEqual(self.target.read_bytes(), before)
+        sync.synchronize(self.workspace, write=True)
+        self.assertEqual(sync.synchronize(self.workspace), [])
 
     def test_added_stage_docstring_does_not_shift_admission_check(self):
         self.target.write_text(self.target.read_text().replace(
             'key_dir, downloader=None):\n', 'key_dir, downloader=None):\n    """Stage documentation."""\n'))
         self.assertEqual(sync.synchronize(self.workspace), [])
 
-    def test_body_bypass_is_refused(self):
+    def test_body_bypass_is_reported_and_repaired(self):
         self.target.write_text(self.target.read_text().replace(
             '            transport = download_opener()\n', '            transport = None\n'))
-        with self.assertRaisesRegex(ValueError, 'stage contract'):
-            sync.synchronize(self.workspace)
+        self.assertIn(sync.REPOS[0] + ': stage', sync.synchronize(self.workspace))
+        sync.synchronize(self.workspace, write=True)
+        self.assertEqual(sync.synchronize(self.workspace), [])
 
     def test_invalid_python_and_missing_function_have_path_diagnostics(self):
         for text, message in (('def broken(', 'invalid Python'),

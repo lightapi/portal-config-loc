@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""Synchronize pinned download helpers and tests; check is read-only by default."""
+"""Synchronize release download helpers and tests; check is read-only by default."""
 import argparse
-import ast
-import copy
 import hashlib
 import json
 import os
@@ -11,32 +9,12 @@ import stat
 import sys
 import tempfile
 
+from portal_view_source import SYMBOLS, functions, fingerprint
+
 REPOS = ('portal-config-bootstrap', 'portal-config-dev', 'light-portal-install')
-SYMBOLS = ('download_opener', 'fetch')
 SUPPORT = 'portal_view_download_contract.py'
 MANIFEST = 'portal-view-download-source.json'
-
-
-def functions(text, path):
-    try:
-        nodes = {node.name: node for node in ast.parse(text).body
-                 if isinstance(node, ast.FunctionDef)}
-    except SyntaxError as error:
-        raise ValueError(f'{path}:{error.lineno}: invalid Python: {error.msg}') from error
-    for name in (*SYMBOLS, 'stage'):
-        if name not in nodes:
-            raise ValueError(f'{path}: required function {name} is missing')
-    return nodes
-
-
-def fingerprint(node):
-    node = copy.deepcopy(node)
-    if node.body and isinstance(node.body[0], ast.Expr) and isinstance(
-            node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str):
-        node.body.pop(0)
-    for child in ast.walk(node):
-        child._fields = tuple(field for field in child._fields if field != 'type_params')
-    return hashlib.sha256(ast.dump(node).encode()).hexdigest()
+SCHEMA = 'portal_view_source.py'
 
 
 def temporary_copy(path, data, mode):
@@ -89,7 +67,7 @@ def publish(updates):
                     temporary.unlink(missing_ok=True)
 
 
-def synchronize(workspace, write=False):
+def synchronize(workspace, write=False, source_commit=None):
     canonical = workspace / 'portal-config-loc/scripts'
     source_path = canonical / 'portal_view_release.py'
     source = source_path.read_text()
@@ -98,9 +76,16 @@ def synchronize(workspace, write=False):
     snippets = {name: ''.join(lines[nodes[name].lineno - 1:nodes[name].end_lineno])
                 for name in SYMBOLS}
     support = (canonical / SUPPORT).read_bytes()
+    schema = (canonical / SCHEMA).read_bytes()
+    if source_commit is None:
+        source_commit = json.loads((canonical / MANIFEST).read_text()).get('canonicalCommit')
+    if not isinstance(source_commit, str) or len(source_commit) != 40 or any(char not in '0123456789abcdef' for char in source_commit):
+        raise ValueError('canonical source commit must be a full lowercase Git SHA')
     manifest = (json.dumps({
         'canonicalSource': 'lightapi/portal-config-loc/scripts/portal_view_release.py',
-        'symbols': {name: fingerprint(nodes[name]) for name in (*SYMBOLS, 'stage')},
+        'canonicalCommit': source_commit,
+        'sourceSchemaSha256': hashlib.sha256(schema).hexdigest(),
+        'symbols': {name: fingerprint(nodes[name]) for name in SYMBOLS},
         'fixtureSha256': hashlib.sha256(support).hexdigest(),
     }, indent=2, sort_keys=True) + '\n').encode()
     drift, updates = [], []
@@ -110,25 +95,21 @@ def synchronize(workspace, write=False):
             path = scripts / 'portal_view_release.py'
             text = path.read_text()
             target = functions(text, path)
-            # Compare the full signature and body, independent of statement positions.
-            if fingerprint(target['stage']) != fingerprint(nodes['stage']):
-                raise ValueError(f'{path}: stage contract differs (signature or body)')
             target_lines = text.splitlines(keepends=True)
             for name in sorted(SYMBOLS, key=lambda key: target[key].lineno, reverse=True):
                 node = target[name]
-                current = ''.join(target_lines[node.lineno - 1:node.end_lineno])
-                if current != snippets[name]:
+                if fingerprint(target[name]) != fingerprint(nodes[name]):
                     drift.append(f'{repo}: {name}')
                     target_lines[node.lineno - 1:node.end_lineno] = [snippets[name]]
             replacement = ''.join(target_lines).encode()
             if replacement != text.encode():
                 updates.append((path, replacement))
-        for name, data in ((SUPPORT, support), (MANIFEST, manifest)):
+        for name, data in ((SUPPORT, support), (SCHEMA, schema), (MANIFEST, manifest)):
             path = scripts / name
             if not path.is_file() or path.read_bytes() != data:
                 drift.append(f'{repo}: {name}')
                 updates.append((path, data))
-    # All sources parse and all stage contracts match before publication starts.
+    # Every target parses before any replacement is published.
     if write:
         publish(updates)
     return drift
@@ -140,9 +121,10 @@ def main(argv=None):
     mode = cli.add_mutually_exclusive_group()
     mode.add_argument('--check', action='store_true', help='read-only drift check (default)')
     mode.add_argument('--write', action='store_true', help='copy canonical helpers and fixture')
+    cli.add_argument('--source-commit', help='full canonical commit to record after committing source changes')
     args = cli.parse_args(argv)
     try:
-        drift = synchronize(args.workspace, args.write)
+        drift = synchronize(args.workspace, args.write, args.source_commit)
     except (OSError, ValueError, RuntimeError) as error:
         print('Portal View download sync refused: ' + str(error), file=sys.stderr)
         return 2

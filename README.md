@@ -391,19 +391,28 @@ python3 -B scripts/sync-portal-view-downloads.py --check
 python3 -B scripts/sync-portal-view-downloads.py --write
 ```
 
-The tool checks or updates the download helpers, test support, and source
-manifest in bootstrap, dev, and installer. It validates the complete stage
-signature and body (ignoring docstrings) before publication. Syntax errors and
-missing functions report the affected file. Prepared files are replaced
-atomically per file; a publication error rolls back completed replacements.
-If rollback also fails, the error names retained recovery backups. This is
+The tool reports and repairs all three managed functions, including the full
+stage signature and body. It uses the same deterministic JSON AST serializer as
+the tests, with explicit empty fields and no dependency on `ast.dump()` output.
+Syntax errors and missing functions report the affected file. Prepared files
+are replaced atomically per file; a publication error rolls back completed
+replacements. Failed rollback retains and reports recovery backups. This is
 not a transaction across repositories or protection against a host crash.
 
-Each repository's release tests verify its implementation and fixture against
-the pinned canonical source manifest. The Portal View release downloads CI
-workflow runs those tests from a single checkout on Python 3.9 and 3.12, including
-hostile proxy settings. Each repository selects required command tests without
-capability-based skips and remains independently deployable.
+After committing canonical source changes, record that commit when updating
+snapshots (substitute its full SHA):
+
+```bash
+python3 -B scripts/sync-portal-view-downloads.py --write --source-commit <canonical-source-sha>
+```
+
+The snapshot records the canonical commit and fingerprints for audit and
+accidental-drift detection. It is not an independent trust anchor: changing
+source and snapshot together requires review. Each repository's tests verify
+local consistency without sibling checkouts. The release-download workflow
+runs on every pull request and master push, covering Compose, installer, and
+asset-sync inputs as well as Python sources. It tests Python 3.9, 3.12, 3.13,
+and 3.14 with hostile proxy settings. Repositories remain independently deployable.
 
 ## Locally built Portal images
 
