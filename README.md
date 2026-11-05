@@ -373,6 +373,47 @@ Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
 LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt
 ```
 
+### Portal View download identity
+
+Signed Portal View downloads use `portal-view-release/1.0` to avoid CDN rules
+that reject Python's default User-Agent. `PORTAL_VIEW_USER_AGENT` may override
+it with printable ASCII text; an unset or empty value uses the default. Invalid
+nonempty values are refused before remote staging creates directories. One
+transport is reused for all three stage downloads. Signature verification and
+gateway readback behavior are unchanged.
+
+The download helpers and test support are maintained here as canonical source.
+With all four repositories checked out under one workspace, run:
+
+```bash
+python3 -B scripts/sync-portal-view-downloads.py --check
+# After changing the canonical helpers or contract fixture:
+python3 -B scripts/sync-portal-view-downloads.py --write
+```
+
+The tool reports and repairs all three managed functions, including the full
+stage signature and body. It uses the same deterministic JSON AST serializer as
+the tests, with explicit empty fields and no dependency on `ast.dump()` output.
+Syntax errors and missing functions report the affected file. Prepared files
+are replaced atomically per file; a publication error rolls back completed
+replacements. Failed rollback retains and reports recovery backups. This is
+not a transaction across repositories or protection against a host crash.
+
+After committing canonical source changes, record that commit when updating
+snapshots (substitute its full SHA):
+
+```bash
+python3 -B scripts/sync-portal-view-downloads.py --write --source-commit <canonical-source-sha>
+```
+
+The snapshot records the canonical commit and fingerprints for audit and
+accidental-drift detection. It is not an independent trust anchor: changing
+source and snapshot together requires review. Each repository's tests verify
+local consistency without sibling checkouts. The release-download workflow
+runs on every pull request and master push, covering Compose, installer, and
+asset-sync inputs as well as Python sources. It tests Python 3.9, 3.12, 3.13,
+and 3.14 with hostile proxy settings. Repositories remain independently deployable.
+
 ## Locally built Portal images
 
 Build the complete command/query images from the `light-portal` repository:
