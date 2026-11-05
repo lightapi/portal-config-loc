@@ -2,5 +2,5 @@
 import portal_view_download_contract as contract
 
 
-class DownloadTests(contract.StageContract, contract.DownloadFixture):
+class DownloadTests(contract.SourceContract, contract.StageContract, contract.DownloadFixture):
     pass

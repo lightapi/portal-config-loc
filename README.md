@@ -391,10 +391,19 @@ python3 -B scripts/sync-portal-view-downloads.py --check
 python3 -B scripts/sync-portal-view-downloads.py --write
 ```
 
-The tool checks or updates only the download helpers and contract fixture in
-bootstrap, dev, and installer. Missing repositories and incompatible stage
-admission fail explicitly. Each repository selects its required command tests
-without capability-based skips and remains independently deployable.
+The tool checks or updates the download helpers, test support, and source
+manifest in bootstrap, dev, and installer. It validates the complete stage
+signature and body (ignoring docstrings) before publication. Syntax errors and
+missing functions report the affected file. Prepared files are replaced
+atomically per file; a publication error rolls back completed replacements.
+If rollback also fails, the error names retained recovery backups. This is
+not a transaction across repositories or protection against a host crash.
+
+Each repository's release tests verify its implementation and fixture against
+the pinned canonical source manifest. The Portal View release downloads CI
+workflow runs those tests from a single checkout on Python 3.9 and 3.12, including
+hostile proxy settings. Each repository selects required command tests without
+capability-based skips and remains independently deployable.
 
 ## Locally built Portal images
 
