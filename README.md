@@ -654,3 +654,10 @@ to build/select its image and publish an external-agent binding before deploymen
 An explicit diagnostic checks image availability and activated policy after the
 database is running and bootstrapped; it is not a deployment gate. Native
 light-agent A2A endpoints are separate.
+
+### Portal View download identity
+
+Release downloads identify as `portal-view-release/1.0` to avoid CDN rules that
+reject Python's default User-Agent. Set `PORTAL_VIEW_USER_AGENT` to a nonempty
+printable ASCII value to override the download identity. This does not change
+signature verification or gateway readback requests.
