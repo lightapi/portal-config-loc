@@ -373,6 +373,29 @@ Set `LIGHT_PORTAL_ASSET_BASE_URL` only when testing a different asset host:
 LIGHT_PORTAL_ASSET_BASE_URL=https://cdn.networknt.com ./scripts/deploy-local.sh lt
 ```
 
+### Portal View download identity
+
+Signed Portal View downloads use `portal-view-release/1.0` to avoid CDN rules
+that reject Python's default User-Agent. `PORTAL_VIEW_USER_AGENT` may override
+it with printable ASCII text; an unset or empty value uses the default. Invalid
+nonempty values are refused before remote staging creates directories. One
+transport is reused for all three stage downloads. Signature verification and
+gateway readback behavior are unchanged.
+
+The download helpers and test support are maintained here as canonical source.
+With all four repositories checked out under one workspace, run:
+
+```bash
+python3 -B scripts/sync-portal-view-downloads.py --check
+# After changing the canonical helpers or contract fixture:
+python3 -B scripts/sync-portal-view-downloads.py --write
+```
+
+The tool checks or updates only the download helpers and contract fixture in
+bootstrap, dev, and installer. Missing repositories and incompatible stage
+admission fail explicitly. Each repository selects its required command tests
+without capability-based skips and remains independently deployable.
+
 ## Locally built Portal images
 
 Build the complete command/query images from the `light-portal` repository:
@@ -654,10 +677,3 @@ to build/select its image and publish an external-agent binding before deploymen
 An explicit diagnostic checks image availability and activated policy after the
 database is running and bootstrapped; it is not a deployment gate. Native
 light-agent A2A endpoints are separate.
-
-### Portal View download identity
-
-Release downloads identify as `portal-view-release/1.0` to avoid CDN rules that
-reject Python's default User-Agent. Set `PORTAL_VIEW_USER_AGENT` to a nonempty
-printable ASCII value to override the download identity. This does not change
-signature verification or gateway readback requests.
