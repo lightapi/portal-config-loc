@@ -33,6 +33,13 @@ assert image_lines, "release dry run emitted no image manifest"
 with tempfile.TemporaryDirectory() as directory:
     env_file = Path(directory) / "docker-images.env"
     env_file.write_text("\n".join(image_lines) + "\n")
+    # Validate the actual producer output before any Portal fixture overrides.
+    # This catches registry-format incompatibility hidden by the fragment below.
+    consumer_env = {key: value for key, value in os.environ.items()
+                    if key not in ('PORTAL_IMAGE_ENV_FILE', 'PORTAL_HYBRID_COMMAND_IMAGE',
+                                   'PORTAL_HYBRID_QUERY_IMAGE')}
+    subprocess.run(['python3', str(CHECKER), str(COMPOSE), str(env_file)],
+                   env=consumer_env, check=True)
     fragment = Path(directory) / "portal-images.env"
     # Fixture digests only: the release dry run does not publish any image.
     fragment.write_text("".join(f"PORTAL_HYBRID_{side.upper()}_IMAGE=networknt/portal-hybrid-{side}@sha256:{'a' * 64}\n" for side in ("command", "query")))
