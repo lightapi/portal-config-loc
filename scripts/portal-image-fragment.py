@@ -15,7 +15,7 @@ def validate(values):
     if set(values) != set(EXPECTED):
         raise ValueError('Portal image selection must contain both overrides')
     for key, side in EXPECTED.items():
-        if not re.fullmatch('networknt/portal-hybrid-' + side + r'(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[0-9a-f]{64})', values[key]):
+        if not re.fullmatch(r'(?:docker\.io/)?networknt/portal-hybrid-' + side + r'(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[0-9a-f]{64})', values[key]):
             raise ValueError('Portal images require an image tag or digest: ' + key)
     return values
 
